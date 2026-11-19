@@ -1,74 +1,145 @@
 import { useState } from 'react';
-import { useSearchParams } from 'react-router';
+import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Eye, EyeOff } from 'lucide-react';
 
-type Tab = 'signin' | 'signup';
-type Role = 'STUDENT' | 'TEACHER' | 'ADMIN';
+type Tab = 'signin' | 'create';
+type Role = 'student' | 'teacher' | 'admin';
 
 export function Auth() {
   const [searchParams] = useSearchParams();
-  const [tab, setTab] = useState<Tab>('signin');
-  const [role, setRole] = useState<Role>('STUDENT');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const initialTab = searchParams.get('tab') === 'create' ? 'create' : 'signin';
+  const initialRole = (searchParams.get('role') as Role) || 'student';
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const [tab, setTab] = useState<Tab>(initialTab);
+  const [role, setRole] = useState<Role>(initialRole);
+  const [showPassword, setShowPassword] = useState(false);
+  const [keepSignedIn, setKeepSignedIn] = useState(false);
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [code, setCode] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const navigate = useNavigate();
+  const nextRoute = searchParams.get('next');
+
+  const handleSignIn = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-    // API call would go here
-    setLoading(false);
+    setErrors({});
+    if (nextRoute) {
+      navigate(nextRoute);
+      return;
+    }
+    if (email.toLowerCase().includes('teacher') || email.toLowerCase().includes('bello')) {
+      navigate('/teacher');
+    } else if (email.toLowerCase().includes('admin')) {
+      navigate('/admin');
+    } else {
+      navigate('/app');
+    }
+  };
+
+  const handleCreateAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrors({});
+    if (password && password.length < 8) {
+      setErrors({ password: 'Password must be at least 8 characters' });
+      return;
+    }
+    if (nextRoute) {
+      navigate(nextRoute);
+      return;
+    }
+    if (role === 'student') navigate('/app');
+    else if (role === 'teacher') navigate('/teacher');
+    else navigate('/admin');
+  };
+
+  const getCodeFieldLabel = () => {
+    if (role === 'student') return 'Class code';
+    if (role === 'teacher') return 'Department invite code';
+    return 'Institution setup code';
+  };
+
+  const getCodePlaceholder = () => {
+    if (role === 'student') return 'e.g. PHY-SS3-7KQ2';
+    if (role === 'teacher') return 'e.g. DEPT-PHY-2026';
+    return 'e.g. INST-KCL-2026';
   };
 
   return (
-    <div className="flex min-h-screen">
-      {/* Left: Dark blue side with hero message */}
-      <div className="hidden flex-1 bg-[#0B1220] p-12 text-white lg:flex lg:flex-col lg:justify-center">
-        <div className="max-w-md">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary text-white font-heading font-bold text-lg">
-            V
-          </div>
-          <h2 className="mt-8 font-heading text-5xl font-bold leading-tight">Your lab bench is ready.</h2>
-          <p className="mt-6 text-base text-blue-100">
-            Sign in with the account your school or department created, or join a class with the code your teacher gave you.
+    <div className="min-h-screen grid grid-cols-1 lg:grid-cols-12 bg-[#F5F7FA]">
+      {/* Left dark panel */}
+      <div className="lg:col-span-6 bg-[#0B1220] text-[#E6EBF5] p-8 sm:p-12 lg:p-14 flex flex-col justify-between">
+        <div>
+          <Link to="/" className="inline-flex items-center gap-2.5">
+            <img
+              src="/illustrations/logo.svg"
+              alt=""
+              className="w-8 h-8 rounded-lg"
+            />
+            <span className="font-display font-bold text-xl text-white tracking-tight">
+              Vixir
+            </span>
+          </Link>
+        </div>
+
+        <div className="my-12 lg:my-0 max-w-lg">
+          <h1 className="font-display text-4xl sm:text-[44px] font-bold text-white leading-[1.12] tracking-tight mb-4">
+            Your lab bench is ready.
+          </h1>
+          <p className="text-base text-[#93A0B8] leading-relaxed mb-7">
+            Sign in with the account your school or department created, or join a class with the
+            code your teacher gave you.
           </p>
-          <div className="mt-8 rounded-lg border border-blue-800 bg-[#0B1220] p-4 font-mono text-sm text-blue-200">
-            <div>g = 42 / slope</div>
-            <div className="mt-2">slope (T2 vs L) = 4.02 s2 m1</div>
-            <div className="mt-2 text-green-300">g = 9.82 m s2 / within 2%</div>
+
+          <div className="bg-[#121A2B] border border-[#22304A] rounded-2xl p-5 font-mono text-xs sm:text-sm space-y-1.5">
+            <div>
+              <span className="text-[#FDBA74]">g</span>
+              <span className="text-[#C9D3E6]"> = 4π² / slope</span>
+            </div>
+            <div className="text-[#C9D3E6]">slope (T² vs L) = 4.02 s² m⁻¹</div>
+            <div className="text-[#4ADE80]">g = 9.82 m s⁻² ✓ within 2%</div>
           </div>
-          <p className="mt-8 text-xs text-blue-300">Works offline once installed Data stays with your institution</p>
+        </div>
+
+        <div className="text-xs text-[#6B778C]">
+          Works offline once installed · Data stays with your institution
         </div>
       </div>
 
-      {/* Right: Sign in / Sign up form */}
-      <div className="flex flex-1 flex-col justify-center bg-white px-6 sm:px-8">
-        <div className="w-full max-w-sm mx-auto">
-          {/* Mobile header */}
-          <div className="mb-8 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-white font-heading font-bold">
-              V
-            </div>
-            <h1 className="mt-4 font-heading text-2xl font-bold">Vixir</h1>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex gap-2 border-b border-line mb-6">
+      {/* Right form panel */}
+      <div className="lg:col-span-6 flex items-center justify-center p-6 sm:p-12">
+        <div className="w-full max-w-[440px]">
+          {/* Segmented Pill Toggle */}
+          <div
+            role="tablist"
+            aria-label="Authentication mode"
+            className="bg-[#E8ECF2] p-1 rounded-xl grid grid-cols-2 mb-7"
+          >
             <button
+              type="button"
+              role="tab"
+              aria-selected={tab === 'signin'}
               onClick={() => setTab('signin')}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
+              className={`py-2.5 text-sm font-semibold rounded-lg transition-all ${
                 tab === 'signin'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted hover:text-ink'
+                  ? 'bg-white text-[#0E1726] shadow-xs'
+                  : 'text-[#475467] hover:text-[#0E1726]'
               }`}
             >
               Sign in
             </button>
             <button
-              onClick={() => setTab('signup')}
-              className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
-                tab === 'signup'
-                  ? 'border-primary text-primary'
-                  : 'border-transparent text-muted hover:text-ink'
+              type="button"
+              role="tab"
+              aria-selected={tab === 'create'}
+              onClick={() => setTab('create')}
+              className={`py-2.5 text-sm font-semibold rounded-lg transition-all ${
+                tab === 'create'
+                  ? 'bg-white text-[#0E1726] shadow-xs'
+                  : 'text-[#475467] hover:text-[#0E1726]'
               }`}
             >
               Create account
@@ -76,181 +147,243 @@ export function Auth() {
           </div>
 
           {tab === 'signin' ? (
-            <SignInForm error={error} loading={loading} onSubmit={handleSubmit} />
+            <div>
+              <h2 className="font-display text-2xl font-bold text-[#0E1726] mb-6">
+                Welcome back
+              </h2>
+
+              <form onSubmit={handleSignIn} className="space-y-4">
+                <div>
+                  <label
+                    htmlFor="signin-email"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    Email or matric / admission number
+                  </label>
+                  <input
+                    id="signin-email"
+                    type="text"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. 2025/PHY/0142"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="signin-password"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="signin-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B778C] hover:text-[#0E1726]"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <label className="inline-flex items-center gap-2 text-[#0E1726] cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={keepSignedIn}
+                      onChange={(e) => setKeepSignedIn(e.target.checked)}
+                      className="rounded border-[#D0D7E2] text-[#2448D8] focus:ring-[#2448D8]"
+                    />
+                    <span>Keep me signed in on this device</span>
+                  </label>
+                  <a
+                    href="#forgot-password"
+                    onClick={(e) => e.preventDefault()}
+                    className="text-[#2448D8] hover:underline font-medium"
+                  >
+                    Forgot password?
+                  </a>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors mt-2"
+                >
+                  Sign in
+                </button>
+              </form>
+
+              <div className="relative my-5">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-[#E3E8EF]" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="px-3 bg-[#F5F7FA] text-[#6B778C]">or</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => navigate('/app')}
+                className="w-full py-3 rounded-xl bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-[#0E1726] text-sm font-semibold transition-colors"
+              >
+                Continue with Google
+              </button>
+
+              <div className="mt-6 text-center">
+                <Link
+                  to="/teacher"
+                  className="text-xs font-medium text-[#2448D8] hover:underline"
+                >
+                  Signing in as a teacher? Go to teacher view →
+                </Link>
+              </div>
+            </div>
           ) : (
-            <SignUpForm role={role} setRole={setRole} error={error} loading={loading} onSubmit={handleSubmit} />
+            <div>
+              <h2 className="font-display text-2xl font-bold text-[#0E1726] mb-5">
+                Create your account
+              </h2>
+
+              <form onSubmit={handleCreateAccount} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-[#0E1726] mb-1.5">
+                    I am a...
+                  </label>
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {(['student', 'teacher', 'admin'] as Role[]).map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setRole(r)}
+                        className={`py-2.5 px-3 text-xs font-semibold rounded-xl border transition-all capitalize ${
+                          role === r
+                            ? 'bg-[#EAEFFE] border-2 border-[#2448D8] text-[#2448D8]'
+                            : 'bg-white border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7]'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="create-name"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    Full name
+                  </label>
+                  <input
+                    id="create-name"
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Adaeze Okafor"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="create-email"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    Email
+                  </label>
+                  <input
+                    id="create-email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@school.edu.ng"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="create-code"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    {getCodeFieldLabel()}
+                  </label>
+                  <input
+                    id="create-code"
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder={getCodePlaceholder()}
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm font-mono text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="create-password"
+                    className="block text-xs font-semibold text-[#0E1726] mb-1.5"
+                  >
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="create-password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="At least 8 characters"
+                      className="w-full px-3.5 py-2.5 bg-white border border-[#D0D7E2] rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8] pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#6B778C] hover:text-[#0E1726]"
+                    >
+                      {showPassword ? (
+                        <EyeOff className="w-4 h-4" />
+                      ) : (
+                        <Eye className="w-4 h-4" />
+                      )}
+                    </button>
+                  </div>
+                  {errors.password && (
+                    <p className="mt-1 text-xs text-[#C4321C]">{errors.password}</p>
+                  )}
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors mt-2"
+                >
+                  Create account
+                </button>
+
+                <p className="text-xs text-[#475467] leading-relaxed pt-1">
+                  By continuing you agree to the Terms and Privacy Policy. Students under 18 are
+                  registered by their school.
+                </p>
+              </form>
+            </div>
           )}
         </div>
       </div>
     </div>
-  );
-}
-
-function SignInForm({ error, loading, onSubmit }: { error: string | null; loading: boolean; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <h3 className="font-heading text-xl font-semibold">Welcome back</h3>
-
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">Email or matric / admission number</label>
-        <input
-          type="text"
-          placeholder="e.g. 2025/PHY/0142"
-          className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm placeholder:text-blue-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          required
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">Password</label>
-        <input
-          type="password"
-          placeholder="••••••••"
-          className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm placeholder:text-blue-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          required
-        />
-      </div>
-
-      <div className="flex items-center justify-between text-sm">
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" className="rounded" />
-          <span className="text-muted">Keep me signed in on this device</span>
-        </label>
-        <a href="#" className="text-primary hover:underline font-medium">
-          Forgot password?
-        </a>
-      </div>
-
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-      >
-        {loading ? 'Signing in...' : 'Sign in'}
-      </button>
-
-      <div className="relative my-6">
-        <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-line" />
-        </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-white px-2 text-muted">or</span>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        className="w-full rounded-lg border border-line px-4 py-2.5 text-sm font-medium hover:bg-page transition"
-      >
-        Continue with Google
-      </button>
-
-      <p className="text-center text-xs text-muted mt-4">
-        Signing in as a teacher?{' '}
-        <a href="#" className="text-primary hover:underline font-medium">
-          Go to teacher view
-        </a>
-      </p>
-    </form>
-  );
-}
-
-function SignUpForm({ role, setRole, error, loading, onSubmit }: { role: 'STUDENT' | 'TEACHER' | 'ADMIN'; setRole: (role: 'STUDENT' | 'TEACHER' | 'ADMIN') => void; error: string | null; loading: boolean; onSubmit: (e: React.FormEvent<HTMLFormElement>) => void }) {
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <h3 className="font-heading text-xl font-semibold">Create account</h3>
-
-      <div>
-        <label className="block text-sm font-medium text-ink mb-3">I am a</label>
-        <div className="space-y-2">
-          {[
-            { value: 'STUDENT', label: 'Student' },
-            { value: 'TEACHER', label: 'Teacher' },
-            { value: 'ADMIN', label: 'Admin' }
-          ].map((opt) => (
-            <label key={opt.value} className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                name="role"
-                value={opt.value}
-                checked={role === opt.value}
-                onChange={(e) => setRole(e.target.value as any)}
-                className="rounded-full"
-              />
-              <span className="text-sm">{opt.label}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      {role === 'STUDENT' && (
-        <div>
-          <label className="block text-sm font-medium text-ink mb-2">Class code</label>
-          <input
-            type="text"
-            placeholder="e.g. PHY-SS3-7KQ2"
-            className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm placeholder:text-blue-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          />
-          <p className="mt-1 text-xs text-muted">Ask your teacher for this code.</p>
-        </div>
-      )}
-
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">Email</label>
-        <input
-          type="email"
-          className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-sm font-medium text-ink mb-2">First name</label>
-          <input
-            type="text"
-            className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            required
-          />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-ink mb-2">Last name</label>
-          <input
-            type="text"
-            className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            required
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-ink mb-2">Password</label>
-        <input
-          type="password"
-          placeholder="At least 8 characters"
-          className="w-full rounded-lg border border-line bg-white px-4 py-2.5 text-sm placeholder:text-blue-300 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-          required
-        />
-      </div>
-
-      {error && <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">{error}</div>}
-
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-lg bg-primary py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-      >
-        {loading ? 'Creating account...' : 'Create account'}
-      </button>
-
-      <button
-        type="button"
-        className="w-full rounded-lg border border-line px-4 py-2.5 text-sm font-medium hover:bg-page transition"
-      >
-        Continue with Google
-      </button>
-    </form>
   );
 }
