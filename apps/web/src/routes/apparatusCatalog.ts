@@ -162,7 +162,7 @@ export const APPARATUS_CATALOG: EncyclopediaItem[] = [
     subtitle: 'Electronics · Physics',
     subject: 'Electronics',
     category: 'Electrical & Circuit',
-    file: '/apparatus/analogue-meter.svg',
+    file: '/apparatus/voltmeter.svg',
     practiseTo: '/lab/electronics/ohms-law',
     primaryUses: 'Measuring electric current in amperes (Ammeter in series) and potential difference in volts (Voltmeter in parallel).',
     description:
@@ -1424,7 +1424,7 @@ export const APPARATUS_CATALOG: EncyclopediaItem[] = [
     subtitle: 'Physics · Chemistry · Biology',
     subject: 'Physics',
     category: 'Measuring & Volumetric',
-    file: '/apparatus/analogue-meter.svg',
+    file: '/apparatus/voltmeter.svg',
     practiseTo: '/lab/physics/pendulum',
     primaryUses: 'Timing 20 oscillations of a simple pendulum, measuring reaction times in rates of reaction (disappearing cross), and timing bubble travel in a potometer.',
     description:
@@ -1494,7 +1494,7 @@ export const APPARATUS_CATALOG: EncyclopediaItem[] = [
     subtitle: 'Physics · Electronics',
     subject: 'Electronics',
     category: 'Electrical & Circuit',
-    file: '/apparatus/analogue-meter.svg',
+    file: '/apparatus/voltmeter.svg',
     practiseTo: '/lab/electronics/ohms-law',
     primaryUses: 'Detecting small bidirectional currents (µA) and locating the null balance point (I_G = 0) in a Wheatstone bridge, metre bridge, or potentiometer.',
     description:
@@ -1732,7 +1732,7 @@ export const APPARATUS_CATALOG: EncyclopediaItem[] = [
     subtitle: 'Chemistry · Physics · Biology',
     subject: 'Chemistry',
     category: 'Measuring & Volumetric',
-    file: '/apparatus/analogue-meter.svg',
+    file: '/apparatus/voltmeter.svg',
     practiseTo: '/lab/physics/moments',
     primaryUses: 'Measuring the mass of solid reagents for standard solutions, weighing calorimeters, pendulum bobs, and transpiration potometer setups.',
     description:
@@ -1889,5 +1889,2353 @@ export const APPARATUS_CATALOG: EncyclopediaItem[] = [
       'Spraying a water extinguisher onto an electrical fire, burning oil, or reactive alkali metal (sodium/potassium) fire.',
     ],
     spotInLab: 'Red cylinder with a black horn and a green white-cross first-aid cabinet mounted near the laboratory exit door.',
+  },
+
+  // 54. Cover slips
+  {
+    id: 'cover-slips',
+    number: 54,
+    name: 'Cover slips (borosilicate No. 1 glass)',
+    subtitle: 'Biology · Microscopy',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/petri-slides.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Flattening wet-mount biological specimens into a single optical plane and protecting the microscope objective lens from staining liquids.',
+    description:
+      'Ultra-thin (0.13–0.17 mm) optical borosilicate glass squares (22 × 22 mm) lowered at 45° over a drop of water or stain on a microscope slide.',
+    specs: {
+      resolution: 'No. 1 thickness (0.13 – 0.17 mm)',
+      range: '18 × 18 mm or 22 × 22 mm square',
+      zeroError: 'Lower at 45° with a mounted needle to exclude silver air bubbles',
+      material: 'Optical borosilicate sheet glass',
+    },
+    parts: [
+      { part: '0.15 mm optical glass square', role: 'Matched to the spherical aberration correction of ×40 objectives.' },
+      { part: 'Capillary edge seal', role: 'Draws mounting fluid evenly across the specimen without trapping air.' },
+    ],
+    handling: [
+      'Hold the cover slip by its edges between thumb and forefinger to avoid fingerprints.',
+      'Rest one edge beside the drop of stain on the slide and support the opposite edge with a mounted needle at 45°.',
+      'Lower the needle slowly so the liquid front pushes air out ahead of it.',
+    ],
+    mistakes: [
+      'Dropping the cover slip flat from above, trapping dark-ringed air bubbles over the cells.',
+      'Pressing the cover slip with a thumb instead of tapping gently with the back of a pencil.',
+    ],
+    spotInLab: 'Tiny square plastic box holding 100 paper-thin glass squares that bend slightly if pinched.',
+  },
+
+  // 55. Micropipette (P20 / P200 / P1000)
+  {
+    id: 'micropipette',
+    number: 55,
+    name: 'Micropipette (adjustable variable-volume)',
+    subtitle: 'Biology · Molecular & Biochemistry',
+    subject: 'Biology',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/volumetric-pipette.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Aspirating and dispensing microlitre (µL) volumes of enzymes, DNA templates, buffers, and reagents in PCR and biochemical assays.',
+    description:
+      'An air-displacement piston pipette with a digital micrometer volume counter, two-stop plunger button (first stop for aspiration, second stop for blow-out), and disposable tip ejector.',
+    specs: {
+      resolution: '0.1 µL (P20) · 1 µL (P200 / P1000)',
+      range: 'P20 (2–20 µL) · P200 (20–200 µL) · P1000 (100–1000 µL)',
+      zeroError: 'Never dial outside the rated µL window; press to first stop before immersing',
+      material: 'PVDF ergonomic handle + stainless piston + polypropylene shaft',
+    },
+    parts: [
+      { part: 'Two-stop plunger button', role: 'First stop calibrates exact aspiration volume; second stop blows out residual film.' },
+      { part: 'Volume adjustment thumbwheel & counter', role: 'Sets the exact microlitre volume within the pipette range.' },
+      { part: 'Tip ejector collar', role: 'Discards contaminated polypropylene tips hands-free into a sharps/biohazard bin.' },
+    ],
+    handling: [
+      'Press a sterile disposable tip firmly onto the shaft cone.',
+      'Depress the plunger to the FIRST stop before dipping the tip 2–3 mm below the liquid surface.',
+      'Release the plunger slowly and smoothly to aspirate without drawing air bubbles into the barrel.',
+      'To dispense, touch the tip against the inner wall of the receiving microtube, press to the first stop, pause, then press to the SECOND stop (blow-out).',
+    ],
+    mistakes: [
+      'Pressing to the second stop before aspirating, which draws 15–25% excess liquid.',
+      'Laying a filled micropipette flat on the bench, letting liquid run back into the piston shaft.',
+    ],
+    spotInLab: 'Contoured handheld dispenser with a 3-digit thumbwheel window and a side ejector lever.',
+  },
+
+  // 56. Pipette tips
+  {
+    id: 'pipette-tips',
+    number: 56,
+    name: 'Pipette tips (sterile racked polypropylene)',
+    subtitle: 'Biology · Molecular & Biochemistry',
+    subject: 'Biology',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/volumetric-pipette.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Forming a disposable, cross-contamination-free liquid chamber on the end of a micropipette.',
+    description:
+      'Colour-coded virgin polypropylene disposable cones housed in 96-well autoclavable flip-top racks (clear 10/20 µL, yellow 200 µL, blue 1000 µL), optionally fitted with aerosol barrier filters.',
+    specs: {
+      resolution: 'Graduated reference rings at 10, 50, 100, 200, 1000 µL',
+      range: '0.5 – 10 µL (clear) · 20 – 200 µL (yellow) · 100 – 1000 µL (blue)',
+      zeroError: 'Change to a fresh tip between every reagent to prevent cross-contamination',
+      material: 'Hydrophobic medical-grade virgin polypropylene',
+    },
+    parts: [
+      { part: 'Tapered sealing collar', role: 'Forms an airtight seal onto the micropipette nose cone.' },
+      { part: 'Aerosol barrier filter (filter tips)', role: 'Blocks PCR amplicon aerosols from entering the pipette shaft.' },
+    ],
+    handling: [
+      'Open the tip rack lid only at the moment of pickup and close it immediately to maintain sterility.',
+      'Press the micropipette vertically into the tip with a gentle quarter-turn — never hammer the shaft.',
+    ],
+    mistakes: [
+      'Reusing the same pipette tip across different enzyme or substrate tubes, ruining the control blank.',
+    ],
+    spotInLab: 'Hinged plastic 96-hole box filled with neat rows of yellow or blue conical plastic tips.',
+  },
+
+  // 57. Serological pipette
+  {
+    id: 'serological-pipette',
+    number: 57,
+    name: 'Serological pipette (graduated blow-out)',
+    subtitle: 'Biology · Cell Culture & Microbiology',
+    subject: 'Biology',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/volumetric-pipette.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Transferring 1 cm³ to 25 cm³ of culture broth, saline, buffers, and cell suspensions using a pipette controller.',
+    description:
+      'A straight, uniform-bore sterile polystyrene or glass tube graduated right down to the jet tip (blow-out calibration) with a cotton plug filter at the top neck.',
+    specs: {
+      resolution: '0.1 cm³ (on 5 cm³ & 10 cm³ pipettes)',
+      range: '1 cm³, 2 cm³, 5 cm³, 10 cm³, 25 cm³',
+      zeroError: 'Check double ring at top — last drop must be blown out',
+      material: 'Optical polystyrene or borosilicate glass + cotton aerosol plug',
+    },
+    parts: [
+      { part: 'Cotton aerosol plug neck', role: 'Prevents liquid from being over-drawn into the rubber bulb or motorized pipette aid.' },
+      { part: 'Dual bidirectional graduations', role: 'Reads both volume aspirated and volume dispensed.' },
+    ],
+    handling: [
+      'Insert the cotton-plugged end into a pipette filler bulb or motorized controller.',
+      'Aspirate above the desired graduation, adjust the meniscus at eye level, and dispense cleanly.',
+    ],
+    mistakes: [
+      'Mouth-pipetting biological cultures or chemical reagents instead of using a mechanical pipette filler.',
+    ],
+    spotInLab: 'Long straight plastic or glass tube with colour-coded neck bands and a white cotton plug inside the top.',
+  },
+
+  // 58. Centrifuge
+  {
+    id: 'centrifuge',
+    number: 58,
+    name: 'Laboratory benchtop centrifuge',
+    subtitle: 'Biology · Chemistry · Separation',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Separating cells, organelles, precipitates, and blood plasma/serum into pellet and supernatant fractions by high-speed centrifugal force (RCF).',
+    description:
+      'An enclosed motor-driven fixed-angle or swing-bucket rotor spinning balanced tubes at 1,000–14,000 rpm inside an interlocked safety bowl.',
+    specs: {
+      resolution: '100 rpm / 10 × g steps',
+      range: '500 – 14,000 rpm (up to 16,000 × g)',
+      zeroError: 'Always balance opposite rotor slots with equal mass tubes (±0.01 g)',
+      material: 'Anodized aluminium rotor + interlocking steel safety chamber',
+    },
+    parts: [
+      { part: 'Fixed-angle or swing-bucket rotor', role: 'Holds numbered tube positions symmetrically around the drive spindle.' },
+      { part: 'Electromagnetic lid interlock', role: 'Prevents the lid from opening until the rotor has come to a complete standstill.' },
+    ],
+    handling: [
+      'Always place tubes of equal mass (using a water balance tube if necessary) directly opposite each other (180°) in the rotor.',
+      'Close the safety lid until the latch clicks, set speed (rpm or ×g) and time, and stay beside the unit until it reaches full speed smoothly.',
+    ],
+    mistakes: [
+      'Running an unbalanced single tube, causing violent vibration and rotor shaft damage.',
+      'Balancing tubes by eye (volume) when the liquids have different densities.',
+    ],
+    spotInLab: 'Domed benchtop machine with a latched circular lid and an angled numbered metal rotor inside.',
+  },
+
+  // 59. Microcentrifuge tubes (Eppendorf tubes)
+  {
+    id: 'microcentrifuge-tubes',
+    number: 59,
+    name: 'Microcentrifuge tubes (1.5 mL Eppendorf tubes)',
+    subtitle: 'Biology · Molecular Biology',
+    subject: 'Biology',
+    category: 'Glassware & Containers',
+    file: '/apparatus/test-tube-rack.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Holding small-volume (50 µL – 1.5 mL) enzyme digests, DNA extractions, and pelleted cells during high-speed microcentrifugation.',
+    description:
+      'Conical-bottomed virgin polypropylene microtubes with an attached snap-seal hinge cap, frosted writing panel, and moulded volume markings at 0.1, 0.5, 1.0, and 1.5 mL.',
+    specs: {
+      resolution: 'Moulded graduations at 0.1, 0.5, 1.0, 1.5 mL',
+      range: '0.5 mL, 1.5 mL, or 2.0 mL capacity',
+      zeroError: 'Orient all hinge tabs outward in the rotor so pellets form on the same wall',
+      material: 'Autoclavable high-clarity polypropylene (rated to 20,000 × g)',
+    },
+    parts: [
+      { part: 'Attached snap-lock hinge cap', role: 'Seals tightly against aerosol leakage during vortexing and centrifugation.' },
+      { part: 'Conical pellet tip', role: 'Concentrates tiny cell or DNA precipitates into a visible pinpoint pellet.' },
+    ],
+    handling: [
+      'Label both the frosted side panel and the flat cap top with permanent alcohol-resistant marker.',
+      'Point the hinge tabs outward when loading the rotor so you always know the pellet lies directly under the hinge side.',
+    ],
+    mistakes: [
+      'Leaving the snap cap partially unclicked, causing the cap to shear off inside the spinning rotor.',
+    ],
+    spotInLab: 'Thumb-sized translucent plastic conical tube with a flip-top attached lid.',
+  },
+
+  // 60. Incubator
+  {
+    id: 'incubator',
+    number: 60,
+    name: 'Microbiological laboratory incubator',
+    subtitle: 'Biology · Microbiology & Enzyme Kinetics',
+    subject: 'Biology',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Maintaining agar Petri dishes, bacterial cultures, and enzymatic reactions at a constant physiological temperature (typically 37.0°C or 25.0°C).',
+    description:
+      'A double-walled, thermally insulated chamber with a PID microprocessor thermostat, inner glass viewing door, and perforated stainless-steel shelves.',
+    specs: {
+      resolution: '0.1°C digital PID temperature stability',
+      range: 'Ambient + 5°C to 70.0°C (standard 37.0°C for mammalian flora)',
+      zeroError: 'Verify shelf temperature against an independent calibrated thermometer',
+      material: '304 stainless-steel inner chamber + tempered inner glass door',
+    },
+    parts: [
+      { part: 'PID digital temperature controller', role: 'Holds chamber temperature within ±0.2°C of the setpoint.' },
+      { part: 'Inner glass observation door', role: 'Lets you inspect cultures without dumping warm chamber air.' },
+    ],
+    handling: [
+      'Invert inoculated agar Petri dishes (agar side UP) before placing them on the incubator shelf so condensation droplets do not fall onto colonies.',
+      'Tape dishes shut with two short breathable strips along opposite edges — never seal completely airtight unless culturing anaerobes.',
+    ],
+    mistakes: [
+      'Incubating school microbial plates at 37°C when culturing unknown environmental swabs (use 25°C to avoid selecting human pathogens).',
+      'Placing agar plates right-side up so lid condensation floods and smears the bacterial streaks.',
+    ],
+    spotInLab: 'Insulated cabinet with an outer metal door, an inner glass door, and a glowing red 37.0°C readout.',
+  },
+
+  // 61. Autoclave
+  {
+    id: 'autoclave',
+    number: 61,
+    name: 'Autoclave (steam pressure sterilizer)',
+    subtitle: 'Biology · Sterilization & Microbiology',
+    subject: 'Biology',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Sterilizing nutrient agar media, glassware, pipette tips, and biohazardous waste using saturated steam under pressure (121°C at 103 kPa / 15 psi for 15–20 min).',
+    description:
+      'A heavy-walled pressure vessel that purges air and fills with pressurized saturated steam to kill vegetative bacteria, viruses, fungi, and heat-resistant endospores.',
+    specs: {
+      resolution: '1°C / 1 kPa pressure gauge',
+      range: '121°C at 15 psi (103 kPa) for 15–20 min · up to 134°C',
+      zeroError: 'Check autoclave indicator tape turns diagonal black stripes after cycle',
+      material: 'Heavy-gauge 316L stainless-steel pressure vessel + safety relief valve',
+    },
+    parts: [
+      { part: 'Radial locking lid & pressure gauge', role: 'Seals the vessel and indicates internal steam pressure in psi / kPa.' },
+      { part: 'Air-purge & safety relief valves', role: 'Evacuates trapped air pockets so pure saturated steam reaches every surface.' },
+    ],
+    handling: [
+      'Loosen screw caps on media bottles by half a turn before autoclaving so expanding steam does not shatter the glass.',
+      'Apply a strip of beige autoclave indicator tape; verify that dark diagonal bars appear after the 121°C cycle.',
+      'Wait until the pressure gauge returns to 0 psi and liquid cools below 80°C before opening the chamber.',
+    ],
+    mistakes: [
+      'Autoclaving tightly sealed screw-cap bottles, causing explosive glass failure.',
+      'Venting pressure too rapidly on liquid media, causing superheated agar to boil over violently.',
+    ],
+    spotInLab: 'Heavy stainless-steel cylindrical pressure chamber with radial locking wheel and pressure dial.',
+  },
+
+  // 62. Biosafety cabinet
+  {
+    id: 'biosafety-cabinet',
+    number: 62,
+    name: 'Biosafety cabinet (Class II laminar flow hood)',
+    subtitle: 'Biology · Sterile Technique & PPE',
+    subject: 'Biology',
+    category: 'Safety & PPE',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Providing a HEPA-filtered sterile laminar air curtain that protects both the biological culture from contamination and the operator from infectious aerosols.',
+    description:
+      'An enclosed stainless-steel workstation using a front intake air grille, vertical HEPA-filtered laminar downflow, and HEPA exhaust filtration with a toughened sliding glass sash.',
+    specs: {
+      resolution: '99.99% HEPA filtration at 0.3 µm particles',
+      range: '0.45 m/s inflow velocity · 20 cm working sash height',
+      zeroError: 'Run blower 10 min before work; never block front intake grille with notebooks',
+      material: '304 stainless-steel work deck + H14 HEPA filters + UV germicidal lamp',
+    },
+    parts: [
+      { part: 'Front air-barrier intake grille', role: 'Draws room air downward so aerosols inside the hood cannot escape toward the user.' },
+      { part: 'Supply & exhaust H14 HEPA filters', role: 'Bathe the work surface in sterile particle-free air and scrub exhaust air.' },
+    ],
+    handling: [
+      'Turn off the UV germicidal lamp, switch on the blower fan + white light for 10 minutes, and wipe the deck with 70% ethanol.',
+      'Work at least 10 cm behind the front intake grille with slow, deliberate arm movements.',
+    ],
+    mistakes: [
+      'Lighting a high-flame Bunsen burner inside a HEPA laminar flow cabinet (turbulence disrupts the sterile curtain and heat damages the HEPA filter).',
+      'Leaving the UV sterilizing lamp switched on while hands or eyes are near the sash.',
+    ],
+    spotInLab: 'Wide hooded stainless workbench with a sliding glass front sash and perforated front air grille.',
+  },
+
+  // 63. Inoculating loop
+  {
+    id: 'inoculating-loop',
+    number: 63,
+    name: 'Inoculating loop (nichrome / platinum wire loop)',
+    subtitle: 'Biology · Aseptic Microbiology',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Aseptically transferring and quadrant-streaking a calibrated film of bacterial broth onto nutrient agar Petri dishes for single-colony isolation.',
+    description:
+      'A fine nichrome or platinum-iridium wire twisted into a closed 2–3 mm terminal loop and mounted in an insulated aluminium handle.',
+    specs: {
+      resolution: 'Calibrated 1 µL or 10 µL liquid film loop',
+      range: '2 mm – 4 mm loop diameter',
+      zeroError: 'Flame to glowing red-hot and cool on sterile agar edge before touching cells',
+      material: '80/20 Nichrome resistance wire + anodized insulated chuck handle',
+    },
+    parts: [
+      { part: 'Closed 3 mm nichrome wire loop', role: 'Holds a thin meniscus film of bacterial suspension by surface tension.' },
+      { part: 'Insulated collet handle', role: 'Stays cool in the fingers while the wire tip is flamed red-hot.' },
+    ],
+    handling: [
+      'Hold the wire steeply in the blue roaring cone of a Bunsen flame until the entire wire glows bright red-orange.',
+      'Let the loop cool in air for 10 seconds (or touch a blank edge of the agar) before picking up bacteria.',
+      'Glide the loop gently flat across the agar in a zig-zag quadrant streak without gouging the gel, then re-flame before putting it down.',
+    ],
+    mistakes: [
+      'Dipping a red-hot loop directly into the bacterial culture, sizzling and killing the cells while spattering aerosols.',
+      'Digging the tip perpendicular into the soft agar surface and tearing it.',
+    ],
+    spotInLab: 'Slender metal rod handle ending in a thin wire with a tiny 3 mm circle at the very tip.',
+  },
+
+  // 64. Hemocytometer
+  {
+    id: 'hemocytometer',
+    number: 64,
+    name: 'Hemocytometer (Neubauer cell counting chamber)',
+    subtitle: 'Biology · Microscopy & Cell Biology',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/petri-slides.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Counting the concentration of blood cells, yeast cells, or microalgae per cm³ (cells/mL) under a compound microscope.',
+    description:
+      'A thick optical-glass slide laser-etched with two perpendicular 3 × 3 mm Neubauer grid networks and paired with a precision ground coverslip resting on 0.100 mm support pillars.',
+    specs: {
+      resolution: '1 large corner square = 0.1 mm³ = 10⁻⁴ mL',
+      range: '9 large squares (1 × 1 mm) subdivided into 400 small squares',
+      zeroError: 'Count cells touching top & left border lines; exclude bottom & right borders',
+      material: 'Heavy optical crown glass + laser-etched rhodium grid',
+    },
+    parts: [
+      { part: 'Laser-etched Neubauer 3×3 mm grid', role: 'Defines an exact 0.100 mm depth × 1.0 mm² area (= 10⁻⁴ mL) per corner square.' },
+      { part: 'V-shaped capillary loading notch', role: 'Draws 10 µL of cell suspension smoothly under the coverslip by capillary action.' },
+    ],
+    handling: [
+      'Seat the thick ground hemocytometer coverslip onto the moistened support rails until Newton rings appear.',
+      'Touch a micropipette tip to the V-groove to fill the chamber in one smooth capillary wave without overflowing into the moat.',
+      'Count cells in the 4 large corner squares using the North/West inclusion rule, take the mean, and multiply by 10⁴ × dilution factor = cells/mL.',
+    ],
+    mistakes: [
+      'Using an ordinary thin microscope cover slip instead of the thick precision-flat hemocytometer cover glass.',
+      'Counting cells on all four boundary lines of a square, inflating the cell density.',
+    ],
+    spotInLab: 'Extra-thick glass slide with H-shaped moats and a mirror-like silver square in the centre.',
+  },
+
+  // 65. Cell strainer
+  {
+    id: 'cell-strainer',
+    number: 65,
+    name: 'Cell strainer (nylon mesh 40 / 70 / 100 µm)',
+    subtitle: 'Biology · Tissue Dissociation',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/petri-slides.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Filtering macerated plant or animal tissue homogenates to obtain a uniform single-cell suspension free of fibrous clumps.',
+    description:
+      'A sterile polypropylene basket frame moulded with a precision woven nylon monofilament mesh (40 µm blue, 70 µm white, or 100 µm yellow) designed to seat inside a 50 mL conical centrifuge tube.',
+    specs: {
+      resolution: '40 µm, 70 µm, or 100 µm uniform pore mesh',
+      range: 'Fits standard 50 mL conical centrifuge tubes',
+      zeroError: 'Pre-wet nylon mesh with buffer before pouring cell suspension',
+      material: 'Medical polypropylene ring + woven nylon monofilament mesh',
+    },
+    parts: [
+      { part: 'Monofilament nylon micropore mesh', role: 'Retains tissue debris and cell aggregates larger than the rated micron pore size.' },
+      { part: 'Extended thumb-grip tab & venting lip', role: 'Allows aseptic handling with forceps and prevents air-locking during filtration.' },
+    ],
+    handling: [
+      'Seat the strainer basket into the mouth of a labelled 50 mL tube by holding only the extended rim tab.',
+      'Pipette the digested tissue suspension gently through the pre-wetted mesh and rinse with cold buffer.',
+    ],
+    mistakes: [
+      'Forcing solid tissue chunks through the mesh with a metal spatula, tearing the calibrated nylon pores.',
+    ],
+    spotInLab: 'Small colour-coded plastic cup with a fine translucent nylon gauze bottom and a flat thumb tab.',
+  },
+
+  // 66. Scalpel
+  {
+    id: 'scalpel',
+    number: 66,
+    name: 'Surgical scalpel (No. 3 / No. 4 handle & blade)',
+    subtitle: 'Biology · Dissection & Sectioning',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Making clean anatomical skin incisions during vertebrate dissection and cutting thin transverse/longitudinal stem sections for microscopy.',
+    description:
+      'A ribbed stainless-steel surgical handle (No. 3 or No. 4) with a bayonet slot that locks replaceable sterile carbon-steel blades (No. 10 curved belly or No. 11 pointed tip).',
+    specs: {
+      resolution: 'Razor-honed surgical cutting edge',
+      range: 'No. 3 handle (blades 10–15) · No. 4 handle (blades 20–24)',
+      zeroError: 'Always fit or remove blades using artery forceps — never bare fingers',
+      material: 'Surgical stainless-steel handle + high-carbon steel blade',
+    },
+    parts: [
+      { part: 'Bayonet mounting tang', role: 'Locks the slotted scalpel blade onto the front nose of the handle.' },
+      { part: 'Curved belly cutting edge', role: 'Slices skin and fascia cleanly with controlled draw strokes rather than stabbing.' },
+    ],
+    handling: [
+      'Hold the scalpel like a violin bow or pen and slice away from your non-dominant hand while holding tissue with forceps.',
+      'When cutting thin plant stem sections, keep both the stem and blade wet with water and draw the blade toward you in one smooth sweep.',
+    ],
+    mistakes: [
+      'Pulling a dull scalpel blade off the handle with bare fingers instead of forceps.',
+      'Sawing deeply into a dissection specimen before lifting the body wall with forceps, puncturing the underlying viscera.',
+    ],
+    spotInLab: 'Flat corrugated stainless handle with a removable razor-sharp curved steel blade at the front.',
+  },
+
+  // 67. Dissecting scissors
+  {
+    id: 'dissecting-scissors',
+    number: 67,
+    name: 'Dissecting scissors (fine blunt/sharp surgical)',
+    subtitle: 'Biology · Dissection',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Extending ventral midline incisions through the body wall and rib cage during rat, frog, or fish dissection without puncturing underlying organs.',
+    description:
+      'Stainless-steel surgical scissors featuring one blunt probe-tipped lower blade (inserted beneath the body wall) and one sharp upper cutting blade.',
+    specs: {
+      resolution: 'Fine 115 mm or 140 mm straight/iris blades',
+      range: 'Blunt-sharp or fine sharp-sharp point configurations',
+      zeroError: 'Always insert the BLUNT blade underneath the abdominal wall, pointing slightly upward',
+      material: 'Martensitic surgical stainless steel',
+    },
+    parts: [
+      { part: 'Blunt lower probe blade', role: 'Slides safely under the lifted abdominal muscle wall without piercing the intestine.' },
+      { part: 'Pivot screw & finger rings', role: 'Provide smooth shearing leverage through cartilage and muscle.' },
+    ],
+    handling: [
+      'Lift the skin or abdominal wall upward with toothed forceps, snip a small entry hole, and slide the blunt lower blade inside.',
+      'Keep the lower blade angled upward against the inner body wall while cutting along the linea alba.',
+    ],
+    mistakes: [
+      'Pointing the scissor tips downward into the abdominal cavity and perforating the stomach or caecum.',
+    ],
+    spotInLab: 'Bright stainless-steel surgical scissors in a canvas roll kit, often with one rounded tip and one pointed tip.',
+  },
+
+  // 68. Glass slides staining rack
+  {
+    id: 'staining-rack',
+    number: 68,
+    name: 'Glass slides staining rack & Coplin jar',
+    subtitle: 'Biology · Histology & Gram Staining',
+    subject: 'Biology',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/petri-slides.svg',
+    practiseTo: '/lab/biology/dissection',
+    primaryUses: 'Supporting microscope slides horizontally over a sink tray during Gram staining, methylene blue, iodine, or eosin differential staining.',
+    description:
+      'A pair of parallel corrosion-resistant stainless-steel or glass rods bridged across a staining sink (or a grooved vertical glass Coplin staining jar) that holds 5–20 microscope slides level.',
+    specs: {
+      resolution: 'Level horizontal bridge (50 mm rail spacing)',
+      range: 'Holds 5 – 20 standard 75 × 25 mm slides',
+      zeroError: 'Level the parallel rods so stain pools evenly over the smear without running off',
+      material: '316 stainless-steel parallel bridge + grooved soda-lime Coplin jar',
+    },
+    parts: [
+      { part: 'Parallel bridge rails', role: 'Support standard 75 mm slides level above the drain tray during timed flooding.' },
+      { part: 'Grooved Coplin immersion slots', role: 'Hold slides vertically apart when immersing in alcohol dehydrating baths.' },
+    ],
+    handling: [
+      'Lay heat-fixed slides flat across the two parallel rails with the specimen smear facing UP.',
+      'Flood the smear with stain for the exact timed interval, then tilt the slide with forceps and rinse gently with a wash bottle directed above the smear.',
+    ],
+    mistakes: [
+      'Squirt-blasting the water jet directly onto the delicate cell smear, washing the cells off the glass.',
+    ],
+    spotInLab: 'Two parallel metal rods bridged over an enamel tray (or a ribbed glass jar with internal vertical slots).',
+  },
+
+  // 69. PCR thermocycler
+  {
+    id: 'pcr-thermocycler',
+    number: 69,
+    name: 'PCR thermocycler (thermal cycler)',
+    subtitle: 'Biology · Genetics & Molecular Biology',
+    subject: 'Biology',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Amplifying specific DNA sequences millions-fold via Polymerase Chain Reaction (Denaturation 95°C → Annealing 55°C → Extension 72°C).',
+    description:
+      'A Peltier-driven 96-well aluminium block with a heated compression lid (105°C) that cycles PCR reaction tubes rapidly and accurately through programmed temperature stages.',
+    specs: {
+      resolution: '0.1°C block uniformity · 3–5°C/s ramp rate',
+      range: '4.0°C – 99.9°C across 25–40 programmed cycles',
+      zeroError: 'Enable 105°C heated lid so reaction droplets do not condense in the tube cap',
+      material: 'Silver/aluminium Peltier 96-well block + heated compression lid',
+    },
+    parts: [
+      { part: '96-well Peltier thermal block', role: 'Heats and cools thin-walled 0.2 mL PCR tubes rapidly between 95°C, 55°C, and 72°C.' },
+      { part: 'Heated compression lid (105°C)', role: 'Prevents water evaporation and condensation at the top of the reaction tube.' },
+    ],
+    handling: [
+      'Assemble master mix (DNA template, primers, dNTPs, Taq polymerase, Mg²⁺ buffer) on ice in thin-walled 0.2 mL PCR tubes.',
+      'Tap tubes or spin briefly so all liquid sits at the bottom cone, seat firmly into the block, and close the heated lid.',
+    ],
+    mistakes: [
+      'Using thick-walled standard 1.5 mL tubes instead of thin-walled 0.2 mL PCR tubes, preventing the core liquid from reaching 95°C.',
+    ],
+    spotInLab: 'Compact digital benchtop unit with a flip-down heated lid covering a 96-hole metal block.',
+  },
+
+  // 70. Force sensor
+  {
+    id: 'force-sensor',
+    number: 70,
+    name: 'Digital force sensor (strain-gauge load cell)',
+    subtitle: 'Physics · Mechanics & Dynamics',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/vernier-caliper.svg',
+    practiseTo: '/lab/physics/moments',
+    primaryUses: 'Measuring dynamic tension, compression, impulse (∫F dt), Newton’s third-law collision pairs, and simple harmonic restoring forces.',
+    description:
+      'A Wheatstone-bridge strain-gauge load cell fitted with a reversible hook/bumper attachment that samples pull and push forces up to 1000 Hz.',
+    specs: {
+      resolution: '0.01 N (on ±10 N scale) · 0.05 N (on ±50 N scale)',
+      range: '±10 N or ±50 N switchable dual range',
+      zeroError: 'Press ZERO / TARE with the sensor already clamped in its working orientation',
+      material: 'Machined aluminium flexure beam + 4-arm strain gauge bridge',
+    },
+    parts: [
+      { part: 'Threaded hook & rubber bumper stud', role: 'Transfers axial tension (pull) or compression (push) directly to the flexure beam.' },
+      { part: 'Hardware Tare / Zero button', role: 'Nulls out the weight of the hook attachment at the exact angle of use.' },
+    ],
+    handling: [
+      'Orient the force sensor at the exact angle it will be used during the experiment before pressing the Zero button.',
+      'Apply forces strictly along the axis of the hook shaft — side loads introduce cosine error and can bend the flexure.',
+    ],
+    mistakes: [
+      'Zeroing the sensor horizontally on the bench and then hanging it vertically (the weight of the metal hook shifts the baseline).',
+    ],
+    spotInLab: 'Rectangular sensor pod with a rod clamp hole and a metal hook protruding from one end.',
+  },
+
+  // 71. Motion sensor
+  {
+    id: 'motion-sensor',
+    number: 71,
+    name: 'Ultrasonic motion sensor (rangefinder)',
+    subtitle: 'Physics · Kinematics & SHM',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/physics/pendulum',
+    primaryUses: 'Plotting real-time displacement x(t), velocity v(t), and acceleration a(t) graphs of dynamics carts, falling objects, and oscillating masses.',
+    description:
+      'A time-of-flight ultrasonic transducer emitting 49 kHz acoustic pulses from a gold foil diaphragm and timing the echo return to compute distance x = ½ v_sound · Δt.',
+    specs: {
+      resolution: '1 mm position resolution at 20–50 Hz sampling',
+      range: '0.15 m – 6.0 m (15 cm minimum dead zone)',
+      zeroError: 'Keep target at least 15 cm away from the gold transducer grille',
+      material: 'Piezoelectric/electrostatic gold transducer + pivoting beam housing',
+    },
+    parts: [
+      { part: 'Gold electrostatic transducer disc', role: 'Emits ultrasonic clicks and detects the reflected echo from the nearest object.' },
+      { part: 'Narrow / wide beam selector switch', role: 'Narrow beam rejects stray reflections from dynamics track side rails.' },
+    ],
+    handling: [
+      'Clip the motion sensor at the end of the dynamics track and angle the transducer face slightly upward so it sees the cart rather than the track bed.',
+      'Keep the cart at least 15 cm away from the sensor face to stay outside the ultrasonic ringing dead zone.',
+    ],
+    mistakes: [
+      'Letting the cart come closer than 15 cm to the transducer, causing spurious distance spikes.',
+      'Leaving arms, cables, or retort stands inside the 15° ultrasonic cone.',
+    ],
+    spotInLab: 'Pivoting plastic module with a round gold mesh speaker circle that makes a rapid ticking sound when active.',
+  },
+
+  // 72. Photogate timer
+  {
+    id: 'photogate-timer',
+    number: 72,
+    name: 'Infrared photogate timer',
+    subtitle: 'Physics · Mechanics & Pendulum Timing',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/physics/pendulum',
+    primaryUses: 'Measuring instantaneous velocity of a picket-fence flag, free-fall acceleration g, and reaction-time-free pendulum periods to 0.1 ms.',
+    description:
+      'A U-shaped horseshoe fork housing an infrared LED transmitter on one arm and a fast phototransistor receiver on the opposite arm that triggers whenever an opaque flag interrupts the beam.',
+    specs: {
+      resolution: '0.0001 s (0.1 ms) crystal-controlled gate timing',
+      range: 'Gate mode (flag duration Δt) · Pulse mode · Pendulum mode',
+      zeroError: 'Measure flag width d with Vernier calipers so v = d / Δt is accurate',
+      material: 'Moulded polycarbonate U-fork + 880 nm IR emitter/detector pair',
+    },
+    parts: [
+      { part: 'Infrared emitter & detector arms', role: 'Creates an invisible optical beam across the 75 mm U-gap.' },
+      { part: 'Status LED indicator', role: 'Lights red the instant the infrared beam is blocked by the bob or card flag.' },
+    ],
+    handling: [
+      'Position the U-gate so the pendulum bob or cart interruptor flag passes cleanly through the centre perpendicular to the IR beam.',
+      'Measure the exact width d of the interruptor card with Vernier calipers to calculate instantaneous speed v = d / Δt.',
+    ],
+    mistakes: [
+      'Letting the interruptor flag pass diagonally through the beam or swing into the plastic fork arms.',
+    ],
+    spotInLab: 'Black U-shaped horseshoe sensor clamped to a stand with a tiny red LED on top.',
+  },
+
+  // 73. Pendulum apparatus
+  {
+    id: 'pendulum-apparatus',
+    number: 73,
+    name: 'Simple pendulum apparatus (bob, split cork & stand)',
+    subtitle: 'Physics · Oscillations & Determination of g',
+    subject: 'Physics',
+    category: 'Support & Handling',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/physics/pendulum',
+    primaryUses: 'Investigating simple harmonic motion T = 2π√(L/g) and determining the local acceleration due to gravity g from the slope of T² vs L.',
+    description:
+      'A heavy brass or steel spherical bob suspended by a light inextensible cotton thread gripped tightly inside a longitudinal split cork held in a retort clamp.',
+    specs: {
+      resolution: 'Effective length L measured to ±0.1 cm (centre of gravity of bob)',
+      range: 'L = 20.0 cm to 120.0 cm · amplitude θ < 10°',
+      zeroError: 'Add bob radius r to string length so L = l_string + r',
+      material: 'Solid turned brass bob + split cork jaws + cast-iron retort stand',
+    },
+    parts: [
+      { part: 'Split cork in retort clamp', role: 'Defines a sharp, non-slipping pivot point at the bottom face of the cork.' },
+      { part: 'Spherical brass pendulum bob', role: 'Concentrates mass at a well-defined centre of gravity with low air drag.' },
+      { part: 'Vertical fiducial reference mark', role: 'Chalk line or optical pin placed behind the equilibrium centre to count passes.' },
+    ],
+    handling: [
+      'Measure the effective length L from the bottom face of the split cork to the CENTRE OF GRAVITY of the spherical bob.',
+      'Displace the bob by a small angle (θ < 10°) in a single vertical plane and release gently without pushing.',
+      'Start and stop the stopwatch as the string passes the vertical fiducial mark at maximum speed, timing 20 complete oscillations twice.',
+    ],
+    mistakes: [
+      'Measuring string length only to the top hook of the bob instead of the centre of mass of the bob.',
+      'Starting the stopwatch at the extreme end of the swing where the bob pauses momentarily.',
+      'Swinging the bob through a large angle (> 15°) or in an elliptical conical path.',
+    ],
+    spotInLab: 'Tall retort stand clamping a split cork with a thin thread and a shiny brass sphere hanging above the floor.',
+  },
+
+  // 74. Inclined plane
+  {
+    id: 'inclined-plane',
+    number: 74,
+    name: 'Inclined plane with adjustable angle quadrant & roller',
+    subtitle: 'Physics · Mechanics & Friction',
+    subject: 'Physics',
+    category: 'Support & Handling',
+    file: '/apparatus/metre-rule.svg',
+    practiseTo: '/lab/physics/moments',
+    primaryUses: 'Determining the coefficient of static and kinetic friction (µ = tan θ), resolving weight into mg sin θ and mg cos θ, and studying acceleration down a ramp.',
+    description:
+      'A hinged planed hardwood or anodized aluminium board fitted with a degree-graduated protractor quadrant, a low-friction end pulley, and a scale pan.',
+    specs: {
+      resolution: '0.5° angle scale + 1 mm linear scale',
+      range: '0° – 45° adjustable inclination angle θ',
+      zeroError: 'Keep the towing cord strictly parallel to the inclined surface',
+      material: 'Seasoned mahogany/aluminium ramp + brass ball-bearing end pulley',
+    },
+    parts: [
+      { part: 'Hinged ramp board & degree arc', role: 'Sets and reads the angle of inclination θ (or height h and hypotenuse L).' },
+      { part: 'Adjustable end pulley', role: 'Guides the string from the sliding block to the hanging weight pan parallel to the board.' },
+    ],
+    handling: [
+      'Wipe the ramp surface free of dust and adjust the pulley height so the string runs parallel to the inclined plane.',
+      'Tap the board gently when finding the limiting static friction angle (angle of repose θ_s where µ_s = tan θ_s).',
+    ],
+    mistakes: [
+      'Allowing the towing string to slope upward or downward relative to the ramp surface, altering the normal reaction R.',
+    ],
+    spotInLab: 'Hinged wooden or metal ramp with a curved protractor bracket and a small pulley wheel at the top end.',
+  },
+
+  // 75. Pulley system
+  {
+    id: 'pulley-system',
+    number: 75,
+    name: 'Block and tackle pulley system (sheave blocks)',
+    subtitle: 'Physics · Simple Machines & Efficiency',
+    subject: 'Physics',
+    category: 'Support & Handling',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/physics/moments',
+    primaryUses: 'Determining Mechanical Advantage (MA = Load/Effort), Velocity Ratio (VR), and mechanical efficiency η = (MA/VR) × 100% of single and multi-sheave pulleys.',
+    description:
+      'Upper fixed and lower movable aluminium or brass pulley blocks containing 1, 2, or 3 low-friction ball-bearing sheaves threaded with a continuous inextensible cord.',
+    specs: {
+      resolution: 'VR = number of cord segments supporting the movable lower block',
+      range: 'VR = 2, 3, 4, or 6 sheave configurations',
+      zeroError: 'Oil sheave bearings lightly and weigh the lower movable block if finding net efficiency',
+      material: 'Die-cast aluminium frames + brass ball-bearing grooved sheaves',
+    },
+    parts: [
+      { part: 'Fixed upper sheave block', role: 'Hooks to the overhead retort beam and redirects the effort pull.' },
+      { part: 'Movable lower sheave block', role: 'Rises with the load L, supported by n tensioned cord strands (VR = n).' },
+    ],
+    handling: [
+      'Thread the cord cleanly through the sheaves so no two strands rub or cross against each other.',
+      'Measure the steady effort E needed to raise each load L at constant slow speed without jerking.',
+    ],
+    mistakes: [
+      'Reading the spring balance while accelerating the effort hand rapidly downward instead of pulling at steady speed.',
+    ],
+    spotInLab: 'Pair of multi-wheeled metal pulley blocks suspended from a tall stand with slotted masses hanging below.',
+  },
+
+  // 76. Dynamics track
+  {
+    id: 'dynamics-track',
+    number: 76,
+    name: 'Low-friction dynamics track & carts',
+    subtitle: 'Physics · Newton’s Second Law & Collisions',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/metre-rule.svg',
+    practiseTo: '/lab/physics/moments',
+    primaryUses: 'Verifying conservation of linear momentum (m₁u₁ + m₂u₂ = m₁v₁ + m₂v₂), elastic vs inelastic collisions, and F = ma.',
+    description:
+      'A rigid 1.2 m or 2.0 m extruded aluminium track with precision grooves, levelling screws, a built-in millimetre scale, and low-friction ball-bearing wheeled carts with magnetic and Velcro bumpers.',
+    specs: {
+      resolution: '1 mm integrated track scale',
+      range: '1.20 m or 2.00 m track length · 250 g standard cart mass',
+      zeroError: 'Level track with levelling screws until a stationary cart shows zero drift',
+      material: 'Anodized extruded aluminium beam + low-inertia ball-bearing carts',
+    },
+    parts: [
+      { part: 'Extruded aluminium V-groove rails', role: 'Keep the dynamics carts rolling along a straight 1-D axis without steering drag.' },
+      { part: 'Magnetic & Velcro end bumpers', role: 'Provide nearly 100% elastic repulsion (magnets) or completely inelastic sticking (Velcro).' },
+    ],
+    handling: [
+      'Place a cart at the centre of the track and adjust the end levelling feet until it remains completely stationary.',
+      'Use magnetic bumpers facing each other for elastic collisions, or flip one cart to use the Velcro pads for inelastic collisions.',
+    ],
+    mistakes: [
+      'Dropping heavy iron bar masses onto a dynamics cart resting on the track, denting the ball bearings.',
+    ],
+    spotInLab: 'Long silver aluminium rail with a ruler strip along one edge and two wheeled carts with spring plungers.',
+  },
+
+  // 77. Mass hanger and slotted masses
+  {
+    id: 'slotted-masses',
+    number: 77,
+    name: 'Mass hanger and slotted masses (10 g – 100 g set)',
+    subtitle: 'Physics · Engineering · Mechanics',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/physics/moments',
+    primaryUses: 'Applying calibrated gravitational loads (W = mg) in Hooke’s law, principle of moments, beam deflection, and pulley experiments.',
+    description:
+      'A machined brass or cast-iron stem hanger (whose own base mass equals one unit, e.g. 50 g or 100 g) carrying radially slotted disc weights that slide onto the central shaft.',
+    specs: {
+      resolution: '1 g, 5 g, 10 g, 20 g, 50 g, or 100 g calibrated steps',
+      range: '10 g – 1000 g total stack',
+      zeroError: 'Always include the mass of the hanger itself in the total suspended mass M',
+      material: 'Turned brass or enamelled cast-iron discs (±0.5% Class M2)',
+    },
+    parts: [
+      { part: 'Hooked stem hanger (50 g / 100 g)', role: 'Forms the first mass unit and carries the stack of slotted discs.' },
+      { part: 'Radially slotted brass discs', role: 'Slide over the central spindle with alternating slot orientations so they cannot slip off.' },
+    ],
+    handling: [
+      'Count the mass of the base hanger itself as the first unit of load (e.g., hanger = 50 g + three 50 g discs = 200 g total).',
+      'Alternate the radial slot directions of successive discs by 180° and lower loads gently onto springs without dropping.',
+    ],
+    mistakes: [
+      'Forgetting to add the mass of the hanger (50 g or 100 g) to the recorded load column.',
+      'Confusing mass in grams (m) with weight/force in newtons (W = mg in kg × 9.8 or 10 m s⁻²).',
+    ],
+    spotInLab: 'Vertical brass rod with a top hook and a stack of shiny round brass discs with keyway slots.',
+  },
+
+  // 78. Barometer
+  {
+    id: 'barometer',
+    number: 78,
+    name: 'Fortin / Aneroid atmospheric barometer',
+    subtitle: 'Physics · Pressure & Gas Laws',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/venturi-manometer.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Measuring local atmospheric pressure P_atm (in mmHg, mbar, or kPa) for Boyle’s law, gas volume corrections to STP, and meteorology.',
+    description:
+      'A Fortin mercury column barometer with an ivory fiducial cistern pointer and Vernier scale (standard 760.0 mmHg = 101.325 kPa), or a evacuated corrugated-capsule aneroid dial barometer.',
+    specs: {
+      resolution: '0.1 mmHg (Fortin Vernier) · 0.5 hPa / mbar (Aneroid)',
+      range: '680 – 800 mmHg (900 – 1060 hPa)',
+      zeroError: 'On a Fortin barometer, turn the lower screw until the mercury cistern surface just touches the ivory point',
+      material: 'Evacuated beryllium-copper aneroid capsule or glass mercury column in brass case',
+    },
+    parts: [
+      { part: 'Ivory zero pointer & cistern leather bag (Fortin)', role: 'Sets the bottom mercury reservoir surface exactly to zero before reading the top meniscus.' },
+      { part: 'Evacuated aneroid capsule & tapping needle', role: 'Flexes with atmospheric pressure changes and drives the dial pointer.' },
+    ],
+    handling: [
+      'On an aneroid barometer, tap the glass face gently with a fingertip to overcome pivot friction before reading the pointer.',
+      'On a Fortin barometer, adjust the bottom thumbscrew until the ivory tip touches its own mirror image in the mercury pool, then align the upper Vernier tangent to the top of the convex mercury meniscus.',
+    ],
+    mistakes: [
+      'Reading the bottom of a mercury meniscus instead of the TOP of the convex mercury dome.',
+    ],
+    spotInLab: 'Tall vertical brass tube mounted on the lab wall (Fortin) or a round brass dial graded in mmHg and millibars.',
+  },
+
+  // 79. Manometer
+  {
+    id: 'manometer',
+    number: 79,
+    name: 'U-tube liquid manometer',
+    subtitle: 'Physics · Engineering · Fluid Pressure',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/venturi-manometer.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Measuring gauge pressure and pressure differentials ΔP = ρgh of gas supplies, lung expiration, or fluid flow across an orifice/Venturi.',
+    description:
+      'A transparent glass U-tube mounted against a central millimetre scale and half-filled with coloured water or mercury; the height difference h = h₂ − h₁ between the two limbs gives ΔP = ρgh.',
+    specs: {
+      resolution: '1 mm head difference (≈ 9.8 Pa with water)',
+      range: '0 – 500 mmH₂O differential head',
+      zeroError: 'With both limbs open to air, check that both menisci stand at the same zero level',
+      material: 'Borosilicate U-tube on anodized millimetre scale backboard',
+    },
+    parts: [
+      { part: 'Left (test) & right (open atmosphere) limbs', role: 'Compare the unknown gas pressure against atmospheric pressure P_atm.' },
+      { part: 'Central millimetre scale', role: 'Measures the vertical height of both liquid columns so h = |h_open − h_gas|.' },
+    ],
+    handling: [
+      'Before connecting the gas supply, verify both limbs are at the same level and flush out any trapped air bubbles.',
+      'Read both limb heights at eye level and take the full difference h = h_high − h_low (do not just double one limb unless the bore is strictly uniform).',
+    ],
+    mistakes: [
+      'Recording only the rise in one limb above the zero mark instead of the total vertical difference between the two menisci.',
+    ],
+    spotInLab: 'U-shaped glass tube half-filled with dyed water clamped flat against a vertical ruler.',
+  },
+
+  // 80. Convex lens
+  {
+    id: 'convex-lens',
+    number: 80,
+    name: 'Biconvex converging lens (f = +10 cm / +15 cm / +20 cm)',
+    subtitle: 'Physics · Geometrical Optics',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/glass-block.svg',
+    practiseTo: '/lab/physics/refraction',
+    primaryUses: 'Determining focal length f via the lens formula 1/f = 1/u + 1/v, no-parallax pin method, or displacement method, and building telescopes/microscopes.',
+    description:
+      'A circular optical crown-glass disc thicker at its centre than at its rim, converging parallel paraxial light rays to a real principal focus at distance f.',
+    specs: {
+      resolution: 'Focal length f determined to ±0.1 cm',
+      range: 'f = +10.0 cm, +15.0 cm, or +20.0 cm (50 mm diameter)',
+      zeroError: 'Obtain a quick approximate focal length f₀ first by focusing a distant window onto a wall',
+      material: 'Polished BK7 optical crown glass (n ≈ 1.52) with ground safety edge',
+    },
+    parts: [
+      { part: 'Thicker optical centre', role: 'Rays passing through the optical centre proceed undeviated.' },
+      { part: 'Ground cylindrical rim', role: 'Seats into a V-grooved wooden or spring lens holder at the height of the optical axis.' },
+    ],
+    handling: [
+      'Before starting the main table, focus a distant window or tree onto the white screen to find the approximate focal length f₀ (this prevents setting object distance u < f where no real image can form).',
+      'Hold the lens by its ground rim only and align its principal axis level with the illuminated cross-wire object and screen.',
+    ],
+    mistakes: [
+      'Placing the object closer than the focal length (u < f) and wasting time searching for a real image on the screen.',
+      'Forgetting to record the preliminary approximate focal length f₀ (usually worth 1–2 marks in WAEC/NECO practicals).',
+    ],
+    spotInLab: 'Round glass disc that feels noticeably thicker in the middle than at the edges and magnifies print held close beneath it.',
+  },
+
+  // 81. Concave lens
+  {
+    id: 'concave-lens',
+    number: 81,
+    name: 'Biconcave diverging lens (f = –15 cm)',
+    subtitle: 'Physics · Geometrical Optics',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/glass-block.svg',
+    practiseTo: '/lab/physics/refraction',
+    primaryUses: 'Studying virtual image formation, correcting myopia (short-sightedness) models, and determining negative focal length by combination with a stronger convex auxiliary lens.',
+    description:
+      'A circular optical glass lens thinner at its optical centre than at its outer rim that diverges incident parallel rays so they appear to originate from a virtual principal focus.',
+    specs: {
+      resolution: 'Focal length f = –10.0 cm to –20.0 cm',
+      range: '50 mm diameter optical crown glass',
+      zeroError: 'Requires an auxiliary converging lens of shorter focal length to form a real image on a screen',
+      material: 'Optical crown glass (n ≈ 1.52) with bevelled thick rim',
+    },
+    parts: [
+      { part: 'Thin concave optical centre', role: 'Refracts rays outward away from the principal axis.' },
+      { part: 'Thick peripheral rim', role: 'Mounts securely in standard optical bench lens holders.' },
+    ],
+    handling: [
+      'Handle by the outer ground rim and inspect nearby print through the lens — a concave lens always produces an upright, diminished virtual image.',
+      'To measure its focal length on a screen, pair it in contact (or coaxially) with a convex lens of shorter focal length so the combined power P = P₁ + P₂ remains positive.',
+    ],
+    mistakes: [
+      'Trying to project a real image onto a screen using a standalone concave lens.',
+    ],
+    spotInLab: 'Round glass lens that feels thin and hollowed-in at the middle and makes text look smaller when viewed through it.',
+  },
+
+  // 82. Optical bench
+  {
+    id: 'optical-bench',
+    number: 82,
+    name: 'Optical bench with lens holder & white screen',
+    subtitle: 'Physics · Optics & Lens Formula',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/metre-rule.svg',
+    practiseTo: '/lab/physics/refraction',
+    primaryUses: 'Measuring conjugate object distance u and image distance v coaxially along a 100 cm or 150 cm scale to verify 1/u + 1/v = 1/f.',
+    description:
+      'A rigid graduated rail (or metre rule track) carrying sliding riders with index markers for an illuminated cross-wire object box, a vertical lens holder, and a matte white viewing screen.',
+    specs: {
+      resolution: '0.1 cm (1 mm) rider index scale',
+      range: '0.0 – 100.0 cm (or 150.0 cm) coaxial track',
+      zeroError: 'Check index error between lens centre plane and rider pointer mark',
+      material: 'Hardwood/aluminium rail + wooden V-block lens stand + matte white screen',
+    },
+    parts: [
+      { part: 'Illuminated wire-gauze / cross-wire object box', role: 'Provides a high-contrast sharp object at a known scale position x_O.' },
+      { part: 'Sliding lens holder & matte white screen', role: 'Move along the rail to locate the sharpest focused real image at x_I.' },
+    ],
+    handling: [
+      'Ensure the centre of the illuminated cross-wire, the optical centre of the lens, and the centre of the white screen are all at the same vertical height above the bench.',
+      'Slide the screen back and forth through the point of sharpest focus twice and take the mean image distance v = |x_I − x_L|.',
+    ],
+    mistakes: [
+      'Measuring u and v from the edge of the wooden lens holder base rather than from the central plane of the lens.',
+    ],
+    spotInLab: 'Lamp box with a cut-out cross-wire hole, a grooved wooden lens stand, and a white card screen lined up along a metre rule.',
+  },
+
+  // 83. Ray box
+  {
+    id: 'ray-box',
+    number: 83,
+    name: 'Optical ray box with single & triple slit comb',
+    subtitle: 'Physics · Light Reflection & Refraction',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/glass-block.svg',
+    practiseTo: '/lab/physics/refraction',
+    primaryUses: 'Projecting narrow, collimated pencil rays of light across drawing paper to trace reflection, refraction, total internal reflection, and focal points.',
+    description:
+      'A ventilated low-voltage (12 V) lamp housing fitted with a cylindrical collimating lens and interchangeable metal slit plates (single slit, triple slits, and colour filters).',
+    specs: {
+      resolution: '0.5 mm sharp collimated ray streak on white paper',
+      range: '12 V AC/DC 21 W line-filament lamp · 1, 3, or 5 slits',
+      zeroError: 'Slide the internal cylindrical lens until the ray streaks remain parallel across the sheet',
+      material: 'Finned die-cast metal housing + collimating plano-cylindrical lens',
+    },
+    parts: [
+      { part: 'Plano-cylindrical collimating lens', role: 'Focuses the vertical lamp filament into narrow, non-diverging streaks across the paper.' },
+      { part: 'Slotted metal slit comb & filter slots', role: 'Selects a single fine ray (for Snell’s law) or 3 parallel rays (for lens focal points).' },
+    ],
+    handling: [
+      'Connect the ray box to a 12 V low-voltage power pack and slide the slit comb into the front groove after the collimating lens.',
+      'Mark the centre of each light ray on the drawing sheet with two sharp pencil crosses (×) spaced at least 5 cm apart, then switch off the lamp to prevent overheating.',
+    ],
+    mistakes: [
+      'Marking the ray with two pencil dots placed only 1 cm apart, causing large angular errors when joined with a ruler.',
+      'Grabbing the finned metal lamp housing bare-handed after it has been switched on continuously.',
+    ],
+    spotInLab: 'Black finned metal box with a power cord and vertical slot channels at the front that throw bright lines of light onto paper.',
+  },
+
+  // 84. Prism
+  {
+    id: 'equilateral-prism',
+    number: 84,
+    name: 'Equilateral triangular glass prism (60°–60°–60°)',
+    subtitle: 'Physics · Refraction, Minimum Deviation & Dispersion',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/glass-block.svg',
+    practiseTo: '/lab/physics/refraction',
+    primaryUses: 'Tracing the angle of deviation D vs angle of incidence i curve, determining angle of minimum deviation D_m and refractive index n = sin((A + D_m)/2) / sin(A/2), and dispersing white light.',
+    description:
+      'A triangular optical crown or flint glass prism with three polished 60° refracting edges and two frosted triangular base ends.',
+    specs: {
+      resolution: 'Refracting angle A = 60.0° ± 0.2° · n ≈ 1.52 (crown)',
+      range: '38 × 38 mm or 50 × 50 mm polished rectangular faces',
+      zeroError: 'Re-seat the prism cleanly inside its pencil outline before sighting every pair of pins',
+      material: 'Optical crown glass (n = 1.52) or dense flint glass (n = 1.62)',
+    },
+    parts: [
+      { part: 'Two polished refracting faces & apex angle A (60°)', role: 'Bend the incident ray twice toward the thick base, giving total deviation D = (i + e) − A.' },
+      { part: 'Frosted triangular base face', role: 'Rests flat on the white drawing sheet so the outline can be traced accurately.' },
+    ],
+    handling: [
+      'Place the frosted triangular face flat on the drawing sheet, trace the triangular outline ABC with a sharp H/2H pencil, and remove the prism to draw the normal at the point of incidence.',
+      'When sighting pins P₃ and P₄ through the second refracting face, look at the feet of the pins where they enter the paper so all four appear strictly collinear.',
+    ],
+    mistakes: [
+      'Aligning the top heads of tilted optical pins instead of sighting their bases at paper level.',
+      'Allowing the prism to shift outside its traced triangle ABC while placing the emergent pins.',
+    ],
+    spotInLab: 'Clear solid glass triangle that casts rainbow fringes when held up to window light.',
+  },
+
+  // 85. Tuning fork
+  {
+    id: 'tuning-fork',
+    number: 85,
+    name: 'Calibrated acoustic tuning fork set (256 Hz – 512 Hz)',
+    subtitle: 'Physics · Waves, Resonance Tube & Sonometer',
+    subject: 'Physics',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/vernier-caliper.svg',
+    practiseTo: '/lab/physics/pendulum',
+    primaryUses: 'Generating a pure sinusoidal acoustic frequency f to find the speed of sound in air v = 2f(L₂ − L₁) with a resonance tube or to verify sonometer wire laws.',
+    description:
+      'A U-shaped steel or aluminium alloy acoustic resonator with two symmetric tines (prongs) and a cylindrical stem stamped with its fundamental frequency in Hertz (e.g., 256, 320, 384, 440, 512 Hz).',
+    specs: {
+      resolution: '±0.2% laser-trimmed fundamental frequency',
+      range: '256 Hz (C₄), 320 Hz (E₄), 384 Hz (G₄), 440 Hz (A₄), 512 Hz (C₅)',
+      zeroError: 'Strike ONLY on a soft rubber pad — never on a hard wooden bench or metal rim',
+      material: 'Nickel-plated spring steel or acoustic aluminium alloy',
+    },
+    parts: [
+      { part: 'Two symmetric vibrating tines (prongs)', role: 'Oscillate transversely in antiphase at the stamped fundamental frequency f.' },
+      { part: 'Cylindrical nodal stem', role: 'Held between thumb and fingers; vibrates longitudinally to couple sound into a sonometer box.' },
+    ],
+    handling: [
+      'Hold the tuning fork by its cylindrical stem only — touching the prongs damps the vibration immediately.',
+      'Strike one prong smartly against a soft rubber striking pad (never against the glass rim of the resonance tube or hard bench).',
+      'For a resonance tube, hold the vibrating tines horizontally about 1 cm above the open glass mouth so the prongs oscillate vertically into the air column.',
+    ],
+    mistakes: [
+      'Striking the tuning fork against the glass rim of the resonance tube, chipping the glass and exciting harsh overtone harmonics.',
+      'Forgetting the end-correction e = 0.3 d when calculating speed of sound from a single resonance length L₁ + e = λ/4.',
+    ],
+    spotInLab: 'Two-pronged U-shaped metal fork stamped with a number like 512 Hz on its handle stem alongside a round rubber striker pad.',
+  },
+
+  // 86. Electromagnet
+  {
+    id: 'electromagnet',
+    number: 86,
+    name: 'U-core electromagnet & soft-iron armature',
+    subtitle: 'Physics · Electromagnetism & Induction',
+    subject: 'Physics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/rheostat.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Investigating how magnetic field strength depends on coil current I and number of turns N (B ∝ NI), free-fall release mechanisms, and Faraday electromagnetic induction.',
+    description:
+      'A laminated or annealed soft-iron U-core fitted with twin multi-tap copper solenoid bobbins (e.g., 200 / 400 / 800 turns), 4 mm terminal sockets, and a removable soft-iron keeper armature.',
+    specs: {
+      resolution: 'Tapped windings at 200, 400, 600, 1200 turns',
+      range: '0 – 5 A DC operating current (6–12 V low-voltage supply)',
+      zeroError: 'Observe wound direction of both coils so the two poles form N and S rather than bucking each other',
+      material: 'Annealed low-retentivity soft-iron core + enamelled copper windings',
+    },
+    parts: [
+      { part: 'Annealed soft-iron U-core', role: 'Multiplies magnetic flux density hundreds-fold when current flows and demagnetizes immediately when switched off.' },
+      { part: 'Twin multi-tap solenoid coils', role: 'Allow selection of turn count N and series/parallel pole polarity.' },
+    ],
+    handling: [
+      'Wire the two bobbins in series with an ammeter, rheostat, and DC power supply so one limb becomes a North pole and the other a South pole (attracting the keeper cleanly).',
+      'Switch off the current between readings so the copper coils do not overheat and change resistance.',
+    ],
+    mistakes: [
+      'Wiring the two bobbins in opposing polarity so their fluxes cancel out across the keeper.',
+      'Using a hard steel core instead of soft iron when quick release is required (steel retains remanent magnetism).',
+    ],
+    spotInLab: 'Heavy U-shaped grey iron block wearing two copper-wire spools with red and black 4 mm sockets.',
+  },
+
+  // 87. Separatory funnel
+  {
+    id: 'separatory-funnel',
+    number: 87,
+    name: 'Separatory funnel (dropping / solvent extraction funnel)',
+    subtitle: 'Chemistry · Liquid–Liquid Extraction',
+    subject: 'Chemistry',
+    category: 'Glassware & Containers',
+    file: '/apparatus/conical-flask.svg',
+    practiseTo: '/lab/chemistry/qualitative-analysis',
+    primaryUses: 'Separating two immiscible liquids of different densities (such as an aqueous phase and an organic ether/hexane layer) during solvent extraction.',
+    description:
+      'A pear-shaped borosilicate glass vessel with a ground-glass or PTFE top stopper and a bottom PTFE stopcock tap supported in an iron ring on a retort stand.',
+    specs: {
+      resolution: 'Sharp meniscus phase interface at tapered lower cone',
+      range: '100 cm³, 250 cm³, or 500 cm³ capacity',
+      zeroError: 'Always remove the top stopper before opening the bottom tap so air can enter',
+      material: 'Borosilicate 3.3 glass + PTFE stopcock + ground-glass stopper',
+    },
+    parts: [
+      { part: 'Tapered pear-shaped body', role: 'Narrows the phase boundary near the stopcock so the lower layer drains cleanly.' },
+      { part: 'PTFE stopcock & ground stopper', role: 'Seals during shaking/venting and controls drainage of the denser bottom layer.' },
+    ],
+    handling: [
+      'Support the funnel in a padded iron ring, close the stopcock, pour in the mixture, and insert the top stopper.',
+      'Invert the funnel while holding the stopper firmly with your index finger and open the stopcock away from faces every few shakes to vent vapour pressure.',
+      'Return to the ring stand, REMOVE the top stopper, let the two layers separate cleanly, and drain the denser bottom layer through the tap.',
+    ],
+    mistakes: [
+      'Forgetting to remove the top stopper before opening the bottom tap, creating a vacuum lock that stops drainage.',
+      'Shaking a volatile solvent mixture with acid/bicarbonate without venting the stopcock, blowing the stopper out.',
+    ],
+    spotInLab: 'Pear-shaped glass bulb tapering down to a white tap at the bottom and capped with a glass stopper at the top.',
+  },
+
+  // 88. Hot plate
+  {
+    id: 'hot-plate',
+    number: 88,
+    name: 'Ceramic-top laboratory hot plate',
+    subtitle: 'Chemistry · Biology · Flameless Heating',
+    subject: 'Chemistry',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Uniform, flameless heating of flat-bottomed beakers, Erlenmeyer flasks, and water baths — essential when flammable organic solvents are present.',
+    description:
+      'A chemically resistant glass-ceramic or die-cast aluminium deck heated by embedded resistance elements with stepless thermostatic control and a hot-surface warning LED.',
+    specs: {
+      resolution: '1°C digital setpoint (or 1–10 stepless dial)',
+      range: 'Ambient + 10°C to 380°C (or 500°C ceramic plate)',
+      zeroError: 'Wait for flashing HOT warning light to extinguish before touching plate',
+      material: 'Pyroceram glass-ceramic top plate + chemical-spill drip edge',
+    },
+    parts: [
+      { part: 'Glass-ceramic heating deck', role: 'Transfers heat evenly into flat-bottomed borosilicate flasks and resists acid spills.' },
+      { part: 'Residual heat warning LED (>50°C)', role: 'Flashes even after the mains switch is off while the ceramic plate remains above 50°C.' },
+    ],
+    handling: [
+      'Use only flat-bottomed heat-resistant borosilicate glassware (Pyrex/Kimax) on the ceramic deck and add anti-bumping granules before boiling.',
+      'Never heat sealed containers or soft soda-lime reagent bottles on a hot plate.',
+    ],
+    mistakes: [
+      'Touching the white ceramic top plate right after switching off because it does not glow red even at 300°C.',
+      'Placing a cold wet beaker onto a pre-heated 350°C ceramic plate, causing thermal shock.',
+    ],
+    spotInLab: 'Low square benchtop box with a flat white ceramic top square and a temperature control knob.',
+  },
+
+  // 89. Magnetic stirrer
+  {
+    id: 'magnetic-stirrer',
+    number: 89,
+    name: 'Magnetic stirrer & PTFE flea stir bar',
+    subtitle: 'Chemistry · Titration & Solution Preparation',
+    subject: 'Chemistry',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/chemistry/titration',
+    primaryUses: 'Continuously mixing titration flasks, dissolving buffer salts, and keeping solutions thermally uniform without an external mechanical shaft.',
+    description:
+      'A variable-speed rotating permanent magnet beneath a flat platform that couples magnetically to a white PTFE-encapsulated iron stir bar ("flea") inside the beaker or flask.',
+    specs: {
+      resolution: '10 rpm stepless speed control',
+      range: '100 – 1500 rpm rotational speed',
+      zeroError: 'Centre the flask on the deck and ramp rpm gradually so the flea does not decouple',
+      material: 'Brushless DC drive magnet + virgin PTFE-coated Alnico stir bar',
+    },
+    parts: [
+      { part: 'PTFE magnetic stir bar (flea)', role: 'Inert Teflon capsule dropped into the flask that spins horizontally on the vessel floor.' },
+      { part: 'Magnetic retriever wand', role: 'Pulls the stir bar up the outside wall of the flask before pouring solution to waste.' },
+    ],
+    handling: [
+      'Slide the PTFE stir bar gently down the tilted wall of the flask so it does not crack the glass bottom.',
+      'Centre the flask on the stirrer pad and increase speed slowly until a gentle surface dimple forms without splashing or drawing air bubbles.',
+    ],
+    mistakes: [
+      'Pouring the finished solution down the sink drain and losing the PTFE stir bar with it.',
+      'Turning the rpm dial straight to maximum so the stir bar decouples and rattles erratically.',
+    ],
+    spotInLab: 'Flat platform unit paired with a tic-tac-shaped white Teflon pill that spins inside a beaker.',
+  },
+
+  // 90. pH meter
+  {
+    id: 'ph-meter',
+    number: 90,
+    name: 'Digital pH meter & combination glass electrode',
+    subtitle: 'Chemistry · Biology · Acid–Base & Buffers',
+    subject: 'Chemistry',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/chemistry/titration',
+    primaryUses: 'Measuring hydrogen ion activity pH = –log₁₀[H⁺] to 0.01 pH units for pH titration curves, buffer preparation, and enzyme optimum pH assays.',
+    description:
+      'A high-input-impedance millivoltmeter connected to a combination Ag/AgCl reference and thin hydrated H⁺-sensitive glass bulb electrode with Automatic Temperature Compensation (ATC).',
+    specs: {
+      resolution: '0.01 pH units · 1 mV',
+      range: 'pH 0.00 – 14.00 (±1999 mV)',
+      zeroError: 'Two-point calibration with standard buffers pH 7.00 (offset) and pH 4.01 or 10.01 (slope)',
+      material: 'Hydrated lithium-silicate glass bulb + Ag/AgCl reference junction in 3 M KCl',
+    },
+    parts: [
+      { part: 'Hydrated glass sensing bulb', role: 'Develops a Nernst potential (≈ 59.16 mV per pH unit at 25°C) across the thin glass membrane.' },
+      { part: 'Porous ceramic reference junction', role: 'Completes the electrical circuit with the internal 3 M KCl Ag/AgCl half-cell.' },
+      { part: '3 M KCl storage cap', role: 'Keeps the glass bulb hydrated when not in use — never store in distilled water.' },
+    ],
+    handling: [
+      'Remove the storage cap, rinse the bulb with distilled water from a wash bottle, and blot gently with tissue (never wipe or rub the glass bulb, which builds static charge).',
+      'Calibrate first in pH 7.00 buffer, rinse, then calibrate slope in pH 4.01 (for acidic samples) or pH 10.01 (for alkaline samples).',
+      'After measurement, rinse and return the electrode to its 3 M KCl storage solution cap.',
+    ],
+    mistakes: [
+      'Storing the pH electrode in distilled or deionised water, which leaches ions out of the glass membrane and ruins the reference junction.',
+      'Wiping the glass bulb dry with rough paper towel, creating electrostatic drift.',
+    ],
+    spotInLab: 'Digital meter connected by a coaxial cable to a pen-sized probe ending in a delicate round glass bubble.',
+  },
+
+  // 91. Analytical balance
+  {
+    id: 'analytical-balance',
+    number: 91,
+    name: 'Analytical 4-decimal balance (0.0001 g with draft shield)',
+    subtitle: 'Chemistry · Quantitative Gravimetric & Standard Solutions',
+    subject: 'Chemistry',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/chemistry/titration',
+    primaryUses: 'Weighing primary standards (e.g., anhydrous Na₂CO₃ or KHP) to ±0.1 mg (0.0001 g) for preparing standard volumetric solutions.',
+    description:
+      'An electromagnetic force restoration balance enclosed inside a three-door sliding glass draft-shield cabinet that isolates the weighing pan from room air currents.',
+    specs: {
+      resolution: '0.0001 g (0.1 mg)',
+      range: '0.0000 – 220.0000 g',
+      zeroError: 'Close all glass sliding doors before reading the final 4th decimal digit',
+      material: 'Electromagnetic force-compensation cell + 3-pane anti-static glass enclosure',
+    },
+    parts: [
+      { part: 'Three-door sliding glass draft shield', role: 'Blocks air currents from breathing and AC vents that fluctuate the 0.1 mg digit.' },
+      { part: 'Internal calibration & Tare bar', role: 'Zeroes the weighing boat and calibrates against an internal motorised reference mass.' },
+    ],
+    handling: [
+      'Check the spirit level bubble, place a clean weighing boat inside, close the glass doors, and press TARE to read 0.0000 g.',
+      'Open one side door slightly to add solid reagent with a clean spatula, then close the door completely and wait for the stability ring icon before recording all 4 decimal places.',
+    ],
+    mistakes: [
+      'Reading the display while the sliding glass draft-shield door is still open.',
+      'Handling a weighing bottle with bare sweaty fingers instead of tongs or a paper strip (fingerprints add ~0.5 mg).',
+    ],
+    spotInLab: 'Precision balance topped with a tall transparent glass cube cabinet having sliding left, right, and top doors.',
+  },
+
+  // 92. Conductivity meter
+  {
+    id: 'conductivity-meter',
+    number: 92,
+    name: 'Electrolytic conductivity meter & dip cell',
+    subtitle: 'Chemistry · Electrochemistry & Water Quality',
+    subject: 'Chemistry',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/chemistry/qualitative-analysis',
+    primaryUses: 'Comparing strong vs weak electrolytes, measuring total dissolved solids (TDS), and performing conductometric acid–base or precipitation titrations.',
+    description:
+      'An AC Wheatstone-bridge meter driving a two-electrode platinized-platinum dip cell (cell constant K = L/A ≈ 1.0 cm⁻¹) with an alternating kilohertz signal to prevent electrolysis polarization.',
+    specs: {
+      resolution: '0.1 µS/cm (microsiemens) · 0.01 mS/cm',
+      range: '0.0 µS/cm – 200.0 mS/cm',
+      zeroError: 'Calibrate cell constant K with standard 0.0100 M KCl solution (1413 µS/cm at 25°C)',
+      material: 'Parallel platinized-platinum plates or graphite rings + NTC temperature probe',
+    },
+    parts: [
+      { part: 'Platinized electrodes & vent hole', role: 'Fixed area A and separation L define cell constant K; upper vent hole lets trapped air escape.' },
+      { part: 'AC excitation oscillator', role: 'Prevents gas bubbles and ion polarization from forming on the electrodes.' },
+    ],
+    handling: [
+      'Rinse the conductivity probe thoroughly with deionised water (κ < 2 µS/cm) and dip it past the upper air-vent hole.',
+      'Tap the probe gently to dislodge any air bubble trapped between the internal electrodes.',
+    ],
+    mistakes: [
+      'Leaving an air bubble trapped inside the probe shroud, which cuts the effective cross-sectional area A and gives a falsely low reading.',
+    ],
+    spotInLab: 'Handheld meter with a cylindrical probe tip containing two parallel dark metal plates and a side vent window.',
+  },
+
+  // 93. Spectrophotometer
+  {
+    id: 'spectrophotometer',
+    number: 93,
+    name: 'UV-Vis spectrophotometer & 1 cm optical cuvettes',
+    subtitle: 'Chemistry · Biology · Beer–Lambert Law',
+    subject: 'Chemistry',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/biology/food-tests',
+    primaryUses: 'Measuring optical absorbance A = εcl and percentage transmittance (%T) at a selected wavelength λ_max to determine concentration of coloured ions, proteins, or chlorophyll.',
+    description:
+      'An optical instrument combining a tungsten/deuterium lamp, diffraction-grating monochromator, 1.00 cm path-length square cuvette holder, and silicon photodiode detector.',
+    specs: {
+      resolution: '0.001 Absorbance units (AU) · 1 nm wavelength resolution',
+      range: 'λ = 320 – 1000 nm (Vis) or 190 – 1100 nm (UV-Vis) · A = 0.000 – 3.000',
+      zeroError: 'Always zero (100% T / 0.000 A) with a matched solvent BLANK cuvette at every new wavelength',
+      material: '1.00 cm path-length quartz (UV) or optical polystyrene/glass (Vis) cuvettes',
+    },
+    parts: [
+      { part: 'Diffraction grating monochromator', role: 'Isolates a narrow monochromatic band at the sample’s absorption peak λ_max.' },
+      { part: '1.00 cm cuvette cell compartment', role: 'Aligns the clear optical faces of the cuvette perpendicular to the light beam.' },
+    ],
+    handling: [
+      'Hold the cuvette ONLY by its two frosted/ribbed sides — never touch the two clear optical windows.',
+      'Fill the blank cuvette ~¾ full with pure solvent, wipe the clear faces with lens tissue, align the arrow with the light path, close the lid, and press ZERO (0.000 A).',
+      'Replace with the sample cuvette and record absorbance A within the linear Beer–Lambert range (A = 0.10 – 1.20).',
+    ],
+    mistakes: [
+      'Forgetting to re-blank the spectrophotometer after changing the wavelength λ.',
+      'Orienting the frosted sides of the cuvette into the light beam instead of the clear windows.',
+    ],
+    spotInLab: 'Benchtop instrument with a flip-open dark sample well that accepts 1 cm square clear plastic or quartz tubes.',
+  },
+
+  // 94. Fume hood
+  {
+    id: 'fume-hood',
+    number: 94,
+    name: 'Chemical fume hood (ducted extraction cupboard)',
+    subtitle: 'Chemistry · Toxic & Corrosive Gas Safety',
+    subject: 'Chemistry',
+    category: 'Safety & PPE',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/chemistry/qualitative-analysis',
+    primaryUses: 'Safely exhausting toxic, lachrymatory, or flammable gases and vapours (Cl₂, NO₂, SO₂, H₂S, NH₃, concentrated HCl/HNO₃, bromine, volatile organics) away from the breathing zone.',
+    description:
+      'A ventilated fire-resistant enclosure with a counterbalanced toughened glass sash, rear baffle slots that draw both heavy and light vapours, and an overhead centrifugal exhaust fan.',
+    specs: {
+      resolution: '0.40 – 0.50 m/s (80 – 100 fpm) face velocity',
+      range: 'Working sash opening height marked at 30 – 45 cm safe arrow',
+      zeroError: 'Confirm airflow tell-tale ribbon or digital velocity monitor is green before starting reaction',
+      material: 'Phenolic resin / ceramic work deck + laminated safety glass sash',
+    },
+    parts: [
+      { part: 'Counterbalanced vertical glass sash', role: 'Acts as a physical blast shield while maintaining high intake air velocity.' },
+      { part: 'Upper & lower rear exhaust baffles', role: 'Lower slot extracts heavy vapours (Br₂, SO₂); upper slot extracts light gases (NH₃, H₂).' },
+    ],
+    handling: [
+      'Switch on the extraction fan, lower the glass sash to the marked safe operating arrow (≈ 40 cm), and set apparatus at least 15 cm inside the front lip.',
+      'Never put your head inside the fume cupboard plane during a reaction; keep the sash between your face and the reaction vessel.',
+    ],
+    mistakes: [
+      'Raising the glass sash all the way to the top while evolving toxic NO₂ or H₂S gas, dropping face velocity and letting fumes eddy out into the room.',
+    ],
+    spotInLab: 'Large glass-fronted alcove chamber along the lab wall with a sliding glass window and roaring exhaust duct.',
+  },
+
+  // 95. Oscilloscope
+  {
+    id: 'oscilloscope',
+    number: 95,
+    name: 'Digital storage oscilloscope (DSO / CRO)',
+    subtitle: 'Electronics · Physics · Waveform & AC Analysis',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Visualizing voltage vs time V(t) waveforms, measuring peak-to-peak voltage V_pp, period T, frequency f = 1/T, phase shift φ (Lissajous figures), and diode rectification.',
+    description:
+      'A dual-channel high-impedance (1 MΩ || 20 pF) waveform display instrument with calibrated vertical VOLTS/DIV attenuators, horizontal TIME/DIV timebase, and edge trigger circuit.',
+    specs: {
+      resolution: '8-bit / 12-bit vertical · 10×8 graticule divisions',
+      range: '2 mV/div – 10 V/div · 5 ns/div – 50 s/div (50–100 MHz bandwidth)',
+      zeroError: 'Check probe attenuation setting (1× vs 10×) matches channel menu so V_pp is not off by 10×',
+      material: 'BNC coaxial inputs + 1×/10× compensated passive probes',
+    },
+    parts: [
+      { part: 'VOLTS/DIV vertical scale knob', role: 'Sets the voltage represented by each vertical centimetre square on the graticule.' },
+      { part: 'TIME/DIV horizontal timebase knob', role: 'Sets the time interval represented by each horizontal centimetre square.' },
+      { part: 'Trigger level & AC/DC/GND coupling', role: 'Locks a repeating waveform stationary on the screen and selects DC offset or AC-only ripple.' },
+    ],
+    handling: [
+      'Confirm the probe switch (1× or 10×) matches the oscilloscope channel attenuation setting.',
+      'Count the vertical divisions from trough to crest and multiply by VOLTS/DIV to find V_pp (then V_rms = V_peak / √2 for a sine wave).',
+      'Count the horizontal divisions for one full cycle and multiply by TIME/DIV to find period T, then f = 1/T.',
+    ],
+    mistakes: [
+      'Forgetting that the reference ground clip of a standard BNC oscilloscope probe is tied to mains EARTH — clipping it to a non-ground circuit node creates a short circuit.',
+      'Using a 10× probe while the scope is set to 1×, making all voltage readings 10 times too small.',
+    ],
+    spotInLab: 'Bench instrument with a glowing grid screen displaying sine/square waves, rows of rotary knobs, and round silver BNC jacks.',
+  },
+
+  // 96. Function generator
+  {
+    id: 'function-generator',
+    number: 96,
+    name: 'DDS function / arbitrary waveform generator',
+    subtitle: 'Electronics · Physics · AC Circuits & Resonance',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Supplying precision sine, square, triangle, and pulse signals of variable frequency f and amplitude V_pp to test RC/RLC filters, amplifiers, and acoustic transducers.',
+    description:
+      'A Direct Digital Synthesis (DDS) signal source with a 50 Ω BNC output impedance, variable amplitude, DC offset control, and frequency readout from millihertz to megahertz.',
+    specs: {
+      resolution: '0.01 Hz frequency resolution · 1 mV_pp amplitude',
+      range: '0.1 Hz – 25 MHz · 10 mV_pp – 20 V_pp (into High-Z)',
+      zeroError: 'Set output termination menu to High-Z (or 50 Ω) to match your load impedance',
+      material: 'DDS quartz synthesizer + 50 Ω BNC output stage',
+    },
+    parts: [
+      { part: 'Waveform selector (Sine / Square / Triangle)', role: 'Switches harmonic content for frequency-response or step-response testing.' },
+      { part: '50 Ω BNC output & TTL Sync jack', role: 'Delivers the analog waveform and a clean 5 V logic trigger pulse for the oscilloscope.' },
+    ],
+    handling: [
+      'Set the frequency, waveform type, and peak-to-peak amplitude BEFORE enabling the Output ON button.',
+      'Remember that the generator has a 50 Ω internal source resistance: into a high-impedance oscilloscope input the voltage is double what it displays when set to 50 Ω termination.',
+    ],
+    mistakes: [
+      'Trying to drive an 8 Ω loudspeaker directly from the 50 Ω signal output without a power amplifier.',
+    ],
+    spotInLab: 'Benchtop box with Sine/Square/Triangle wave icons, a rotary frequency encoder wheel, and 50 Ω BNC output connectors.',
+  },
+
+  // 97. Bench power supply
+  {
+    id: 'bench-power-supply',
+    number: 97,
+    name: 'Regulated DC bench power supply (CV / CC)',
+    subtitle: 'Electronics · Physics · Ohm’s Law & Circuit Testing',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Providing clean, ripple-free adjustable DC voltage (0–30 V) with an adjustable Constant-Current (CC) safety limit to prevent burning out breadboard circuits.',
+    description:
+      'A linear or low-noise switching DC supply featuring dual digital V and A meters, coarse/fine voltage and current-limit knobs, and isolated red (+), black (–), and green (Earth) 4 mm binding posts.',
+    specs: {
+      resolution: '0.01 V · 0.001 A (1 mA)',
+      range: '0.00 – 30.00 V DC · 0.000 – 5.000 A',
+      zeroError: 'Set current limit (CC) to a safe value (e.g., 100–250 mA) BEFORE connecting a new circuit',
+      material: 'Linear transformer regulator + 4 mm insulated binding posts',
+    },
+    parts: [
+      { part: 'Voltage (CV) & Current Limit (CC) dials', role: 'CV sets target output voltage; CC caps the maximum current if a short circuit occurs.' },
+      { part: 'Red (+), Black (–) & Green (GND) posts', role: 'Floating DC output terminals; green links to chassis earth only if strapped.' },
+    ],
+    handling: [
+      'With Output OFF, set the voltage to the required value (e.g., 5.00 V) and dial the current limit down to a safe ceiling for your components.',
+      'Wire the circuit red-to-positive and black-to-negative, then press Output ON and watch that the CC (Constant Current) warning LED does not light up.',
+    ],
+    mistakes: [
+      'Cranking the current limit all the way to 5 A before powering an untested breadboard, vaporizing an LED or IC if wired backwards.',
+    ],
+    spotInLab: 'Boxy bench unit with bright red Voltage and green Current 4-digit LED readouts and red/black/green screw terminals.',
+  },
+
+  // 98. Soldering iron
+  {
+    id: 'soldering-iron',
+    number: 98,
+    name: 'Temperature-controlled soldering iron',
+    subtitle: 'Electronics · PCB Assembly',
+    subject: 'Electronics',
+    category: 'Heating & Thermal',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Heating copper PCB pads and component leads to melt rosin-core solder alloy (183°C–220°C) into permanent, low-resistance metallurgical joints.',
+    description:
+      'A ceramic-element heated handpiece fitted with an iron-plated copper chisel or conical tip and an insulated silicone grip.',
+    specs: {
+      resolution: '±2°C tip thermocouple feedback',
+      range: '200°C – 450°C (320°C leaded 60/40 · 350–370°C lead-free SAC305)',
+      zeroError: 'Keep the iron-plated tip continuously tinned with a thin bright film of solder to prevent black oxidation',
+      material: 'Ceramic heater core + iron-clad copper tip + ESD-safe silicone handle',
+    },
+    parts: [
+      { part: 'Iron-plated copper chisel tip', role: 'Transfers thermal energy rapidly into both the PCB pad and component lead simultaneously.' },
+      { part: 'Heat-resistant silicone pencil grip', role: 'Allows precise finger control 4 cm behind the hot stainless barrel.' },
+    ],
+    handling: [
+      'Wipe the hot tip across damp brass wool or a damp cellulose sponge, touch a drop of fresh solder to wet the tip face, and press the tip against BOTH the copper pad and component lead for 1.5–2 seconds.',
+      'Feed rosin-core solder wire onto the heated junction (not directly onto the iron tip), remove the solder wire, then remove the iron and let the joint cool undisturbed.',
+      'Tin the tip with a protective coat of solder before returning the iron to its stand or switching off.',
+    ],
+    mistakes: [
+      'Melting a blob of solder onto the iron tip and carrying it over to a cold pad ("cold joint" with oxidized flux burnt away).',
+      'Filing or sanding a soldering iron tip, which strips away the protective iron plating and causes the copper core to pit rapidly.',
+    ],
+    spotInLab: 'Slender wand with a heat-proof cord, stainless metal barrel, and pointed silver tip resting in a coiled metal spring cradle.',
+  },
+
+  // 99. Soldering station
+  {
+    id: 'soldering-station',
+    number: 99,
+    name: 'ESD-safe digital soldering station & brass wool stand',
+    subtitle: 'Electronics · Prototyping & Rework',
+    subject: 'Electronics',
+    category: 'Heating & Thermal',
+    file: '/apparatus/calorimeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Regulating soldering tip temperature precisely while providing a weighted safety cradle, brass tip cleaner, and auto-sleep timer.',
+    description:
+      'A low-voltage isolation transformer base unit with closed-loop PID temperature display, ESD grounding jack, and a heavy cast-metal safety holster with brass shavings and cellulose sponge.',
+    specs: {
+      resolution: '1°C digital PID readout (60 W – 90 W)',
+      range: '150°C – 480°C with < 2 mV tip-to-ground leakage',
+      zeroError: 'Always return the iron to the metal holster immediately after every joint — never lay it on the bench',
+      material: 'ESD-conductive housing + 24 V isolated transformer + brass-curl tip cleaner',
+    },
+    parts: [
+      { part: 'PID temperature base controller', role: 'Supplies isolated 24 V power and recovers tip temperature instantly on heavy ground planes.' },
+      { part: 'Spring safety cradle & brass wool curls', role: 'Catches the hot barrel safely and wipes excess oxides without thermal-shocking the tip.' },
+    ],
+    handling: [
+      'Set 330°C for 60/40 tin-lead solder or 360°C for lead-free solder and use a fume extractor while soldering.',
+      'Clean the tip in the brass wool coils between joints and switch the station off when leaving the bench.',
+    ],
+    mistakes: [
+      'Soaking the cleaning sponge in dripping pool water instead of wringing it merely damp (cold water thermal-shocks the tip).',
+    ],
+    spotInLab: 'Compact digital control box tethered to a pencil iron resting in an angled spring stand with golden brass curls in the base.',
+  },
+
+  // 100. Desoldering pump
+  {
+    id: 'desoldering-pump',
+    number: 100,
+    name: 'Desoldering pump (spring-loaded vacuum solder sucker)',
+    subtitle: 'Electronics · PCB Rework & Repair',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/volumetric-pipette.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Vacuuming molten solder cleanly out of through-hole PCB pads so components can be removed or replaced without lifting copper tracks.',
+    description:
+      'An anodized aluminium cylinder with a cocking plunger, internal recoil spring, side trigger release button, and replaceable heat-resistant PTFE nozzle.',
+    specs: {
+      resolution: 'Instantaneous vacuum pulse (~30 cmHg suction)',
+      range: 'Standard through-hole pads & DIP IC pins',
+      zeroError: 'Keep the white PTFE nozzle flush against the molten pool when pressing the release button',
+      material: 'Anodized aluminium barrel + high-temperature PTFE tip + O-ring piston',
+    },
+    parts: [
+      { part: 'Spring-loaded vacuum plunger', role: 'Pressed down until it latches; snaps upward on trigger release to create a sharp vacuum pulse.' },
+      { part: 'Replaceable PTFE nozzle tip', role: 'Touches molten 350°C solder directly without melting or sticking.' },
+    ],
+    handling: [
+      'Depress the top plunger with your thumb until it clicks and locks.',
+      'Heat the solder joint with the soldering iron until the entire pad is liquid (adding a touch of fresh solder helps heat transfer), place the PTFE nozzle right over the joint, and press the side trigger button.',
+    ],
+    mistakes: [
+      'Heating a delicate copper PCB pad for more than 4–5 seconds while trying to desolder, delaminating and lifting the copper ring off the fibreglass board.',
+    ],
+    spotInLab: 'Cylindrical metallic tube with a spring plunger rod at the top, a side push-button, and a white plastic cone tip.',
+  },
+
+  // 101. Solder wick
+  {
+    id: 'solder-wick',
+    number: 101,
+    name: 'Solder wick (fluxed braided copper desoldering braid)',
+    subtitle: 'Electronics · SMD & Fine-Pitch Rework',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/rheostat.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Drawing excess molten solder off surface-mount IC pins, bridged pads, and flat copper lands by capillary action.',
+    description:
+      'A flat ribbon woven from fine oxygen-free copper strands impregnated with rosin flux and wound onto an anti-static pocket spool (widths 1.5 mm – 3.0 mm).',
+    specs: {
+      resolution: 'Capillary wicking on 0.5 mm – 2.54 mm pitch pads',
+      range: '1.5 mm, 2.0 mm, 2.5 mm, 3.0 mm braid widths',
+      zeroError: 'Snip off the silver solder-saturated tip of the braid before the next use',
+      material: 'Rosin-flux-coated braided OFHC copper ribbon',
+    },
+    parts: [
+      { part: 'Flux-impregnated copper weave', role: 'Wets with molten solder and pulls it upward away from the PCB pad by surface tension.' },
+      { part: 'ESD pocket bobbin spool', role: 'Hold the plastic spool — never hold the bare copper braid with fingers as copper conducts heat rapidly.' },
+    ],
+    handling: [
+      'Lay the fresh copper end of the braid flat over the solder joint and press the hot chisel tip of the soldering iron down on top of the braid.',
+      'As soon as silver solder wicks up into the copper weave (1–2 s), lift BOTH the iron and the braid off the pad together at the same instant.',
+    ],
+    mistakes: [
+      'Removing the soldering iron first and leaving the solder wick on the pad, which freezes the copper braid solidly onto the PCB track.',
+    ],
+    spotInLab: 'Small round plastic spool dispensing a flat, shiny woven copper ribbon.',
+  },
+
+  // 102. Wire stripper
+  {
+    id: 'wire-stripper',
+    number: 102,
+    name: 'Precision AWG wire stripper (18–30 AWG)',
+    subtitle: 'Electronics · Circuit Wiring',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Stripping PVC, silicone, or Teflon insulation cleanly from solid-core (22 AWG breadboard wire) and stranded hook-up wire without nicking the inner copper conductor.',
+    description:
+      'Spring-loaded steel jaws precision-ground with semi-circular gauge notches matching standard wire diameters (18, 20, 22, 24, 26, 28, 30 AWG / 0.25–1.0 mm).',
+    specs: {
+      resolution: 'Calibrated semi-circular die holes per AWG gauge',
+      range: '18 – 30 AWG (0.25 mm – 1.02 mm conductor diameter)',
+      zeroError: 'Always match the wire gauge to the stamped AWG hole so the blade cuts only the plastic jacket',
+      material: 'Hardened high-carbon tool steel jaws + cushioned ESD handles',
+    },
+    parts: [
+      { part: 'Gauge-sized semicircular stripping holes', role: 'Slice the outer insulation cylinder cleanly while leaving the copper core untouched.' },
+      { part: 'Base shear cutter & return spring', role: 'Trims hook-up wire to length and re-opens the jaws automatically.' },
+    ],
+    handling: [
+      'Insert the wire into the notch matching its AWG size (typically 22 AWG for breadboard jumper wire), close the handles firmly to sever the jacket, and pull the insulation slug off axially.',
+      'Strip ~6–8 mm of insulation for solderless breadboards so bare wire reaches the internal spring clip without leaving exposed copper above the deck.',
+    ],
+    mistakes: [
+      'Using a hole one size too small, scoring a ring around the solid copper core so the wire snaps off inside a breadboard socket.',
+    ],
+    spotInLab: 'Plier-like hand tool with a row of numbered circular holes along the cutting jaws.',
+  },
+
+  // 103. Side cutters
+  {
+    id: 'side-cutters',
+    number: 103,
+    name: 'Flush side cutters (diagonal micro-nippers)',
+    subtitle: 'Electronics · PCB Lead Trimming',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Trimming excess through-hole component leads flush above soldered PCB pads and cutting fine copper hook-up wire.',
+    description:
+      'Angled high-carbon steel micro-shears with a flat ground back face that cuts component wires flush without shocking the solder fillet.',
+    specs: {
+      resolution: '21° angled flush-ground bypass blades',
+      range: 'Soft copper wire up to 1.3 mm (16 AWG)',
+      zeroError: 'Never cut hard steel piano wire, screws, or paperclips — they dent the soft-copper flush blades',
+      material: 'Induction-hardened tool steel + return leaf spring + ESD grips',
+    },
+    parts: [
+      { part: 'Flush-ground flat underside jaw', role: 'Rests right above the solder cone to leave a neat, non-sharp lead stub.' },
+      { part: 'Lead-catching clip / finger guard', role: 'Hold the free wire end while cutting so the clipped lead does not fly across the room.' },
+    ],
+    handling: [
+      'Place the flat back face of the jaws facing down toward the solder joint, hold the protruding tip of the wire with your other hand (and wear safety glasses), and squeeze cleanly.',
+      'Trim component leads AFTER soldering (or leave 1 mm above the solder meniscus so you do not crack the solder joint).',
+    ],
+    mistakes: [
+      'Clipping component leads without holding the offcut or wearing eye protection, sending sharp wire darts flying.',
+      'Cutting steel wire or thick bolts, leaving a permanent notch in the precision flush blades.',
+    ],
+    spotInLab: 'Compact spring-loaded diagonal nippers with short pointed jaws flat on one side.',
+  },
+
+  // 104. Needle-nose pliers
+  {
+    id: 'needle-nose-pliers',
+    number: 104,
+    name: 'Long needle-nose pliers (snipe-nose electronics pliers)',
+    subtitle: 'Electronics · Component Forming & Heat Sinking',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Bending resistor and diode leads at clean 90° right angles for breadboard/PCB insertion, holding nuts in tight chassis corners, and clamping sensitive semiconductor leads as a thermal heat-sink during soldering.',
+    description:
+      'Slender, tapered steel jaws (smooth or finely serrated) on a box-joint pivot with spring-loaded ESD-safe handles.',
+    specs: {
+      resolution: '1.5 mm fine tapered tip width',
+      range: '130 mm – 150 mm overall length',
+      zeroError: 'Leave a 2 mm straight section next to the resistor body before bending the lead 90°',
+      material: 'Drop-forged chrome-vanadium steel + ESD dissipative grips',
+    },
+    parts: [
+      { part: 'Slender tapered gripping jaws', role: 'Form neat 90° component lead bends and reach deep between tall capacitors.' },
+      { part: 'Heat-sink clamping mass', role: 'Clamped between the solder joint and a transistor body to conduct excess heat away.' },
+    ],
+    handling: [
+      'Grip the component lead 2 mm away from the glass or ceramic body before bending so the axial seal does not crack.',
+    ],
+    mistakes: [
+      'Bending a glass diode lead right against the glass body seal without supporting the lead with needle-nose jaws, shattering the diode package.',
+    ],
+    spotInLab: 'Small electronics pliers with long, narrow pointed jaws tapering to a 1.5 mm tip.',
+  },
+
+  // 105. Jumper wires
+  {
+    id: 'jumper-wires',
+    number: 105,
+    name: 'Breadboard jumper wires & 4 mm banana patch leads',
+    subtitle: 'Electronics · Physics · Circuit Interconnection',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/breadboard-dmm.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Interconnecting nodes on a solderless breadboard (22 AWG Dupont pin jumpers) and wiring bench meters, power supplies, and rheostats (4 mm stackable banana leads).',
+    description:
+      'Colour-coded flexible silicone or PVC insulated copper leads terminated with moulded 0.64 mm square Dupont pins (for breadboards) or 4 mm sprung lantern banana plugs.',
+    specs: {
+      resolution: '22 AWG (0.64 mm diameter) solid/pinned · 4 mm stackable banana plugs',
+      range: '< 0.05 Ω lead resistance · 30 V / 3 A (Dupont) or 10 A (4 mm banana)',
+      zeroError: 'Check continuity with a DMM buzzer if a circuit appears inexplicably open',
+      material: 'Tinned OFHC copper conductors + colour-coded PVC/silicone insulation',
+    },
+    parts: [
+      { part: '0.64 mm square/round header pins', role: 'Fit the spring contacts of 2.54 mm pitch solderless breadboards snugly without splaying them.' },
+      { part: 'Colour-coded jackets (Red/Black/Yellow/Blue)', role: 'Enforce wiring discipline: Red for +V_CC, Black/Blue for 0 V GND, other colours for signals.' },
+    ],
+    handling: [
+      'Use red jumpers exclusively for positive supply rails, black or blue for 0 V ground, and keep signal jumpers short and flat so the circuit topology is easy to trace.',
+      'Grip the moulded plastic pin housing (never pull by the wire cord) when inserting or removing jumpers.',
+    ],
+    mistakes: [
+      'Forcing thick 18 AWG wire or large component lugs into a breadboard hole, permanently springing the internal phosphor-bronze contact clip.',
+    ],
+    spotInLab: 'Bundle of bright multi-coloured flexible wires ending in black rectangular pin collars or stackable 4 mm plugs.',
+  },
+
+  // 106. Logic analyzer
+  {
+    id: 'logic-analyzer',
+    number: 106,
+    name: 'Multi-channel digital logic analyzer',
+    subtitle: 'Electronics · Digital Systems & Protocol Decoding',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/breadboard-dmm.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Capturing and decoding 8 to 16 simultaneous digital logic channels (TTL / CMOS 0 and 1 states, I²C, SPI, UART, PWM, and counter timing diagrams).',
+    description:
+      'A high-speed multi-channel digital timing acquisition pod with micro-grabber hook probes, programmable logic voltage thresholds (1.8 V, 3.3 V, 5.0 V), and protocol decoders.',
+    specs: {
+      resolution: '4 ns – 10 ns timing resolution (100 – 250 MS/s)',
+      range: '8 or 16 digital channels · 1.2 V to 5.5 V logic threshold',
+      zeroError: 'Always connect the black GND reference clip of the pod to the target circuit 0 V rail',
+      material: 'High-speed FPGA sampler pod + colour-coded micro-hook flying leads',
+    },
+    parts: [
+      { part: 'Colour-coded CH0–CH7 flying micro-hooks', role: 'Clip onto IC pins or header posts to sample logic HIGH/LOW states in parallel.' },
+      { part: 'Threshold comparator & protocol decoder', role: 'Translates raw clock/data transitions into hex bytes (I²C, SPI, UART).' },
+    ],
+    handling: [
+      'Connect the black GND lead to the circuit ground FIRST, then clip CH0, CH1, etc. onto the clock and data lines.',
+      'Select the logic threshold matching your system (e.g., 1.65 V threshold for 3.3 V CMOS logic) and trigger on a falling start-bit or clock edge.',
+    ],
+    mistakes: [
+      'Forgetting to connect the logic analyzer ground lead, resulting in random floating glitch noise across all channels.',
+    ],
+    spotInLab: 'Compact USB or benchtop pod with a rainbow ribbon cable fanning out into 8 or 16 tiny spring-hook clips.',
+  },
+
+  // 107. Spectrum analyzer
+  {
+    id: 'spectrum-analyzer',
+    number: 107,
+    name: 'RF / Audio FFT spectrum analyzer',
+    subtitle: 'Electronics · Frequency-Domain & Harmonic Analysis',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Measuring signal power (in dBm or dBV) versus frequency f, total harmonic distortion (THD), filter stop-band attenuation, and oscillator purity.',
+    description:
+      'A swept-tuned superheterodyne or FFT frequency-domain receiver displaying signal amplitude (vertical axis in dBm) against frequency (horizontal axis in Hz/MHz).',
+    specs: {
+      resolution: '1 Hz – 1 MHz Resolution Bandwidth (RBW) · 0.1 dB amplitude',
+      range: '9 kHz – 1.5 GHz (RF) or 20 Hz – 100 kHz (Audio FFT) · –130 dBm to +20 dBm',
+      zeroError: 'Never apply DC voltage or > +20 dBm (100 mW) into the 50 Ω RF input without an external attenuator',
+      material: '50 Ω precision N-type / BNC RF front end + swept mixer/FFT processor',
+    },
+    parts: [
+      { part: 'Center Frequency, Span & RBW controls', role: 'Zoom the horizontal frequency window and set the filter resolution bandwidth.' },
+      { part: '50 Ω RF input & Peak Marker key', role: 'Measures the exact frequency and dBm power of fundamental and harmonic peaks.' },
+    ],
+    handling: [
+      'Verify the maximum power and DC voltage of your signal source with an oscilloscope before connecting to the sensitive 50 Ω spectrum analyzer input (use a DC block and 20 dB inline pad if unsure).',
+    ],
+    mistakes: [
+      'Connecting a high-voltage DC bias or high-power transmitter directly to the 50 Ω RF input mixer, destroying the input attenuator diodes.',
+    ],
+    spotInLab: 'Screen instrument similar to an oscilloscope but showing sharp vertical spikes (frequency peaks) rising from a grassy noise floor.',
+  },
+
+  // 108. LCR meter
+  {
+    id: 'lcr-meter',
+    number: 108,
+    name: 'Digital LCR impedance bridge (Inductance · Capacitance · Resistance)',
+    subtitle: 'Electronics · Physics · Passive Components',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/breadboard-dmm.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Measuring inductance L (in µH/mH/H), capacitance C (in pF/nF/µF), resistance R, quality factor Q, and dissipation factor D (ESR) at selectable AC test frequencies.',
+    description:
+      'A 4-wire Kelvin bridge instrument that excites an unknown passive component at 100 Hz, 1 kHz, 10 kHz, or 100 kHz and resolves both the reactive and resistive impedance components.',
+    specs: {
+      resolution: '0.1 pF · 0.1 µH · 0.001 Ω (0.2% basic accuracy)',
+      range: 'Test frequencies 100 Hz, 120 Hz, 1 kHz, 10 kHz, 100 kHz',
+      zeroError: 'Perform OPEN and SHORT fixture zero-compensation before measuring small pF or µH parts',
+      material: '4-terminal Kelvin guard sockets + SMD tweezer / Kelvin clip leads',
+    },
+    parts: [
+      { part: '4-terminal Kelvin test slots (H_cur, H_pot, L_pot, L_cur)', role: 'Eliminate lead resistance and stray lead inductance from the measurement.' },
+      { part: 'Test frequency & Series/Parallel mode selector', role: 'Selects 120 Hz for large electrolytic caps or 10–100 kHz for small RF inductors.' },
+    ],
+    handling: [
+      'ALWAYS discharge any capacitor completely across a bleed resistor before inserting its leads into the LCR meter test slots.',
+      'Run the Open/Short calibration when changing test leads or measuring capacitances below 100 pF.',
+    ],
+    mistakes: [
+      'Inserting a charged high-voltage electrolytic capacitor into the LCR bridge, blowing the precision analog front-end.',
+    ],
+    spotInLab: 'Handheld or bench meter with direct axial component insertion slots labeled + and – and a display reading L, C, R, and Q/D.',
+  },
+
+  // 109. Electronic load
+  {
+    id: 'electronic-load',
+    number: 109,
+    name: 'Programmable DC electronic load',
+    subtitle: 'Electronics · Power Supply & Battery Testing',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/rheostat.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Sinking controlled current or power from batteries, solar cells, and DC power supplies to plot V–I regulation curves, internal resistance r, and mAh discharge capacity.',
+    description:
+      'A MOSFET-bank active current sink with fan-cooled heatsink that operates in Constant Current (CC), Constant Voltage (CV), Constant Resistance (CR), or Constant Power (CP) mode.',
+    specs: {
+      resolution: '1 mV · 1 mA · 0.01 W',
+      range: '0 – 150 V DC · 0 – 30 A · up to 150 W / 300 W',
+      zeroError: 'Use 4-wire remote sense terminals when testing low-voltage cells at high current',
+      material: 'Linear power MOSFET array + high-airflow copper-fin heatsink',
+    },
+    parts: [
+      { part: 'CC / CV / CR / CP mode keys & rotary encoder', role: 'Program the exact current I or equivalent load resistance R_L drawn from the source.' },
+      { part: 'High-current binding posts & V-sense terminals', role: 'Carry load current while remote sense reads true terminal voltage at the cell.' },
+    ],
+    handling: [
+      'Verify polarity (+ to red, – to black) with the load Input OFF before connecting a battery or solar module — reverse polarity will trip the internal crowbar fuse.',
+      'Set the cutoff discharge voltage V_min when running an automated battery capacity (Wh / mAh) test.',
+    ],
+    mistakes: [
+      'Connecting a battery in reverse polarity across the electronic load input posts.',
+    ],
+    spotInLab: 'Deep benchtop unit with heavy front screw terminals, V/A/W simultaneous display, and a rear cooling fan tunnel.',
+  },
+
+  // 110. Frequency counter
+  {
+    id: 'frequency-counter',
+    number: 110,
+    name: 'Reciprocal digital frequency & period counter',
+    subtitle: 'Electronics · Physics · Oscillators & Timing',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Measuring carrier frequency f, period T, pulse width, duty cycle, and total event counts with 8- to 10-digit crystal-stabilized precision.',
+    description:
+      'A high-stability TCXO/OCXO gated counter-timer with selectable gate time (0.1 s, 1 s, 10 s), 50 Ω / 1 MΩ input coupling, trigger level control, and a low-pass noise filter.',
+    specs: {
+      resolution: '8 to 10 digits per second of gate time (0.001 Hz at low frequencies)',
+      range: '0.1 Hz – 100 MHz (Ch A 1 MΩ) · 100 MHz – 2.4 GHz (Ch B 50 Ω)',
+      zeroError: 'Enable the 100 kHz Low-Pass Filter and 20× attenuator when counting noisy low-frequency audio/mains signals',
+      material: 'Oven/temperature-compensated quartz timebase + BNC comparator input',
+    },
+    parts: [
+      { part: 'Gate time selector & 8-digit display', role: 'Trades off measurement update speed against extra decimal digits of frequency resolution.' },
+      { part: 'Trigger slope, coupling & attenuator switches', role: 'Prevents false double-counting on noisy or ringing waveform edges.' },
+    ],
+    handling: [
+      'Allow the crystal reference oscillator to warm up for 5–10 minutes for high-precision drift measurements.',
+      'If a low-frequency sine wave reads erratically high, switch in the 100 kHz Low-Pass Filter so high-frequency noise on the zero-crossing does not double-trigger the comparator.',
+    ],
+    mistakes: [
+      'Counting a noisy audio wave without the low-pass filter enabled, getting a wildly fluctuating megahertz noise count.',
+    ],
+    spotInLab: 'Long narrow bench unit dominated by a wide 8- or 10-digit green/amber numeric display and two BNC input jacks.',
+  },
+
+  // 111. Signal generator
+  {
+    id: 'signal-generator',
+    number: 111,
+    name: 'RF / Audio calibrated signal generator',
+    subtitle: 'Electronics · Physics · Communications & Acoustics',
+    subject: 'Electronics',
+    category: 'Electrical & Circuit',
+    file: '/apparatus/voltmeter.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Driving loudspeakers, vibration generators (Melde’s string / Chladni plates), and tuned radio/amplifier stages with a calibrated sine wave and AM/FM modulation.',
+    description:
+      'A low-distortion sine/square oscillator featuring both a high-power 8 Ω output (for acoustic transducers and vibration generators) and a calibrated 50 Ω / 600 Ω attenuated output.',
+    specs: {
+      resolution: '0.1 Hz (audio) · 0.1 dB calibrated step attenuator',
+      range: '10 Hz – 1 MHz (Audio/Lab) or 100 kHz – 1 GHz (RF)',
+      zeroError: 'Start with the amplitude dial at minimum before switching on an attached loudspeaker or vibration generator',
+      material: 'Precision Wien-bridge / PLL synthesizer + step attenuator + 8 Ω power stage',
+    },
+    parts: [
+      { part: 'Range multiplier & fine frequency dial', role: 'Sweeps smoothly through mechanical or electrical resonance peaks.' },
+      { part: '600 Ω line output & 8 Ω power output', role: '600 Ω feeds oscilloscope/amplifier inputs; 8 Ω drives speakers and vibration generators directly.' },
+    ],
+    handling: [
+      'Connect low-impedance loads (loudspeakers, sonometer drivers) to the 8 Ω power terminals and high-impedance circuits to the 600 Ω / 50 Ω BNC output.',
+    ],
+    mistakes: [
+      'Overdriving a mechanical vibration generator at high amplitude at very low frequency (< 10 Hz), bottoming out its voice coil.',
+    ],
+    spotInLab: 'Laboratory generator box with a large frequency dial (or digital readout), decade range buttons (×1, ×10, ×100, ×1k), and 4 mm output sockets.',
+  },
+
+  // 112. Crimping tool
+  {
+    id: 'crimping-tool',
+    number: 112,
+    name: 'Ratcheting terminal crimping tool',
+    subtitle: 'Electronics · Engineering · Harness Assembly',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/dissecting-kit.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Cold-forming gas-tight mechanical and electrical crimps on Dupont header pins, JST connectors, bootlace ferrules, and insulated spade/ring lugs.',
+    description:
+      'A compound-leverage steel hand tool with interchangeable precision B-crimp / hexagonal dies and a full-cycle ratchet mechanism that will not release until the full crimp compression is reached.',
+    specs: {
+      resolution: 'Double-barrel die: inner wings grip bare copper, outer wings grip insulation',
+      range: '28–18 AWG (Dupont/JST micro-crimp) or 0.5–6.0 mm² (insulated terminals)',
+      zeroError: 'Perform a gentle tug test on every crimped terminal to verify mechanical retention',
+      material: 'Hardened carbon steel frame + EDM-machined crimping dies + ratchet pawl',
+    },
+    parts: [
+      { part: 'Dual-profile conductor & insulation die cavity', role: 'Folds the front metal tabs into the copper strands and the rear tabs around the PVC jacket for strain relief.' },
+      { part: 'Full-cycle ratchet & emergency release lever', role: 'Guarantees consistent cold-weld pressure on every crimp.' },
+    ],
+    handling: [
+      'Strip the wire to the exact length of the terminal’s inner conductor barrel (typically 2.5–3 mm for Dupont pins).',
+      'Seat the metal terminal in the matching die nest and squeeze the handles slightly until the ratchet holds it, slide the stripped wire in so the insulation rests under the rear wings, and squeeze completely until the ratchet releases.',
+    ],
+    mistakes: [
+      'Stripping the wire too long so the rear strain-relief wings crimp onto bare copper instead of the insulation jacket, causing the wire to snap at the neck.',
+    ],
+    spotInLab: 'Heavy plier tool with ratcheting gear teeth near the pivot and W-shaped or colour-dotted die jaws.',
+  },
+
+  // 113. PCB holder
+  {
+    id: 'pcb-holder',
+    number: 113,
+    name: 'Adjustable PCB holder & helping-hands jig',
+    subtitle: 'Electronics · Soldering & Inspection',
+    subject: 'Electronics',
+    category: 'Support & Handling',
+    file: '/apparatus/retort-stand.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Clamping printed circuit boards securely at any 360° flip angle so both hands are free to hold the soldering iron and solder wire.',
+    description:
+      'A weighted cast-iron base frame carrying spring-loaded V-grooved clamping rails with a 360° indexing rotation lock (or articulated alligator-clip helping-hand arms).',
+    specs: {
+      resolution: '360°回転 with 15° detent locking positions',
+      range: 'Holds PCBs up to 200 × 140 mm (board thicknesses 0.8 – 3.0 mm)',
+      zeroError: 'Seat the board edges inside the ESD-safe V-grooves and lock the side thumbscrews before flipping',
+      material: 'Weighted steel base + ESD-safe polyacetal V-clamps',
+    },
+    parts: [
+      { part: 'Spring-loaded V-groove side rails', role: 'Grip the fibreglass board edges firmly so you can load components on top and flip 180° to solder underneath.' },
+      { part: 'Weighted anti-tip base & rubber feet', role: 'Prevents the board from sliding across the bench when applying the soldering iron.' },
+    ],
+    handling: [
+      'Slide the movable rail open against its spring, seat the PCB edges into the V-grooves away from edge components, and tighten the rotation lock at a comfortable 30°–45° soldering angle.',
+    ],
+    mistakes: [
+      'Soldering a loose circuit board flat on the bench top, scorching the desk and letting the board skate away under the iron tip.',
+    ],
+    spotInLab: 'Blue/black H-shaped metal frame with sliding grooved jaws that flip a circuit board upside down like a rotisserie.',
+  },
+
+  // 114. Magnifying lamp
+  {
+    id: 'magnifying-lamp',
+    number: 114,
+    name: 'Illuminated bench magnifying lamp (3D / 5D dioptre)',
+    subtitle: 'Electronics · Biology · Fine Inspection',
+    subject: 'Electronics',
+    category: 'Microscopy & Specimen',
+    file: '/apparatus/compound-microscope.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Inspecting solder joints for hairline cracks, solder bridges, and cold joints, reading SMD resistor codes, and performing fine biological dissection.',
+    description:
+      'A large 125 mm optical crown-glass biconvex lens (3 dioptres = ×1.75 or 5 dioptres = ×2.25) surrounded by a shadow-free circular daylight LED ring mounted on a pantograph spring arm.',
+    specs: {
+      resolution: '3 Dioptre (×1.75, f = 333 mm) or 5 Dioptre (×2.25, f = 200 mm)',
+      range: '800 mm articulated pantograph reach · 6000 K shadow-free ring LED',
+      zeroError: 'Close the flip-down dust cover whenever the lamp is near a sunlit window so the lens cannot focus sunlight and start a fire',
+      material: 'Optical crown-glass lens + balanced steel pantograph arm',
+    },
+    parts: [
+      { part: '125 mm wide-field dioptre glass lens', role: 'Allows comfortable binocular (two-eyed) depth perception without eye strain.' },
+      { part: 'Annular shadow-free LED ring & flip cover', role: 'Illuminates the PCB from 360° so component leads cast no shadows.' },
+    ],
+    handling: [
+      'Position the lens head about 15–20 cm above the circuit board and look through the centre with both eyes open.',
+      'Always flip the hinged opaque lens cover shut when finished.',
+    ],
+    mistakes: [
+      'Leaving an uncovered magnifying lens near a sunny laboratory window where focused sunlight can char the bench.',
+    ],
+    spotInLab: 'Articulated desk-clamp arm holding a big round magnifying glass ringed by bright white LEDs.',
+  },
+
+  // 115. ESD mat
+  {
+    id: 'esd-mat',
+    number: 115,
+    name: 'Anti-static ESD dissipative bench mat (with ground cord)',
+    subtitle: 'Electronics · Electrostatic Discharge Protection',
+    subject: 'Electronics',
+    category: 'Safety & PPE',
+    file: '/apparatus/breadboard-dmm.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Draining electrostatic charges safely to earth (10⁶–10⁹ Ω) so CMOS integrated circuits, MOSFETs, and microcontrollers are not destroyed by static sparks.',
+    description:
+      'A two-layer heat-resistant nitrile rubber bench mat (static-dissipative top layer over a conductive black bottom layer) fitted with 10 mm press-stud snaps and a 1 MΩ current-limiting earth cord.',
+    specs: {
+      resolution: 'Surface resistance R_s = 10⁶ – 10⁹ Ω (dissipative, not dead-short conductive)',
+      range: 'Withstands soldering iron drops up to 300–400°C without melting',
+      zeroError: 'Verify the ground snap cord is clipped to a verified earth terminal (1 MΩ safety resistor built in)',
+      material: 'Dual-layer static-dissipative rubber + 10 mm grounding studs',
+    },
+    parts: [
+      { part: 'Dissipative top layer (10⁶–10⁹ Ω)', role: 'Bleeds static charge off components slowly without causing high-current spark discharge.' },
+      { part: '10 mm grounding snap & 1 MΩ earth cord', role: 'Bonds the mat and operator wrist strap to earth through a current-limiting 1 MΩ safety resistor.' },
+    ],
+    handling: [
+      'Clip the mat ground cord to the bench earth post (or green GND post of the bench power supply) and snap your ESD wrist strap into the corner stud before opening any anti-static IC bag.',
+      'Do not run powered high-voltage bare circuit boards directly on a conductive mat; place an insulating sheet or standoffs under live high-voltage nodes.',
+    ],
+    mistakes: [
+      'Using an ESD mat without plugging its grounding cord into earth (an ungrounded mat floats at whatever static potential you bring to it).',
+    ],
+    spotInLab: 'Blue or green rubberized work mat covering the electronics bench with metal press-stud snaps in the corners.',
+  },
+
+  // 116. ESD wrist strap
+  {
+    id: 'esd-wrist-strap',
+    number: 116,
+    name: 'ESD grounding wrist strap (with 1 MΩ safety resistor)',
+    subtitle: 'Electronics · CMOS & Microcontroller Handling',
+    subject: 'Electronics',
+    category: 'Safety & PPE',
+    file: '/apparatus/breadboard-dmm.svg',
+    practiseTo: '/lab/electronics/ohms-law',
+    primaryUses: 'Equalizing the operator’s body electrostatic potential with the grounded ESD bench mat before touching static-sensitive MOSFETs, op-amps, or logic chips.',
+    description:
+      'An adjustable elastic wristband woven with silver-plated conductive inner threads, connected via a coiled polyurethane cord and a molded 1 MΩ series safety resistor to an earth banana plug/alligator clip.',
+    specs: {
+      resolution: 'Built-in 1 MΩ ± 10% current-limiting safety resistor (< 0.25 mA at 240 V)',
+      range: 'Drains a 3000 V human-body charge to < 100 V in under 0.1 s',
+      zeroError: 'Wear snugly against bare wrist skin — never over a shirt sleeve',
+      material: 'Silver-nylon conductive weave + 1 MΩ molded resistor coiled cord',
+    },
+    parts: [
+      { part: 'Interior stainless/silver skin contact plate', role: 'Maintains continuous electrical contact with the skin of the wrist.' },
+      { part: 'Molded 1 MΩ series resistor in snap head', role: 'Protects the wearer from electric shock if they accidentally touch a live mains conductor.' },
+    ],
+    handling: [
+      'cinch the elastic strap snugly around your bare wrist and plug the banana jack into the grounded ESD mat or earth socket before removing CMOS ICs from their foam/bags.',
+    ],
+    mistakes: [
+      'Making a homemade ground strap out of plain copper wire without the mandatory 1 MΩ series safety resistor (a direct earth wire on your wrist is a lethal shock hazard).',
+    ],
+    spotInLab: 'Blue elastic wristband with a metal snap button and a curly telephone-style cord ending in a yellow banana plug.',
+  },
+
+  // 117. Universal tensile testing machine
+  {
+    id: 'tensile-testing-machine',
+    number: 117,
+    name: 'Universal tensile testing machine & extensometer',
+    subtitle: 'Engineering · Mechanics of Materials',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Plotting the engineering stress–strain curve (σ = F/A₀ vs ε = ΔL/L₀) of steel, aluminium, and polymer dog-bone specimens to find Young’s modulus E, yield strength σ_y, UTS, and percentage elongation at fracture.',
+    description:
+      'A twin-column ball-screw or hydraulic loading frame with wedge jaws, a calibrated strain-gauge load cell, and a clip-on gauge-length extensometer.',
+    specs: {
+      resolution: '1 N load resolution · 0.001 mm extensometer extension',
+      range: '0 – 50 kN (or 100 kN) tensile/compressive load',
+      zeroError: 'Measure original gauge diameter d₀ at three points with a micrometer before loading',
+      material: 'High-stiffness steel load frame + self-tightening serrated wedge grips',
+    },
+    parts: [
+      { part: 'Moving crosshead & load cell', role: 'Pulls the specimen at constant strain rate while measuring tensile force F.' },
+      { part: 'Clip-on gauge extensometer', role: 'Measures true elastic elongation ΔL directly on the 50 mm gauge section, eliminating grip slippage.' },
+    ],
+    handling: [
+      'Measure the initial diameter d₀ of the specimen gauge length in three places using a micrometer screw gauge and mark the original gauge length L₀ = 5 d₀ with two light punch marks.',
+      'Remove the delicate clip-on extensometer just after the yield point before violent necking and fracture occur.',
+    ],
+    mistakes: [
+      'Using total crosshead displacement instead of an extensometer to calculate Young’s modulus E (machine compliance and grip seating make E artificially low).',
+    ],
+    spotInLab: 'Tall twin-column vertical frame with heavy serrated jaws pulling a waisted metal bar until it necks and snaps with a loud bang.',
+  },
+
+  // 118. Gear train rig
+  {
+    id: 'gear-train-rig',
+    number: 118,
+    name: 'Spur & compound gear train apparatus',
+    subtitle: 'Engineering · Physics · Kinematics & Torque Transmission',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Verifying gear velocity ratio VR = N_driven / N_driver, mechanical advantage MA = Load / Effort, torque amplification, and idler-gear direction reversal.',
+    description:
+      'A slotted steel mounting backboard carrying interchangeable machined brass or Delrin spur gears (20, 40, 60, 80 teeth, module m = 2) on ball-bearing spindles with cord drums and weight hangers.',
+    specs: {
+      resolution: 'Exact tooth-count ratio N_B / N_A · 0.5° angular protractor',
+      range: 'Simple, idler, and compound 2-stage gear ratios from 1:1 to 16:1',
+      zeroError: 'Set spindle centre-to-centre distance to (r₁ + r₂) with slight backlash so teeth do not bind',
+      material: 'Involute-profile brass/acetal spur gears + ball-bearing stub axles',
+    },
+    parts: [
+      { part: 'Interchangeable involute spur gears (20T–80T)', role: 'Mesh together to step rotational speed down and multiply output torque.' },
+      { part: 'Input effort & output load winding drums', role: 'Convert cord tensions into measurable input and output torques τ = F · r.' },
+    ],
+    handling: [
+      'Slide the gear spindles along the mounting slot until the meshing teeth have a tiny perceptible play (backlash) and spin freely without binding.',
+      'Notice that an intermediate idler gear reverses the output rotation direction without changing the overall velocity ratio N_last / N_first.',
+    ],
+    mistakes: [
+      'Clamping meshing gear centres too tightly together, causing high tooth friction and falsely low mechanical efficiency η.',
+    ],
+    spotInLab: 'Vertical metal panel carrying interlocking toothed brass wheels with strings and weight hangers hanging from drums.',
+  },
+
+  // 119. Torsion testing apparatus
+  {
+    id: 'torsion-testing-apparatus',
+    number: 119,
+    name: 'Torsion of rods apparatus (shear modulus G)',
+    subtitle: 'Engineering · Physics · Elasticity & Shear',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Verifying the torsion equation T / J = Gθ / L = τ / r and determining the shear modulus (modulus of rigidity G) of steel, brass, and aluminium shafts.',
+    description:
+      'A rigid horizontal cast-iron bedplate with a fixed tailstock chuck, a ball-bearing torque pulley wheel at the free end, and movable Vernier degree protractors along the test rod.',
+    specs: {
+      resolution: '0.1° twist angle Vernier · 0.01 mm rod diameter (via micrometer)',
+      range: 'Rod lengths L up to 750 mm · diameters d = 3 mm – 6 mm',
+      zeroError: 'Because J = πd⁴/32 contains d⁴, measure rod diameter d with a micrometer at 5 points along the shaft',
+      material: 'Cast-iron lathe-style bed + 3-jaw collet chucks + degree Vernier drums',
+    },
+    parts: [
+      { part: 'Fixed tailstock chuck & ball-bearing torque wheel', role: 'Clamps one end of the rod while applying a pure torsional couple T = W · R_wheel.' },
+      { part: 'Sliding angular Vernier pointers', role: 'Measure twist angle θ in degrees (convert to radians: θ_rad = θ° × π/180) over gauge length L.' },
+    ],
+    handling: [
+      'Measure the test rod diameter d carefully with a micrometer screw gauge (since G ∝ 1/d⁴, a 1% error in d produces a 4% error in G).',
+      'Record twist readings during both loading and unloading to verify the shaft remained inside its elastic limit.',
+    ],
+    mistakes: [
+      'Forgetting to convert the angle of twist θ from degrees to RADIANS before substituting into G = (32 T L) / (π d⁴ θ).',
+    ],
+    spotInLab: 'Long horizontal metal bed clamping a slender metal rod between a fixed chuck and a large grooved pulley wheel with degree scales.',
+  },
+
+  // 120. Spirit level
+  {
+    id: 'spirit-level',
+    number: 120,
+    name: 'Precision machinist’s spirit level & clinometer',
+    subtitle: 'Engineering · Physics · Alignment & Datum Levelling',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/metre-rule.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Levelling beam deflection rigs, dynamics tracks, cathetometers, and analytical balances to a true horizontal datum (0.00°).',
+    description:
+      'A precision-ground cast-iron or anodized box beam housing barrel-shaped glass vials filled with low-viscosity dyed alcohol and a gas bubble between two etched Hairline index rings.',
+    specs: {
+      resolution: '0.02 mm/m (≈ 4 arc-seconds) machinist grade · 0.5 mm/m bench grade',
+      range: 'Horizontal (0°), vertical plumb (90°), and 45° vials',
+      zeroError: 'Check level calibration by reversing it 180° end-for-end on the same surface — the bubble should stay centred',
+      material: 'Precision-ground V-grooved base + internal barrel-ground glass vial',
+    },
+    parts: [
+      { part: 'Barrel-ground alcohol vial & twin index rings', role: 'Bubble rises to the highest point of the slightly curved glass arc; centred between the two lines = horizontal.' },
+      { part: 'V-grooved machined base', role: 'Seats squarely on cylindrical shafts and pipes as well as flat beams.' },
+    ],
+    handling: [
+      'Wipe grit off the beam surface, place the spirit level along the axis, and check it again after rotating 180° end-for-end to rule out vial zero error.',
+    ],
+    mistakes: [
+      'Viewing the bubble from a steep side angle instead of directly from above, misjudging which index hairline the bubble meniscus touches.',
+    ],
+    spotInLab: 'Heavy machined metal bar with a glowing yellow-green liquid window and an air bubble trapped between two black lines.',
+  },
+
+  // 121. Bourdon tube pressure gauge
+  {
+    id: 'bourdon-pressure-gauge',
+    number: 121,
+    name: 'Bourdon tube dial pressure gauge (kPa / bar / psi)',
+    subtitle: 'Engineering · Physics · Fluid & Thermodynamics',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Measuring static fluid and gas gauge pressure above atmospheric pressure in hydraulic lines, autoclaves, Boyle’s law rigs, and pump test beds.',
+    description:
+      'A C-shaped flattened phosphor-bronze or stainless-steel tube closed at one tip that tends to uncurl when internal pressure exceeds ambient pressure, driving a sector gear and pointer.',
+    specs: {
+      resolution: '2 kPa / 0.02 bar minor divisions (Class 1.0 accuracy)',
+      range: '0 – 100 kPa, 0 – 600 kPa (6 bar), or –100 to +300 kPa compound',
+      zeroError: 'Remember a Bourdon gauge reads GAUGE pressure P_g; add atmospheric pressure P_atm for absolute pressure P_abs = P_g + P_atm',
+      material: 'Phosphor-bronze C-tube + brass pinion movement + glycerine damping',
+    },
+    parts: [
+      { part: 'Elliptical C-shaped Bourdon tube (internal)', role: 'Straightens slightly under internal fluid pressure.' },
+      { part: 'Sector gear, hairspring & dial pointer', role: 'Amplifies the millimeter tip travel into a 270° circular dial sweep.' },
+    ],
+    handling: [
+      'Open pressurized supply valves slowly so water hammer does not slam the pointer against the full-scale stop pin.',
+      'When applying the ideal gas law PV = nRT or Boyle’s law P₁V₁ = P₂V₂, convert gauge pressure to absolute pressure by adding P_atm (≈ 101.3 kPa).',
+    ],
+    mistakes: [
+      'Substituting raw Bourdon gauge pressure P_g directly into Boyle’s law instead of absolute pressure P_abs = P_g + P_atm.',
+    ],
+    spotInLab: 'Circular brass-threaded dial gauge mounted on a pipe tee or air cylinder with dual bar and psi scales.',
+  },
+
+  // 122. Flywheel moment of inertia apparatus
+  {
+    id: 'flywheel-apparatus',
+    number: 122,
+    name: 'Flywheel rotational inertia apparatus',
+    subtitle: 'Engineering · Physics · Rotational Dynamics',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/dial-gauge.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Determining the moment of inertia I of a heavy cast-iron flywheel by converting gravitational potential energy mgh of a falling mass into translational ½mv² + rotational ½Iω² + bearing friction.',
+    description:
+      'A heavy machined cast-iron disc wheel mounted on a horizontal ball-bearing axle with a small projecting peg onto which a cord carrying a slotted mass hanger is wound.',
+    specs: {
+      resolution: 'Axle diameter d to 0.01 cm · fall time t to 0.01 s · revolutions n₂ to 0.1 rev',
+      range: 'Wheel mass 5 – 15 kg · diameter 15 – 25 cm',
+      zeroError: 'Loop the cord slip-knot over the axle peg so it detaches automatically the instant the mass hits the floor',
+      material: 'Turned cast-iron flywheel disc + low-friction ball-bearing journals',
+    },
+    parts: [
+      { part: 'Heavy cast-iron flywheel rim', role: 'Stores rotational kinetic energy ½Iω².' },
+      { part: 'Axle winding peg & chalk reference mark', role: 'Releases the cord cleanly at height h = 0 and lets you count coasting revolutions n₂.' },
+    ],
+    handling: [
+      'Adjust the cord length so the loop slips off the axle peg at the exact instant the falling mass touches the floor (after n₁ windings of height h).',
+      'Time the fall duration t for the n₁ windings, and simultaneously count the number of revolutions n₂ the flywheel coasts before coming to rest.',
+    ],
+    mistakes: [
+      'Using a permanent knot on the axle so the falling mass rebounds and gets wound back up the opposite way.',
+    ],
+    spotInLab: 'Heavy grey iron wheel mounted on horizontal wall brackets with a thin cord wrapped around its projecting steel shaft.',
+  },
+
+  // 123. Searle's Young's modulus apparatus
+  {
+    id: 'searles-apparatus',
+    number: 123,
+    name: 'Searle’s two-wire Young’s modulus apparatus',
+    subtitle: 'Engineering · Physics · Elasticity of Wires',
+    subject: 'Engineering',
+    category: 'Measuring & Volumetric',
+    file: '/apparatus/micrometer.svg',
+    practiseTo: '/lab/engineering/beam',
+    primaryUses: 'Measuring the sub-millimetre elastic extension e of a long steel or brass test wire under tensile load M to determine Young’s modulus E = (F · L) / (A · e).',
+    description:
+      'Two parallel rectangular metal frames suspended from an overhead beam by an identical reference wire (compensating for thermal expansion and ceiling sag) and the test wire, bridged by a sensitive spirit level driven by a 0.01 mm vertical micrometer screw.',
+    specs: {
+      resolution: '0.01 mm extension micrometer + spirit-level null detector',
+      range: '0 – 25 mm extension · wire lengths L = 1.5 – 2.5 m',
+      zeroError: 'Hang a 1 kg dead-weight on BOTH wires first to pull out all kinks before taking the zero micrometer reading',
+      material: 'Twin brass/steel comparison frames + 0.01 mm pitch micrometer + spirit level',
+    },
+    parts: [
+      { part: 'Identical reference & test wires', role: 'Cancel out room temperature expansion and ceiling beam deflection automatically.' },
+      { part: 'Bridging spirit level & vertical micrometer', role: 'Restores the spirit bubble to centre after each added load; micrometer difference = extension e.' },
+    ],
+    handling: [
+      'Pre-tension both wires with a 1 kg dead load to straighten any bends, and measure the wire diameter d at 5 points with a micrometer screw gauge (A = πd²/4).',
+      'After adding each 0.5 kg slotted mass, turn the vertical micrometer until the spirit-level bubble returns to its centre mark, and repeat during unloading.',
+    ],
+    mistakes: [
+      'Taking readings on a kinked wire without applying an initial straightening dead-weight.',
+    ],
+    spotInLab: 'Pair of small brass frames hanging side-by-side from two long ceiling wires, linked by a tiny spirit level and vertical micrometer.',
   },
 ];

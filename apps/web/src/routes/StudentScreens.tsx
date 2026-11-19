@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from 'react-router';
 import {
   APPARATUS_CATALOG,
   type EncyclopediaItem,
-  type ApparatusCategory,
 } from './apparatusCatalog';
 
 type StudentNavKey =
@@ -955,46 +954,31 @@ export function ExperimentBriefingScreen() {
   );
 }
 
-// B5 — Comprehensive 53-Item Apparatus Encyclopedia (/apparatus)
-const INITIAL_VISIBLE_COUNT = 8;
-const PAGE_STEP = 10;
+// B5 — Comprehensive 120+ Apparatus Encyclopedia (/apparatus)
+const INITIAL_VISIBLE_COUNT = 6;
+const PAGE_STEP = 6;
 
-const CATEGORIES: ('All categories' | ApparatusCategory)[] = [
-  'All categories',
-  'Measuring & Volumetric',
-  'Glassware & Containers',
-  'Heating & Thermal',
-  'Support & Handling',
-  'Microscopy & Specimen',
-  'Electrical & Circuit',
-  'Safety & PPE',
-];
+type EncyclopediaDetailTab = 'overview' | 'anatomy' | 'handling';
 
 export function ApparatusEncyclopediaScreen() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState('compound-microscope');
   const [filter, setFilter] = useState('All');
-  const [categoryFilter, setCategoryFilter] = useState<'All categories' | ApparatusCategory>(
-    'All categories'
-  );
   const [searchQuery, setSearchQuery] = useState('');
   const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_COUNT);
   const [rotated, setRotated] = useState(false);
   const [zoomed, setZoomed] = useState(false);
-  const [hideLabels, setHideLabels] = useState(false);
+  const [detailTab, setDetailTab] = useState<EncyclopediaDetailTab>('overview');
 
   const isSearching = searchQuery.trim().length > 0;
   const q = searchQuery.trim().toLowerCase();
 
-  // Search and filter across all 53 essential laboratory apparatus items
+  // Search and filter across all 120+ laboratory apparatus items
   const matchedItems = APPARATUS_CATALOG.filter((item) => {
     const matchesSubject =
       filter === 'All' ||
       item.subject === filter ||
       item.subtitle.toLowerCase().includes(filter.toLowerCase());
-
-    const matchesCategory =
-      categoryFilter === 'All categories' || item.category === categoryFilter;
 
     const matchesSearch =
       !isSearching ||
@@ -1009,10 +993,10 @@ export function ApparatusEncyclopediaScreen() {
         (p) => p.part.toLowerCase().includes(q) || p.role.toLowerCase().includes(q)
       );
 
-    return matchesSubject && matchesCategory && matchesSearch;
+    return matchesSubject && matchesSearch;
   });
 
-  // When searching, show all matching items immediately; otherwise show up to visibleLimit with "See more"
+  // When searching, show all matching items immediately; otherwise show 6 spacious cards with "See more (+6)"
   const displayedItems = isSearching
     ? matchedItems
     : matchedItems.slice(0, visibleLimit);
@@ -1045,7 +1029,7 @@ export function ApparatusEncyclopediaScreen() {
                 ← Labs
               </Link>
               <span className="text-[#6B778C]">
-                {APPARATUS_CATALOG.length} essential laboratory apparatus across 5 disciplines
+                {APPARATUS_CATALOG.length} laboratory apparatus across 5 disciplines
               </span>
             </div>
             <button
@@ -1059,20 +1043,20 @@ export function ApparatusEncyclopediaScreen() {
           </div>
         </header>
 
-        <main className="max-w-[1280px] mx-auto px-6 py-7">
-          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-4">
+        <main className="max-w-[1280px] mx-auto px-6 py-8">
+          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5 mb-7 pb-5 border-b border-[#E3E8EF]">
             <div>
               <h1 className="font-display text-3xl font-bold text-[#0E1726] mb-1.5">
                 Apparatus encyclopedia
               </h1>
               <p className="text-sm text-[#475467] max-w-2xl">
-                50+ essential laboratory apparatus and their uses across Physics, Chemistry,
-                Biology, Electronics, and Engineering. Search any instrument by name or function,
-                or expand the catalog below.
+                {APPARATUS_CATALOG.length} laboratory instruments across Biology, Physics,
+                Chemistry, Electronics, and Engineering. Select any card to inspect its
+                specifications, anatomy, and WAEC/NECO handling guidelines.
               </p>
             </div>
 
-            {/* Search Input & Discipline Pills */}
+            {/* Single Clean Bar: Search Input + 6 Discipline Pills */}
             <div className="flex flex-wrap items-center gap-2">
               <div className="relative">
                 <input
@@ -1082,8 +1066,8 @@ export function ApparatusEncyclopediaScreen() {
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
                   }}
-                  placeholder="Search all 53 apparatus (e.g. crucible, mortar, burette, goggles)..."
-                  className="w-72 sm:w-80 px-3.5 py-1.5 rounded-full bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:border-[#2448D8]"
+                  placeholder={`Search all ${APPARATUS_CATALOG.length} apparatus (e.g. micropipette, oscilloscope, burette)...`}
+                  className="w-72 sm:w-80 px-4 py-2 rounded-full bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:border-[#2448D8]"
                 />
               </div>
               {['All', 'Biology', 'Physics', 'Chemistry', 'Electronics', 'Engineering'].map(
@@ -1095,7 +1079,7 @@ export function ApparatusEncyclopediaScreen() {
                       setFilter(subj);
                       setVisibleLimit(INITIAL_VISIBLE_COUNT);
                     }}
-                    className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
+                    className={`px-4 py-2 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                       filter === subj
                         ? 'bg-[#0E1726] text-white'
                         : 'bg-white border border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7]'
@@ -1108,38 +1092,9 @@ export function ApparatusEncyclopediaScreen() {
             </div>
           </div>
 
-          {/* Functional Category Filter Bar */}
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-3 border-b border-[#E3E8EF]">
-            <div className="flex flex-wrap items-center gap-1.5">
-              {CATEGORIES.map((cat) => (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    setCategoryFilter(cat);
-                    setVisibleLimit(INITIAL_VISIBLE_COUNT);
-                  }}
-                  className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
-                    categoryFilter === cat
-                      ? 'bg-[#EAEFFE] text-[#1D4ED8] border border-[#2448D8]/30'
-                      : 'bg-white border border-[#E3E8EF] text-[#475467] hover:text-[#0E1726]'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-
-            <div className="text-xs text-[#6B778C] font-mono">
-              {isSearching
-                ? `Found ${matchedItems.length} matching apparatus for "${searchQuery}"`
-                : `Showing ${displayedItems.length} of ${matchedItems.length} apparatus`}
-            </div>
-          </div>
-
-          {/* 2-Column Layout: Left Cards Grid + See More + Right Verbose Detail View */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left Column: Cards Grid + See More Pagination */}
+          {/* 2-Column Airy Layout: Left 6 Spacious Cards + Right 3-Tab Detail Panel */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-7 items-start">
+            {/* Left Column: 6 Spacious Cards + See More (+6) */}
             <div className="lg:col-span-5 space-y-4">
               {displayedItems.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-[#E3E8EF] p-8 text-center space-y-2">
@@ -1147,15 +1102,14 @@ export function ApparatusEncyclopediaScreen() {
                     No apparatus matched &ldquo;{searchQuery}&rdquo;
                   </div>
                   <p className="text-xs text-[#475467]">
-                    Try searching for beaker, crucible, mortar, galvanometer, pipette, forceps, or
-                    goggles.
+                    Try searching for micropipette, autoclave, oscilloscope, burette, caliper, or
+                    spectrophotometer.
                   </p>
                   <button
                     type="button"
                     onClick={() => {
                       setSearchQuery('');
                       setFilter('All');
-                      setCategoryFilter('All categories');
                     }}
                     className="mt-2 px-4 py-2 rounded-xl bg-[#2448D8] text-white text-xs font-semibold cursor-pointer"
                   >
@@ -1163,7 +1117,7 @@ export function ApparatusEncyclopediaScreen() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 max-h-[760px] overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-4 max-h-[760px] overflow-y-auto pr-1">
                   {displayedItems.map((item) => {
                     const active = item.id === selectedItem.id;
                     return (
@@ -1175,36 +1129,35 @@ export function ApparatusEncyclopediaScreen() {
                           setRotated(false);
                           setZoomed(false);
                         }}
-                        className={`text-left rounded-2xl p-3.5 bg-white transition-all cursor-pointer flex flex-col justify-between ${
+                        className={`text-left rounded-2xl p-5 bg-white transition-all cursor-pointer flex flex-col justify-between ${
                           active
-                            ? 'border-2 border-[#2448D8] shadow-xs'
+                            ? 'border-2 border-[#2448D8] shadow-sm'
                             : 'border border-[#E3E8EF] hover:border-[#93A0B8]'
                         }`}
                       >
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${subjectBadgeClass[item.subject]}`}
-                            >
-                              {item.subject}
-                            </span>
-                            <span className="font-mono text-[10px] text-[#6B778C]">
-                              #{item.number}
-                            </span>
-                          </div>
-                          <div className="h-20 flex items-center justify-center my-1.5">
-                            <img
-                              src={item.file}
-                              alt={item.name}
-                              className="max-h-18 w-auto object-contain"
-                            />
-                          </div>
+                        <div className="flex items-center justify-between mb-3">
+                          <span
+                            className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${subjectBadgeClass[item.subject]}`}
+                          >
+                            {item.subject}
+                          </span>
+                          <span className="font-mono text-[11px] text-[#6B778C]">
+                            #{item.number}
+                          </span>
+                        </div>
+
+                        <div className="h-28 flex items-center justify-center my-2">
+                          <img
+                            src={item.file}
+                            alt={item.name}
+                            className="max-h-24 w-auto object-contain"
+                          />
+                        </div>
+
+                        <div className="mt-3 pt-2 border-t border-[#F1F4F9]">
                           <div className="text-xs font-bold text-[#0E1726] leading-snug">
                             {item.name}
                           </div>
-                        </div>
-                        <div className="text-[11px] text-[#6B778C] mt-1 line-clamp-2">
-                          {item.primaryUses}
                         </div>
                       </button>
                     );
@@ -1212,9 +1165,9 @@ export function ApparatusEncyclopediaScreen() {
                 </div>
               )}
 
-              {/* See More / Show All / Show Less Controls */}
+              {/* Clean See More (+6) Pagination Bar */}
               {!isSearching && matchedItems.length > INITIAL_VISIBLE_COUNT && (
-                <div className="bg-white rounded-2xl border border-[#E3E8EF] p-3.5 flex flex-wrap items-center justify-between gap-2">
+                <div className="bg-white rounded-2xl border border-[#E3E8EF] p-4 flex flex-wrap items-center justify-between gap-3">
                   <div className="text-xs text-[#475467]">
                     Showing <strong className="text-[#0E1726]">{displayedItems.length}</strong> of{' '}
                     <strong className="text-[#0E1726]">{matchedItems.length}</strong> apparatus
@@ -1230,7 +1183,7 @@ export function ApparatusEncyclopediaScreen() {
                               Math.min(matchedItems.length, prev + PAGE_STEP)
                             )
                           }
-                          className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors cursor-pointer"
+                          className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors cursor-pointer"
                         >
                           See more (+{Math.min(PAGE_STEP, remainingCount)})
                         </button>
@@ -1260,21 +1213,21 @@ export function ApparatusEncyclopediaScreen() {
               )}
             </div>
 
-            {/* Right Verbose Detail Panel */}
+            {/* Right Clean 3-Tab Detail Panel */}
             <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden">
               {/* Isometric Drawing Stage */}
-              <div className="bg-[#F9FAFC] border-b border-[#E3E8EF] p-5">
-                <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+              <div className="bg-[#F9FAFC] border-b border-[#E3E8EF] p-6">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-xs font-bold text-[#475467]">
                       #{selectedItem.number} of {APPARATUS_CATALOG.length}
                     </span>
                     <span
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold ${subjectBadgeClass[selectedItem.subject]}`}
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold ${subjectBadgeClass[selectedItem.subject]}`}
                     >
                       {selectedItem.subject}
                     </span>
-                    <span className="px-2.5 py-1 rounded-md bg-white border border-[#E3E8EF] text-xs font-medium text-[#475467]">
+                    <span className="px-2.5 py-1 rounded-full bg-white border border-[#E3E8EF] text-xs font-medium text-[#475467]">
                       {selectedItem.category}
                     </span>
                   </div>
@@ -1283,48 +1236,41 @@ export function ApparatusEncyclopediaScreen() {
                     <button
                       type="button"
                       onClick={() => setZoomed(!zoomed)}
-                      className="px-3 py-1 rounded-lg bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] cursor-pointer"
                     >
                       {zoomed ? 'Reset zoom' : 'Zoom ×1.25'}
                     </button>
                     <button
                       type="button"
                       onClick={() => setRotated(!rotated)}
-                      className="px-3 py-1 rounded-lg bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] cursor-pointer"
                     >
                       Rotate view
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setHideLabels(!hideLabels)}
-                      className="px-3 py-1 rounded-lg bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] cursor-pointer"
-                    >
-                      {hideLabels ? 'Show labels' : 'Hide labels'}
                     </button>
                   </div>
                 </div>
 
-                <div className="h-[270px] flex items-center justify-center overflow-hidden">
+                <div className="h-[250px] flex items-center justify-center overflow-hidden">
                   <img
                     src={selectedItem.file}
                     alt={selectedItem.name}
-                    className={`max-h-[255px] w-auto object-contain transition-transform duration-300 ${
+                    className={`max-h-[235px] w-auto object-contain transition-transform duration-300 ${
                       rotated ? '-scale-x-100' : ''
                     } ${zoomed ? 'scale-125' : ''}`}
                   />
                 </div>
               </div>
 
-              {/* Detail Copy & Technical Specifications */}
-              <div className="p-6 space-y-5">
+              {/* Header + 3 Clean Detail Tabs */}
+              <div className="p-6 space-y-6">
                 <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-display text-2xl font-bold text-[#0E1726] mb-1.5">
+                    <h2 className="font-display text-2xl font-bold text-[#0E1726] mb-1">
                       {selectedItem.name}
                     </h2>
-                    <p className="text-sm text-[#475467] leading-relaxed">
-                      {selectedItem.description}
-                    </p>
+                    <div className="text-xs font-medium text-[#6B778C]">
+                      {selectedItem.subtitle}
+                    </div>
                   </div>
                   <Link
                     to={selectedItem.practiseTo}
@@ -1334,101 +1280,143 @@ export function ApparatusEncyclopediaScreen() {
                   </Link>
                 </div>
 
-                {/* Primary Uses Callout Banner */}
-                <div className="rounded-xl bg-[#EAEFFE]/60 border border-[#2448D8]/20 p-3.5 text-xs text-[#0E1726] leading-relaxed">
-                  <strong className="text-[#1D4ED8] uppercase tracking-wider text-[11px] mr-2">
-                    Primary Laboratory Uses:
-                  </strong>
-                  {selectedItem.primaryUses}
+                {/* 3-Tab Switcher */}
+                <div className="flex items-center gap-2 p-1.5 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF]">
+                  {(
+                    [
+                      { id: 'overview', label: 'Overview & Specs' },
+                      { id: 'anatomy', label: `Anatomy & Parts (${selectedItem.parts.length})` },
+                      { id: 'handling', label: 'Handling & Exam Tips' },
+                    ] as const
+                  ).map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setDetailTab(tab.id)}
+                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                        detailTab === tab.id
+                          ? 'bg-white text-[#0E1726] shadow-xs border border-[#E3E8EF]'
+                          : 'text-[#475467] hover:text-[#0E1726]'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
+                  ))}
                 </div>
 
-                {/* 4-Tile Technical Specification Strip */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2.5">
-                  <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-3">
-                    <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-0.5">
-                      Resolution / Least count
-                    </div>
-                    <div className="font-mono text-xs font-bold text-[#0E1726]">
-                      {selectedItem.specs.resolution}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-3">
-                    <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-0.5">
-                      Range / Capacity
-                    </div>
-                    <div className="font-mono text-xs font-semibold text-[#0E1726]">
-                      {selectedItem.specs.range}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-3">
-                    <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-0.5">
-                      Zero error &amp; check
-                    </div>
-                    <div className="text-xs font-medium text-[#0E1726] leading-snug">
-                      {selectedItem.specs.zeroError}
-                    </div>
-                  </div>
-                  <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-3">
-                    <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-0.5">
-                      Construction
-                    </div>
-                    <div className="text-xs font-medium text-[#0E1726] leading-snug">
-                      {selectedItem.specs.material}
-                    </div>
-                  </div>
-                </div>
+                {/* Tab 1: Overview & Specs */}
+                {detailTab === 'overview' && (
+                  <div className="space-y-5">
+                    <p className="text-sm text-[#475467] leading-relaxed">
+                      {selectedItem.description}
+                    </p>
 
-                {/* Labelled Anatomy & Parts Breakdown */}
-                {!hideLabels && (
-                  <div className="rounded-xl border border-[#E3E8EF] overflow-hidden">
-                    <div className="bg-[#F5F7FA] px-4 py-2.5 border-b border-[#E3E8EF] text-xs font-bold text-[#0E1726]">
-                      Anatomy &amp; functional parts
+                    <div className="rounded-xl bg-[#EAEFFE]/60 border border-[#2448D8]/20 p-4 text-xs text-[#0E1726] leading-relaxed">
+                      <strong className="text-[#1D4ED8] uppercase tracking-wider text-[11px] block mb-1">
+                        Primary Laboratory Uses
+                      </strong>
+                      {selectedItem.primaryUses}
                     </div>
-                    <div className="divide-y divide-[#E3E8EF] text-xs">
-                      {selectedItem.parts.map((p) => (
-                        <div
-                          key={p.part}
-                          className="px-4 py-2.5 grid grid-cols-1 sm:grid-cols-12 gap-2"
-                        >
-                          <span className="sm:col-span-4 font-bold text-[#1D4ED8]">
-                            {p.part}
-                          </span>
-                          <span className="sm:col-span-8 text-[#475467]">{p.role}</span>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-4">
+                        <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-1">
+                          Resolution / Least count
                         </div>
-                      ))}
+                        <div className="font-mono text-xs font-bold text-[#0E1726]">
+                          {selectedItem.specs.resolution}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-4">
+                        <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-1">
+                          Range / Capacity
+                        </div>
+                        <div className="font-mono text-xs font-semibold text-[#0E1726]">
+                          {selectedItem.specs.range}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-4">
+                        <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-1">
+                          Zero error &amp; calibration check
+                        </div>
+                        <div className="text-xs font-medium text-[#0E1726] leading-snug">
+                          {selectedItem.specs.zeroError}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] p-4">
+                        <div className="text-[10px] font-bold uppercase text-[#6B778C] mb-1">
+                          Materials &amp; construction
+                        </div>
+                        <div className="text-xs font-medium text-[#0E1726] leading-snug">
+                          {selectedItem.specs.material}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-[#F9FAFC] border border-[#E3E8EF] p-4 text-xs text-[#475467]">
+                      Spot it in a real lab:{' '}
+                      <strong className="text-[#0E1726]">{selectedItem.spotInLab}</strong>
                     </div>
                   </div>
                 )}
 
-                {/* How to handle it + Mistakes examiners look for */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-[#F5F7FA] rounded-xl p-4">
-                    <h3 className="font-display text-xs font-bold text-[#0E1726] mb-2.5">
-                      How to handle &amp; read it (step by step)
-                    </h3>
-                    <ol className="space-y-2 text-xs text-[#475467] list-decimal list-inside leading-relaxed">
-                      {selectedItem.handling.map((step) => (
-                        <li key={step}>{step}</li>
-                      ))}
-                    </ol>
-                  </div>
+                {/* Tab 2: Anatomy & Parts */}
+                {detailTab === 'anatomy' && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-[#E3E8EF] overflow-hidden">
+                      <div className="bg-[#F5F7FA] px-4 py-3 border-b border-[#E3E8EF] text-xs font-bold text-[#0E1726]">
+                        Functional anatomy &amp; labelled parts
+                      </div>
+                      <div className="divide-y divide-[#E3E8EF] text-xs">
+                        {selectedItem.parts.map((p) => (
+                          <div
+                            key={p.part}
+                            className="px-4 py-3.5 grid grid-cols-1 sm:grid-cols-12 gap-2"
+                          >
+                            <span className="sm:col-span-4 font-bold text-[#1D4ED8]">
+                              {p.part}
+                            </span>
+                            <span className="sm:col-span-8 text-[#475467] leading-relaxed">
+                              {p.role}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
 
-                  <div className="bg-[#FEF5EE] rounded-xl p-4">
-                    <h3 className="font-display text-xs font-bold text-[#9A3412] mb-2.5">
-                      Mistakes examiners look for (marking penalties)
-                    </h3>
-                    <ul className="space-y-2 text-xs text-[#9A3412] list-disc list-inside leading-relaxed">
-                      {selectedItem.mistakes.map((m) => (
-                        <li key={m}>{m}</li>
-                      ))}
-                    </ul>
+                    <div className="rounded-xl bg-[#F9FAFC] border border-[#E3E8EF] p-4 text-xs text-[#475467]">
+                      Spot it in a real lab:{' '}
+                      <strong className="text-[#0E1726]">{selectedItem.spotInLab}</strong>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="text-xs text-[#475467] pt-1">
-                  Spot it in a real lab:{' '}
-                  <strong className="text-[#0E1726]">{selectedItem.spotInLab}</strong>
-                </div>
+                {/* Tab 3: Handling & Exam Tips */}
+                {detailTab === 'handling' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-[#F5F7FA] border border-[#E3E8EF] rounded-xl p-5">
+                      <h3 className="font-display text-xs font-bold text-[#0E1726] mb-3">
+                        How to handle &amp; read it (step by step)
+                      </h3>
+                      <ol className="space-y-2.5 text-xs text-[#475467] list-decimal list-inside leading-relaxed">
+                        {selectedItem.handling.map((step) => (
+                          <li key={step}>{step}</li>
+                        ))}
+                      </ol>
+                    </div>
+
+                    <div className="bg-[#FEF5EE] border border-[#F9D7C4] rounded-xl p-5">
+                      <h3 className="font-display text-xs font-bold text-[#9A3412] mb-3">
+                        Mistakes examiners look for (marking penalties)
+                      </h3>
+                      <ul className="space-y-2.5 text-xs text-[#9A3412] list-disc list-inside leading-relaxed">
+                        {selectedItem.mistakes.map((m) => (
+                          <li key={m}>{m}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

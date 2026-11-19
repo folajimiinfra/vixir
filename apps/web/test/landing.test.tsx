@@ -138,7 +138,7 @@ describe('Lab Workspaces & Core Screens', () => {
     }
   });
 
-  it('shows Encyclopedia in sidebar, paginates with See more, and searches across all 53 essential apparatus', () => {
+  it('shows Encyclopedia in sidebar, paginates 6 spacious cards with See more (+6), switches 3 detail tabs, and searches across all 123 apparatus', () => {
     render(
       <MemoryRouter>
         <ApparatusEncyclopediaScreen />
@@ -148,18 +148,23 @@ describe('Lab Workspaces & Core Screens', () => {
     // Sidebar item is named "Encyclopedia"
     expect(screen.getByRole('link', { name: 'Encyclopedia' })).toBeInTheDocument();
 
-    // Initially shows 8 items and a "See more" button
-    const seeMoreBtn = screen.getByRole('button', { name: /See more/i });
+    // Initially shows 6 spacious cards and a "See more (+6)" button
+    const seeMoreBtn = screen.getByRole('button', { name: /See more \(\+6\)/i });
     expect(seeMoreBtn).toBeInTheDocument();
 
-    // Clicking "See more" expands visible items from 8 to 18
+    // Clicking "See more (+6)" expands visible items from 6 to 12
     fireEvent.click(seeMoreBtn);
-    expect(screen.getByText('Showing 18 of 53 apparatus')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Show less/i })).toBeInTheDocument();
 
-    // Searching for item #37 (Porcelain mortar and pestle) or #30 (Porcelain crucible & lid) finds it immediately
+    // 3 detail tabs: Overview & Specs, Anatomy & Parts, Handling & Exam Tips
+    fireEvent.click(screen.getByRole('button', { name: /Anatomy & Parts/i }));
+    expect(screen.getByText(/Functional anatomy & labelled parts/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Handling & Exam Tips/i }));
+    expect(screen.getByText(/Mistakes examiners look for/i)).toBeInTheDocument();
+
+    // Searching across the 123-item catalog finds newly added apparatus immediately
     const searchInput = screen.getByRole('searchbox', { name: /Search apparatus/i });
-    fireEvent.change(searchInput, { target: { value: 'mortar and pestle' } });
-    expect(screen.getByText(/Porcelain mortar and pestle/i)).toBeInTheDocument();
+    fireEvent.change(searchInput, { target: { value: 'oscilloscope' } });
+    expect(screen.getByText(/Digital storage oscilloscope/i)).toBeInTheDocument();
   });
 });
