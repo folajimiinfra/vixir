@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run web typecheck and unit tests on save",
+      "trigger": "PostFileSave",
+      "filePattern": "apps/web/src/**",
+      "action": {
+        "type": "command",
+        "command": "cd /home/imfolajimi/Desktop/projects/sandbox/vixir && pnpm --filter @vixir/web typecheck"
+      }
+    }
+  ]
+}
