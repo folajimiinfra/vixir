@@ -17,6 +17,7 @@
 - [x] 4. Interactive Lab Workspaces (`D1`–`D7` + Secondary Practicals)
   - [x] 4.1 Implement `D1` Physics Simple Pendulum, `D2` Chemistry Titration, `D3` Biology Digestive System, `D4` Rat Dissection, `D5` Body Systems Explorer, `D6` Electronics Ohm's Law Circuit Workbench, and `D7` 3D Orbit Beam Deflection (_Req 11–17_)
   - [x] 4.2 Add secondary interactive practicals: Glass Block Refraction, Principle of Moments, Qualitative Salt Analysis, and Biochemical Food Tests (_Req 11, 12, 13_)
+  - [x] 4.3 Upgrade `D5` Human Body Systems Explorer (`/lab/biology/body-systems`) into a 6-System Medical-Grade AI Biology Anatomy Lab (Skeletal, Respiratory, Circulatory, Digestive & Hepato-Biliary, Renal & Excretory, Nervous) with clickable horizontal leader-line poster callouts, `Medical Atlas` / `X-Ray` / `Multi-Layer` view modes, `Quiz Mode`, live Lead II `P-QRS-T` ECG monitor, magnified Alveolar $\text{O}_2/\text{CO}_2$ inset, magnified Nephron GFR & ADH hydration inset, and Vix Bio-AI physiological state simulator (_Req 15_)
 
 - [x] 5. Vix Guide & Post-Lab Flow (`E1`–`E2`, `F1`–`F4`)
   - [x] 5.1 Build `E1` Vix Connect, `E2` Spotlight Tour, and In-Lab `VixInLabOverlay` inside `LabLayout` (_Req 18, 19_)

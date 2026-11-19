@@ -154,3 +154,17 @@ The initial implementation of lab workspaces (D1-D7) used light theme colors (`b
 **Actions:**
 - Expanded `apps/web/src/routes/apparatusCatalog.ts` from 53 to **123 laboratory apparatus items** covering every item across Biology (25+), Physics (25+), Chemistry (25+), Electronics (25+), and Engineering (10+).
 - Redesigned `ApparatusEncyclopediaScreen` (`apps/web/src/routes/StudentScreens.tsx`) for an airy, non-cluttered layout: single top filter row (`All`, `Biology`, `Physics`, `Chemistry`, `Electronics`, `Engineering`), **6 spacious cards** initially with **`See more (+6)`**, and **3 detail tabs** (`Overview & Specs`, `Anatomy & Parts`, `Handling & Exam Tips`).
+
+## 2026-11-19 | Kiro | Medical-Grade 6-System AI Biology Anatomy Lab (`D5` `/lab/biology/body-systems`)
+
+**Spec Updated:** `.kiro/specs/frontend-app/tasks.md`
+
+**Actions:**
+- Upgraded `apps/web/src/labs/biology-body-systems/BodySystemsLab.tsx` into a **6-System Medical-Grade AI Biology Anatomy Atlas**:
+  1. **Skeletal System (Osteology Atlas)**: Cranium, orbital sockets, nasal aperture, mandible, clavicle, sternum, 12-pair rib cage, vertebral column (C1–Sacrum), humerus, radius, ulna, pelvic girdle, femur, patella, tibia, and fibula.
+  2. **Respiratory System**: Larynx, C-ring cartilaginous trachea, bronchial tree, 3-lobe right lung & 2-lobe left lung with fissures and cardiac notch, thoracic diaphragm dome, and interactive **Magnified Alveolar Sac & Pulmonary Capillary $\text{O}_2/\text{CO}_2$ gas-exchange inset**.
+  3. **Circulatory System**: 4-chamber heart, aortic arch, carotid/subclavian/renal/iliac/femoral arteries, vena cava/jugular/femoral veins, animated pulsatile flow, and live **Lead II `P-QRS-T` ECG monitor**.
+  4. **Digestive & Hepato-Biliary System**: Oesophagus, J-shaped stomach, bi-lobed liver, gallbladder, pancreas, duodenum/jejunum/ileum, and colon.
+  5. **Renal & Excretory System**: Left/right kidneys, ureters, urinary bladder, and interactive **Magnified Nephron Ultrafiltration & ADH Osmoregulation inset** (`Dehydrated` / `Normal` / `Hydrated`).
+  6. **Nervous System**: Cerebral hemispheres with gyri/sulci, cerebellum, brainstem, spinal cord, and brachial/sciatic nerve plexuses.
+- Added **View Mode Switcher** (`Medical Atlas (Colour)` · `X-Ray / Fluoroscopy` · `Multi-Layer Overlay`), horizontal **Anatomical Poster Leader-Line Callouts** with **`Quiz Mode (Hide Labels)`**, and **Vix Bio-AI Physiological State Simulator** (`Resting`, `Walking`, `Sprint / Exercise`, `High-Altitude Hypoxia`, `Dehydration / High ADH`).

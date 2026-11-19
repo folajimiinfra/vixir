@@ -167,4 +167,37 @@ describe('Lab Workspaces & Core Screens', () => {
     fireEvent.change(searchInput, { target: { value: 'oscilloscope' } });
     expect(screen.getByText(/Digital storage oscilloscope/i)).toBeInTheDocument();
   });
+
+  it('renders D5 6-System Medical Anatomy Atlas with leader lines, X-Ray mode, Alveoli/Nephron insets, and Vix Bio-AI simulator', () => {
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="D5" />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByText(/Human Anatomy & Physiology — 6-System Medical Atlas/i)
+    ).toBeInTheDocument();
+
+    // Switch View Mode to X-Ray / Fluoroscopy and toggle Quiz Mode
+    fireEvent.click(screen.getByRole('button', { name: /X-Ray \/ Fluoroscopy/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Quiz Mode \(Hide Labels\)/i }));
+    expect(screen.getByText(/Quiz Mode: ON/i)).toBeInTheDocument();
+
+    // Switch Physiological State to High-Altitude Hypoxia
+    fireEvent.click(screen.getByRole('button', { name: /High-Altitude Hypoxia/i }));
+    expect(screen.getByText('86%')).toBeInTheDocument();
+
+    // Inspect Alveoli O2, Nephron ADH, and Vix Bio-AI tabs
+    fireEvent.click(screen.getByRole('button', { name: /Alveoli O₂/i }));
+    expect(screen.getByText(/Magnified Alveolus & Pulmonary Capillary/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Nephron' }));
+    expect(screen.getByText(/Nephron Ultrafiltration & ADH Control/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Dehydrated' }));
+    expect(screen.getByText(/1200 mOsm\/L/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Vix Bio-AI/i }));
+    expect(screen.getByText(/SOCRATIC BIOLOGY EXAM Q&A/i)).toBeInTheDocument();
+  });
 });
