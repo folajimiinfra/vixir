@@ -37,3 +37,38 @@ Add an entry every time a Kiro feature saves real time or changes the outcome. K
 | 2026-11-18 | Folajimi | Dev server | Running on localhost:5173 with HMR updates applied | All changes live-reloaded |
 | 2026-11-18 | Folajimi | Pendulum Animation Fix | Bob now swings with transform-origin at pivot point (300, 74) | Bob oscillates to-and-fro while setup stays fixed |
 | 2026-11-18 | Folajimi | SVG Animation | Bob group wrapped in <g> with transform-origin attribute | Pendulum string and bob rotate from pivot, not whole SVG |
+
+
+## 2026-11-18 | Folajimi | Lab Screens D1-D7
+
+**Goal:** Build all lab workspace screens with shared LabLayout shell
+
+**Actions:**
+- Created `LabLayout` component with responsive header, tool rail, apparatus tray, bench area, instrument dock, event log strip, and data panel (Readings/Notebook/Assistant tabs)
+- Implemented 5 complete lab workspaces following requirements specs:
+  - **D1 Physics Pendulum:** Realistic pendulum swing with amplitude decay, manual stopwatch with reaction-time error, oscillation counter, readings table with T² calculation, live preview hint
+  - **D2 Chemistry Titration:** Burette with 4 tap settings (closed/dropwise/slow/fast), pH calculation, phenolphthalein indicator color change, titration table with concordance checking, overshoot warnings
+  - **D3 Biology Digestion:** Animated food journey through 6 digestive stages, peristaltic/churning animations, food-specific enzyme display, magnified villus view, playback controls with speed options
+  - **D6 Electronics Ohm's Law:** Series circuit simulation, wire heating with temperature coefficient, analogue meters with range selection, V-I graph plotting, current flow animation
+  - **D7 Engineering Beam:** Isometric and elevation views, material/span selection, dial gauge with settling animation, deflection measurement (loading/unloading), Young's modulus calculation
+- Each lab includes realistic instrument behavior: resolution rounding, zero error, parallax error (when eye-level off), reaction time delays
+- All apparatus rendered with SVG for scalability and real-world visual transfer
+- Created `Button` component in `@vixir/ui` with variant/size props, WCAG 2.2 AA compliant (44px touch targets, proper contrast)
+- Added `LabWorkspace` router component to load appropriate lab by experimentId parameter
+- Installed `lucide-react` for consistent iconography
+- All labs follow strict TypeScript, functional components, named exports conventions
+
+**Result:**
+- 5 fully interactive lab workspaces operational at `/app/x/{experimentId}/lab`
+- Available experiment IDs: `physics-pendulum`, `chemistry-titration`, `biology-digestion`, `electronics-ohms-law`, `engineering-beam`
+- Dev server running successfully on http://localhost:5173/
+- Lab shell provides consistent UX across all experiments per lab-shell requirements
+- Simulation models ready for seeded RNG integration from `packages/sim-core`
+- All components follow product principles: simulate the practical, imperfect readings are a feature, real-world transfer focus
+
+**Next Steps:**
+- Integrate with backend API for attempt creation and event logging
+- Connect to sim-core package for seeded randomness and instrument models
+- Build setup screens (C1 Pre-lab, C2 Apparatus setup)
+- Build results/analysis screens (F1 Results & graph, F2 Review & submit)
+- Implement Vix guide integration (E1 Call Vix overlay)
