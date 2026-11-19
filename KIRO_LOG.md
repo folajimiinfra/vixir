@@ -168,3 +168,13 @@ The initial implementation of lab workspaces (D1-D7) used light theme colors (`b
   5. **Renal & Excretory System**: Left/right kidneys, ureters, urinary bladder, and interactive **Magnified Nephron Ultrafiltration & ADH Osmoregulation inset** (`Dehydrated` / `Normal` / `Hydrated`).
   6. **Nervous System**: Cerebral hemispheres with gyri/sulci, cerebellum, brainstem, spinal cord, and brachial/sciatic nerve plexuses.
 - Added **View Mode Switcher** (`Medical Atlas (Colour)` · `X-Ray / Fluoroscopy` · `Multi-Layer Overlay`), horizontal **Anatomical Poster Leader-Line Callouts** with **`Quiz Mode (Hide Labels)`**, and **Vix Bio-AI Physiological State Simulator** (`Resting`, `Walking`, `Sprint / Exercise`, `High-Altitude Hypoxia`, `Dehydration / High ADH`).
+
+## 2026-11-19 | Kiro | Vintage Engraved Folio Human Atlas, 8-Plate Morphology Sheet (`D5`) & 18-Organ Rabbit/Mammal Ventral Dissection (`D4`)
+
+**Spec Updated:** `.kiro/specs/frontend-app/tasks.md`
+
+**Actions:**
+- Created `apps/web/src/labs/biology-body-systems/AnatomicalAtlasPlate.tsx` and upgraded `D5` (`/lab/biology/body-systems`) with:
+  - **Vintage Engraved Folio Plate Mode (`Tabula Anatomica Corporis Humani`)**: Warm parchment engraving with split-face/torso écorché striated musculature, 180 cm graduated anthropometry ruler scales, 4 clickable surrounding anatomical vignettes (`Fig. I Encephalon`, `Fig. II Arbor Bronchialis`, `Fig. III Cor & Aorta`, `Fig. IV Renes & Plexus`), and numbered calligraphic leader lines (`Fig. 1`–`Fig. 21`).
+  - **8-Plate Chalkboard Regional Morphology Sheet (`Tabula Morphologica I–VIII`)**: Dark-slate chalk-and-bone regional comparative studies of the cervical spine & sternocleidomastoid, anterior thoracic cage, posterior scapula & rotator cuff, myocardium & coronary tree, elbow hinge & forearm, hepato-biliary tract & gastric rugae, pelvic girdle & hip acetabulum, and synovial knee joint.
+- Upgraded `D4` (`apps/web/src/labs/biology-dissection/DissectionLab.tsx`, `/lab/biology/dissection`) into a high-realism **Mammalian Ventral Dissection Atlas (Rabbit *Oryctolagus cuniculus* & Albino Rat *Rattus norvegicus*)** with tilted head, chisel incisors, vibrissae whiskers, long pinnae, outstretched clawed limbs, retracted skin/muscular body wall flaps, unfurled vascular mesentery fan, sacculated haustrated colon, and all **18 labelled in-situ visceral structures** (`trachea`, `heart`, `lungs`, `liver`, `gall bladder`, `colon`, `rectum`, `bladder`, `diaphragm`, `stomach`, `pancreas`, `spleen`, `small intestine`, `ovary`, `kidney`, `mesentery`, `ureter`, `anus`).

@@ -200,4 +200,29 @@ describe('Lab Workspaces & Core Screens', () => {
     fireEvent.click(screen.getByRole('button', { name: /Vix Bio-AI/i }));
     expect(screen.getByText(/SOCRATIC BIOLOGY EXAM Q&A/i)).toBeInTheDocument();
   });
+
+  it('renders D4 Mammalian (Rabbit & Rat) Ventral Dissection Atlas with all 18 in-situ visceral organs and leader lines', () => {
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="D4" />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByText(/Dissection of a Mammal \(Rabbit — Oryctolagus cuniculus\)/i)
+    ).toBeInTheDocument();
+
+    // Verify key structures from the 18-organ ventral dissection plate
+    fireEvent.click(screen.getByRole('button', { name: 'gall bladder' }));
+    expect(screen.getByText(/Vesica biliaris/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'mesentery' }));
+    expect(screen.getByText(/Mesenterium/i)).toBeInTheDocument();
+
+    // Switch between Rabbit and Albino Rat specimen
+    fireEvent.click(screen.getByRole('button', { name: /Albino Rat/i }));
+    expect(
+      screen.getByText(/Dissection of a Mammal \(Rat — Rattus norvegicus\)/i)
+    ).toBeInTheDocument();
+  });
 });
