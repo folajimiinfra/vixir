@@ -137,4 +137,29 @@ describe('Lab Workspaces & Core Screens', () => {
       unmount();
     }
   });
+
+  it('shows Encyclopedia in sidebar, paginates with See more, and searches across all 53 essential apparatus', () => {
+    render(
+      <MemoryRouter>
+        <ApparatusEncyclopediaScreen />
+      </MemoryRouter>
+    );
+
+    // Sidebar item is named "Encyclopedia"
+    expect(screen.getByRole('link', { name: 'Encyclopedia' })).toBeInTheDocument();
+
+    // Initially shows 8 items and a "See more" button
+    const seeMoreBtn = screen.getByRole('button', { name: /See more/i });
+    expect(seeMoreBtn).toBeInTheDocument();
+
+    // Clicking "See more" expands visible items from 8 to 18
+    fireEvent.click(seeMoreBtn);
+    expect(screen.getByText('Showing 18 of 53 apparatus')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Show less/i })).toBeInTheDocument();
+
+    // Searching for item #37 (Porcelain mortar and pestle) or #30 (Porcelain crucible & lid) finds it immediately
+    const searchInput = screen.getByRole('searchbox', { name: /Search apparatus/i });
+    fireEvent.change(searchInput, { target: { value: 'mortar and pestle' } });
+    expect(screen.getByText(/Porcelain mortar and pestle/i)).toBeInTheDocument();
+  });
 });

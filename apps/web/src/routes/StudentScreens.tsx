@@ -1,5 +1,10 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
+import {
+  APPARATUS_CATALOG,
+  type EncyclopediaItem,
+  type ApparatusCategory,
+} from './apparatusCatalog';
 
 type StudentNavKey =
   | 'dashboard'
@@ -16,7 +21,7 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
     { id: 'dashboard', label: 'Dashboard', to: '/app' },
     { id: 'labs', label: 'Laboratories (5 labs)', to: '/labs' },
     { id: 'experiments', label: 'Experiments', to: '/library' },
-    { id: 'encyclopedia', label: 'Apparatus encyclopedia', to: '/apparatus' },
+    { id: 'encyclopedia', label: 'Encyclopedia', to: '/apparatus' },
     { id: 'notebook', label: 'Lab notebook', to: '/attempt/demo/report' },
     { id: 'assignments', label: 'Assignments', to: '/labs' },
     { id: 'grades', label: 'Grades', to: '/attempt/demo/report' },
@@ -950,760 +955,74 @@ export function ExperimentBriefingScreen() {
   );
 }
 
-// B5 — Verbose Apparatus Encyclopedia (/apparatus)
-export interface EncyclopediaItem {
-  id: string;
-  name: string;
-  subtitle: string;
-  subject: 'Physics' | 'Chemistry' | 'Biology' | 'Electronics' | 'Engineering';
-  file: string;
-  practiseTo: string;
-  description: string;
-  specs: {
-    resolution: string;
-    range: string;
-    zeroError: string;
-    material: string;
-  };
-  parts: { part: string; role: string }[];
-  handling: string[];
-  mistakes: string[];
-  spotInLab: string;
-}
+// B5 — Comprehensive 53-Item Apparatus Encyclopedia (/apparatus)
+const INITIAL_VISIBLE_COUNT = 8;
+const PAGE_STEP = 10;
 
-const APPARATUS_ITEMS: EncyclopediaItem[] = [
-  {
-    id: 'compound-microscope',
-    name: 'Compound light microscope',
-    subtitle: 'Biology',
-    subject: 'Biology',
-    file: '/apparatus/compound-microscope.svg',
-    practiseTo: '/lab/biology/dissection',
-    description:
-      'A dual-lens optical instrument that uses visible light transmitted through a thin specimen slide, magnifying it first through an objective lens (×4, ×10, ×40) and then through an ocular eyepiece (×10) for total magnification of ×40 to ×400.',
-    specs: {
-      resolution: '≈ 0.2 µm optical limit',
-      range: '×40, ×100, ×400 total magnification',
-      zeroError: 'Centre condenser & start on low-power ×4 objective',
-      material: 'Enamelled cast-iron stand + achromatic glass optics',
-    },
-    parts: [
-      { part: 'Eyepiece (ocular lens ×10)', role: 'Further magnifies the real image formed by the objective lens.' },
-      { part: 'Revolving nosepiece & objectives', role: 'Holds scanning (×4), low (×10) and high-power (×40) lenses; clicks into alignment.' },
-      { part: 'Mechanical stage & clips', role: 'Holds the glass microscope slide flat over the condenser aperture.' },
-      { part: 'Iris diaphragm & condenser', role: 'Controls the cone of light and contrast passing through the specimen.' },
-      { part: 'Coarse & fine focus knobs', role: 'Coarse knob moves stage rapidly at ×4; fine knob sharpens focus at ×40 without cracking the slide.' },
-    ],
-    handling: [
-      'Carry with two hands — one gripping the curved C-arm and the other supporting the heavy horseshoe base.',
-      'Rotate the nosepiece until the lowest power objective (×4, red ring) clicks into position.',
-      'Clip the prepared slide onto the stage and watch from the side while lowering the tube with the coarse knob.',
-      'Look through the eyepiece and turn the coarse knob slowly upward until the specimen comes into focus.',
-      'Adjust the iris diaphragm for crisp contrast, then switch to ×10 or ×40 and use the fine focus knob only.',
-    ],
-    mistakes: [
-      'Using the coarse adjustment knob under high power (×40), driving the objective lens through the cover slip.',
-      'Focusing downward while looking into the eyepiece instead of watching from the side.',
-      'Leaving the iris diaphragm wide open on unstained transparent cells, washing out all contrast.',
-      'Drawing biological diagrams with sketchy shading instead of clear continuous lines and magnification labels.',
-    ],
-    spotInLab: 'Heavy horseshoe base with inclined eyepiece tube, triple revolving nosepiece and coarse/fine focus wheels.',
-  },
-  {
-    id: 'dissecting-kit',
-    name: 'Dissecting kit & wax tray',
-    subtitle: 'Biology',
-    subject: 'Biology',
-    file: '/apparatus/dissecting-kit.svg',
-    practiseTo: '/lab/biology/dissection',
-    description:
-      'A complete zoological and botanical dissection set comprising an aluminium tray lined with black paraffin wax, surgical scalpel, blunt and fine forceps, iris scissors, mounted seeker probe, dissecting pins and a ×10 hand lens.',
-    specs: {
-      resolution: '×10 folding hand lens',
-      range: 'Vertebrate, invertebrate & floral specimens',
-      zeroError: 'Pin specimen flat at 45° outward slant so pins do not block view',
-      material: 'Surgical stainless steel + paraffin wax tray',
-    },
-    parts: [
-      { part: 'Wax dissecting tray', role: 'Anchors dissecting pins firmly and holds water/saline to float delicate organs.' },
-      { part: 'Surgical scalpel', role: 'Makes the initial shallow skin incision; never used deep inside the body cavity.' },
-      { part: 'Scissors & blunt forceps', role: 'Lifts the abdominal body wall away from underlying viscera while cutting.' },
-      { part: 'Seeker (blunt bent probe)', role: 'Separates connective tissue and traces blood vessels or ducts without puncturing them.' },
-      { part: 'Dissecting pins', role: 'Inserted at 45° outward angle to hold skin flaps and limbs flat against the wax.' },
-    ],
-    handling: [
-      'Lay the specimen ventral-side up on the wax bed and pin the four limbs at a 45° outward angle.',
-      'Grip the skin at the lower midline with forceps, make a small nick, and cut forward with round-tipped scissors keeping the lower blade lifted.',
-      'Pin back the body wall flaps symmetrically and flood the cavity with water to float organs clearly.',
-      'Use the blunt seeker — never a sharp scalpel point — to trace the oesophagus, bile duct, ureters and blood vessels.',
-    ],
-    mistakes: [
-      'Plunging the scalpel blade deep into the abdomen and puncturing the liver, stomach or caecum.',
-      'Pinning vertically (90°) so the pins pull out of the wax or obstruct your hand lens.',
-      'Cutting blood vessels before identifying the hepatic portal vein, vena cava and dorsal aorta.',
-    ],
-    spotInLab: 'Canvas roll or metal case of stainless-steel instruments alongside a dark wax-filled metal dish.',
-  },
-  {
-    id: 'potometer',
-    name: 'Bubble potometer (transpiration)',
-    subtitle: 'Biology',
-    subject: 'Biology',
-    file: '/apparatus/potometer.svg',
-    practiseTo: '/lab/biology/digestion',
-    description:
-      'An apparatus that measures the rate of water uptake by a leafy plant shoot (an accurate proxy for transpiration rate) by timing the movement of an air bubble along a graduated capillary tube.',
-    specs: {
-      resolution: '1.0 mm capillary scale (≈ 0.01 cm³)',
-      range: '0 – 150 mm bubble travel',
-      zeroError: 'Open reservoir tap to push air bubble back to 0 mm mark',
-      material: 'Borosilicate capillary tubing + rubber bung',
-    },
-    parts: [
-      { part: 'Leafy shoot in rubber bung', role: 'Transpires water from stomata, pulling water column up the xylem.' },
-      { part: 'Reservoir funnel & stopcock tap', role: 'Lets water into the capillary tube to push the air bubble back to zero for repeat runs.' },
-      { part: 'Graduated capillary tube', role: 'Narrow bore magnifies small volume uptake into measurable linear distance (mm/min).' },
-      { part: 'Beaker of water', role: 'Supplies water at the open end; lowered momentarily to draw in a single air bubble.' },
-    ],
-    handling: [
-      'Cut the last 2 cm of the woody plant stem obliquely under water to prevent air locks (embolism) in the xylem vessels.',
-      'Assemble the shoot into the rubber bung under water and seal all joints with petroleum jelly (Vaseline).',
-      'Dry the leaves gently with filter paper — wet leaves suppress stomatal transpiration.',
-      'Introduce one small air bubble by lifting the capillary end out of the beaker for a second, then submerge it again.',
-      'Time how far the trailing edge of the bubble moves in 5 minutes; open the reservoir tap to reset to zero and repeat.',
-    ],
-    mistakes: [
-      'Cutting the plant stem in air instead of under water, trapping air bubbles inside the xylem.',
-      'Failing to seal the rubber bung with petroleum jelly so air leaks in and the bubble stalls.',
-      'Leaving water droplets on the leaves, which blocks stomata and gives an artificially low rate.',
-    ],
-    spotInLab: 'H-shaped glass capillary assembly mounted on a wooden backing board with a leafy twig in the top bung.',
-  },
-  {
-    id: 'petri-slides',
-    name: 'Petri dish, slides & cover slips',
-    subtitle: 'Biology',
-    subject: 'Biology',
-    file: '/apparatus/petri-slides.svg',
-    practiseTo: '/lab/biology/digestion',
-    description:
-      'Shallow cylindrical glass/plastic culture dishes for agar plates or specimen washing, paired with 75×25 mm optical glass slides and 0.17 mm ultra-thin cover slips for wet-mount microscopy.',
-    specs: {
-      resolution: '0.17 mm cover-slip thickness (No. 1.5)',
-      range: '75 × 25 mm slide · 90 mm Petri dish',
-      zeroError: 'Wipe slide free of fingerprints and air bubbles before viewing',
-      material: 'Soda-lime / borosilicate optical glass',
-    },
-    parts: [
-      { part: 'Petri dish & lid', role: 'Holds sterile nutrient agar for microbiology or water for floating plant epidermis sections.' },
-      { part: '75 × 25 mm glass slide', role: 'Flat optical platform supporting the specimen and mounting medium (water/glycerol/stain).' },
-      { part: '22 × 22 mm cover slip', role: 'Flattens the liquid drop into an even layer and protects the objective lens from stain.' },
-      { part: 'Mounted needle', role: 'Lowers the cover slip slowly at a 45° angle so air escapes without trapping silver-ringed bubbles.' },
-    ],
-    handling: [
-      'Place one small drop of water or stain (iodine for starch/onion cells, methylene blue for cheek cells) in the centre of a clean slide.',
-      'Lay a single-cell-thick peel (never a folded chunk) flat in the drop using fine forceps.',
-      'Rest one edge of the cover slip against the drop at 45° and lower it gently with a mounted needle.',
-      'Blot any excess stain around the edges of the cover slip with a strip of filter paper.',
-    ],
-    mistakes: [
-      'Dropping the cover slip flat onto the specimen, trapping dark-ringed circular air bubbles.',
-      'Mounting a thick, folded piece of tissue so cells overlap and light cannot pass through.',
-      'Flooding the top of the cover slip with stain, which corrodes the ×40 objective lens.',
-    ],
-    spotInLab: 'Flat rectangular glass strips in a slotted box next to a small square box of paper-thin glass cover slips.',
-  },
-  {
-    id: 'retort-stand',
-    name: 'Retort stand, boss & clamp',
-    subtitle: 'All labs',
-    subject: 'Physics',
-    file: '/apparatus/retort-stand.svg',
-    practiseTo: '/lab/physics/pendulum',
-    description:
-      'A heavy cast-iron base with a vertical steel rod. The bosshead locks onto the rod at any height and holds a cork-lined three-finger clamp or split cork.',
-    specs: {
-      resolution: 'Adjustable height 5 – 75 cm',
-      range: 'Holds loads up to 2.0 kg over base foot',
-      zeroError: 'Check verticality with a plumb line before measuring height',
-      material: 'Enamelled cast-iron base + chrome-plated steel rod',
-    },
-    parts: [
-      { part: 'Heavy cast-iron base', role: 'Lowers the centre of gravity so suspended pendulums, springs or burettes cannot tip.' },
-      { part: 'Vertical steel rod', role: 'Rigid column along which bossheads slide to adjust apparatus height.' },
-      { part: 'Bosshead (double clamp block)', role: 'Two perpendicular V-grooves with thumbscrews locking the clamp stem to the vertical rod.' },
-      { part: 'Cork-lined clamp jaws', role: 'Grips glassware or a split cork firmly without cracking glass or letting string slip.' },
-    ],
-    handling: [
-      'Place the heavy base flat on the bench with the suspended load positioned directly over the base foot — never facing away from it.',
-      'Slide the bosshead to the required height and tighten the vertical-rod thumbscrew first.',
-      'Grip the split cork or glassware gently in the cork-lined clamp jaws without overtightening.',
-    ],
-    mistakes: [
-      'Clamping the load on the side away from the base foot so the entire stand tips over during oscillation.',
-      'Leaving the split cork loose so the pendulum string slips and changes effective length L.',
-    ],
-    spotInLab: 'Heavy grey or black base with a tall vertical rod and two thumbscrews on the bosshead.',
-  },
-  {
-    id: 'burette',
-    name: 'Burette (50 cm³)',
-    subtitle: 'Chemistry',
-    subject: 'Chemistry',
-    file: '/apparatus/burette.svg',
-    practiseTo: '/lab/chemistry/titration',
-    description:
-      'A long graduated glass tube marked from 0.00 cm³ at the top to 50.00 cm³ near the stopcock tap, in 0.1 cm³ divisions. In WAEC, NECO and university practicals, burette readings must always be recorded to 2 decimal places ending in .00 or .05.',
-    specs: {
-      resolution: '0.05 cm³ (half of 0.1 cm³ smallest division)',
-      range: '0.00 – 50.00 cm³',
-      zeroError: 'Clear air bubble from jet tip before recording initial reading',
-      material: 'Class A / B borosilicate glass + PTFE stopcock',
-    },
-    parts: [
-      { part: '0.0 cm³ top zero mark', role: 'Measures volume delivered downward (you do not have to start exactly at 0.00 cm³).' },
-      { part: '0.1 cm³ graduation lines', role: 'Etched rings around the tube enabling estimation to the nearest 0.05 cm³.' },
-      { part: 'Concave meniscus', role: 'Aqueous solutions curve downward; always read the bottom of the meniscus at eye level.' },
-      { part: 'PTFE stopcock (tap)', role: 'Controls flow rate from fast stream down to single 0.05 cm³ drops near end point.' },
-      { part: 'Jet tip', role: 'Fine nozzle below the tap; must be completely filled with liquid with no trapped air bubble.' },
-    ],
-    handling: [
-      'Rinse with distilled water, then rinse with 5–10 cm³ of the acid/titrant it will hold (never leave water inside).',
-      'Clamp vertically, fill above the 0 mark using a small funnel, then immediately remove the funnel.',
-      'Open the tap briefly over a waste beaker to expel the air bubble from the jet tip.',
-      'Bring your eye level with the bottom of the concave meniscus (hold a white card behind it) and record to 2 d.p. (e.g. 0.40 cm³).',
-    ],
-    mistakes: [
-      'Leaving the funnel in the top of the burette while titrating (drops from the funnel stem alter the volume).',
-      'Starting a titration with an air bubble trapped in the jet tip below the tap.',
-      'Recording burette readings to 1 decimal place (e.g. 24.2 cm³ instead of 24.20 cm³) — loses table accuracy marks.',
-      'Reading the top of the meniscus or reading from above/below (parallax error).',
-    ],
-    spotInLab: 'Clamped vertically on a retort stand with a white porcelain tile beneath.',
-  },
-  {
-    id: 'conical-flask',
-    name: 'Conical flask (250 cm³)',
-    subtitle: 'Chemistry',
-    subject: 'Chemistry',
-    file: '/apparatus/conical-flask.svg',
-    practiseTo: '/lab/chemistry/titration',
-    description:
-      'An Erlenmeyer titration flask with a flat base, sloping conical walls and a narrow cylindrical neck designed so the reaction mixture can be swirled continuously during titration without splashing out.',
-    specs: {
-      resolution: 'Reaction vessel (nominal 250 cm³)',
-      range: 'Holds 25.0 cm³ aliquot + up to 50 cm³ titrant',
-      zeroError: 'Rinse with distilled water only — never with the aliquot solution',
-      material: 'Heat-resistant borosilicate glass',
-    },
-    parts: [
-      { part: 'Narrow cylindrical neck', role: 'Easy to grip between thumb and fingers for wrist-swirling under the burette tip.' },
-      { part: 'Sloping conical walls', role: 'Deflects splashed liquid back down into the bulk solution and accepts wash-bottle rinsing.' },
-      { part: 'Flat transparent base', role: 'Rests on a white porcelain tile so the faintest indicator colour change is visible.' },
-    ],
-    handling: [
-      'Wash thoroughly and rinse with distilled water only (leftover pure water does not change the number of moles pipetted into it).',
-      'Drain 25.0 cm³ of base from the volumetric pipette into the flask and add exactly 2–3 drops of indicator.',
-      'Place on a white porcelain tile and swirl continuously while adding titrant from the burette.',
-      'Near the end point, wash down any drops clinging to the inside walls using a wash bottle of distilled water.',
-    ],
-    mistakes: [
-      'Rinsing the conical flask with the base solution before pipetting (adds extra moles of base and inflates the titre).',
-      'Adding a squirt (10+ drops) of indicator instead of 2–3 drops (indicators are weak acids/bases and shift the end point).',
-    ],
-    spotInLab: 'Resting on a white porcelain tile directly under the burette jet tip.',
-  },
-  {
-    id: 'volumetric-pipette',
-    name: 'Volumetric pipette (25.0 cm³)',
-    subtitle: 'Chemistry',
-    subject: 'Chemistry',
-    file: '/apparatus/volumetric-pipette.svg',
-    practiseTo: '/lab/chemistry/titration',
-    description:
-      'A single-volume transfer pipette with a central cylindrical bulb and one etched ring on the upper stem, calibrated to deliver ("TD" at 20 °C) an exact 25.00 cm³ aliquot with ±0.03 cm³ accuracy.',
-    specs: {
-      resolution: 'Fixed 25.00 cm³ ± 0.03 cm³',
-      range: 'Single calibrated volume (25.0 cm³ or 20.0 cm³)',
-      zeroError: 'Accounted for in calibration — never blow out the last drop in the tip',
-      material: 'Borosilicate glass + rubber safety pipette filler',
-    },
-    parts: [
-      { part: 'Safety pipette filler bulb', role: 'Three-valve rubber bulb (A: expel air, S: suck liquid, E: empty) — replaces mouth pipetting.' },
-      { part: 'Single etched graduation ring', role: 'Marks exact 25.00 cm³ volume when the bottom of the meniscus rests on the ring at eye level.' },
-      { part: 'Central expansion bulb', role: 'Holds most of the 25 cm³ volume while keeping the upper stem narrow for high precision.' },
-      { part: 'Tapered delivery tip', role: 'Calibrated to retain one small drop by surface tension after touching the flask wall.' },
-    ],
-    handling: [
-      'Rinse with distilled water, then rinse with a small portion of the solution to be pipetted.',
-      'Fit the safety pipette filler and draw solution 2–3 cm above the graduation ring, keeping the tip well below the liquid surface.',
-      'Release pressure gently until the bottom of the meniscus rests tangential to the graduation ring at eye level.',
-      'Transfer to the conical flask, allow to drain vertically under gravity, and touch the tip against the inner glass wall for 3 seconds.',
-    ],
-    mistakes: [
-      'Pipetting corrosive or toxic reagents by mouth.',
-      'Blowing out the small drop remaining in the tip after draining (that drop is outside the calibrated 25.00 cm³).',
-      'Letting the pipette tip rise above the liquid surface while sucking, drawing liquid up into the rubber filler.',
-    ],
-    spotInLab: 'Slender glass tube with a single central bulb and one etched ring on the upper stem.',
-  },
-  {
-    id: 'beaker',
-    name: 'Beaker (250 cm³)',
-    subtitle: 'Chemistry · Physics · Biology',
-    subject: 'Chemistry',
-    file: '/apparatus/beaker.svg',
-    practiseTo: '/lab/chemistry/titration',
-    description:
-      'A flat-bottomed cylindrical borosilicate glass vessel with a pouring spout used for holding stock reagents, decanting, heating liquids on a wire gauze and rough volume transfers (±5% accuracy only).',
-    specs: {
-      resolution: '± 12 cm³ (approximate guide markings only)',
-      range: '50 – 250 cm³',
-      zeroError: 'Not a volumetric measuring instrument',
-      material: 'Pyrex / borosilicate glass (low thermal expansion)',
-    },
-    parts: [
-      { part: 'Pouring spout (beak)', role: 'Directs liquid in a clean stream without dribbling down the outer glass wall.' },
-      { part: 'Approximate volume markings', role: 'Indicates rough fill level (±5%); never used for quantitative titration volumes.' },
-      { part: 'Flat heat-resistant base', role: 'Sits evenly on a ceramic-centred wire gauze for heating over a Bunsen burner.' },
-    ],
-    handling: [
-      'Label beakers clearly with a wax pencil (e.g. "Acid A", "Base B", "Waste") before pouring colourless solutions.',
-      'Rinse with a few cm³ of the stock solution before filling so residual water does not dilute the reagent.',
-      'Pour along a glass stirring rod when transferring liquids to avoid splashing.',
-    ],
-    mistakes: [
-      'Measuring 25 cm³ of base for a titration using a beaker instead of a volumetric pipette.',
-      'Confusing unlabelled colourless acid and base beakers on the bench.',
-    ],
-    spotInLab: 'Wide cylindrical glass cup with a pouring lip and white enamel volume markings.',
-  },
-  {
-    id: 'bunsen-burner',
-    name: 'Bunsen burner, tripod & wire gauze',
-    subtitle: 'Chemistry · Biology',
-    subject: 'Chemistry',
-    file: '/apparatus/bunsen-burner.svg',
-    practiseTo: '/lab/chemistry/titration',
-    description:
-      'A laboratory gas burner that mixes flammable gas (LPG/methane) with controlled amounts of air through a rotating collar to produce either a visible yellow safety flame or a hot, non-luminous blue heating flame.',
-    specs: {
-      resolution: 'Air-hole collar: 0% (yellow safety) to 100% (roaring blue)',
-      range: 'Flame temperature 300 °C (luminous) to 1,200 °C (non-luminous)',
-      zeroError: 'Always close air hole completely before lighting',
-      material: 'Brass barrel + cast-iron base + iron tripod + ceramic gauze',
-    },
-    parts: [
-      { part: 'Barrel (chimney)', role: 'Mixes gas and primary air upward before combustion at the top rim.' },
-      { part: 'Rotating air-hole collar', role: 'Adjusts the volume of primary air premixed with gas; closed = yellow flame, open = blue flame.' },
-      { part: 'Hottest zone (tip of inner blue cone)', role: 'Region of complete combustion (~1,200 °C) where test tubes or crucibles are heated.' },
-      { part: 'Wire gauze on tripod stand', role: 'Spreads heat uniformly across the flat base of a beaker or flask to prevent thermal cracking.' },
-    ],
-    handling: [
-      'Check the rubber gas hose for cracks, connect firmly to the bench gas tap, and rotate the collar to close the air hole completely.',
-      'Light the match or striker first, hold it to the side of the barrel rim, and turn on the gas tap to produce a yellow safety flame.',
-      'Open the air-hole collar gradually until a clean, non-luminous two-cone blue flame forms for heating.',
-      'Whenever you pause heating, close the air hole back to the visible yellow safety flame so no one reaches into an invisible blue flame.',
-    ],
-    mistakes: [
-      'Lighting the burner with the air hole open, causing "strike-back" where the flame burns at the bottom gas jet and makes the metal barrel dangerously hot.',
-      'Heating glassware in the yellow luminous flame, coating the glass in black carbon soot.',
-      'Leaving an unattended burner on the invisible blue flame.',
-    ],
-    spotInLab: 'Vertical metal chimney on a round base connected by ribbed rubber tubing to a yellow bench gas tap.',
-  },
-  {
-    id: 'test-tube-rack',
-    name: 'Test-tube rack, test tubes & boiling tube',
-    subtitle: 'Chemistry · Biology',
-    subject: 'Chemistry',
-    file: '/apparatus/test-tube-rack.svg',
-    practiseTo: '/lab/biology/digestion',
-    description:
-      'A wooden or polypropylene rack holding thin-walled test tubes (15×150 mm) for qualitative cation/anion and food tests (Benedict’s, Biuret, iodine) alongside wider boiling tubes (25×150 mm) designed for vigorous heating without bumping.',
-    specs: {
-      resolution: '1 – 2 cm³ sample depth (≈ 2 cm in tube)',
-      range: 'Test tube 15 cm³ · Boiling tube 45 cm³',
-      zeroError: 'Always run a distilled-water blank alongside colour tests',
-      material: 'Borosilicate glass + hardwood rack + spring holder',
-    },
-    parts: [
-      { part: 'Standard test tubes', role: 'Hold small 1–2 cm³ aliquots for dropwise addition of NaOH(aq), NH₃(aq), AgNO₃ or BaCl₂.' },
-      { part: 'Wide-mouth boiling tube', role: 'Wider diameter prevents superheated liquid from ejecting ("bumping") out of the mouth when heated.' },
-      { part: 'Wooden/wire test-tube holder', role: 'Grips the tube 2 cm below the rim during heating over a Bunsen flame.' },
-      { part: 'Drying pegs on rack', role: 'Support washed tubes inverted so rinse water drains completely without contamination.' },
-    ],
-    handling: [
-      'Use only 1–2 cm depth of test solution; overfilling makes mixing impossible and wastes reagent.',
-      'Add precipitating reagents (NaOH or NH₃) dropwise first while shaking gently, then in excess to test whether the precipitate dissolves.',
-      'When heating a boiling tube, grip it near the top with a holder, tilt at 45°, point the mouth away from everyone, and move it in and out of the flame.',
-    ],
-    mistakes: [
-      'Filling a test tube halfway before adding reagent, leaving no room to test solubility "in excess".',
-      'Pointing the mouth of a heated boiling tube toward yourself or a classmate.',
-      'Recording a transparent coloured solution as a "precipitate" (a precipitate is cloudy/opaque).',
-    ],
-    spotInLab: 'Two-tier slotted stand with vertical drying pins holding narrow and wide round-bottomed glass tubes.',
-  },
-  {
-    id: 'metre-rule',
-    name: 'Metre rule (100 cm)',
-    subtitle: 'Physics · Engineering',
-    subject: 'Physics',
-    file: '/apparatus/metre-rule.svg',
-    practiseTo: '/lab/physics/pendulum',
-    description:
-      'A 100.0 cm hardwood or stainless-steel rule graduated in centimetres and millimetres (0.1 cm). Used for pendulum lengths, spring extensions, optical bench distances and as a uniform beam in Principle of Moments experiments.',
-    specs: {
-      resolution: '0.1 cm (1 mm) — always record to 1 d.p. in cm (e.g. 60.0 cm)',
-      range: '0.0 – 100.0 cm',
-      zeroError: 'Avoid worn 0.0 cm end; read between two interior marks (e.g. 10.0 cm and 70.0 cm)',
-      material: 'Seasoned boxwood / hardwood or tempered stainless steel',
-    },
-    parts: [
-      { part: '1 mm (0.1 cm) graduation ticks', role: 'Smallest division on the scale; determines the mandatory 1 d.p. in cm (or 3 d.p. in m) recording rule.' },
-      { part: 'Dual opposing scales', role: 'Allows reading left-to-right or right-to-left; always check which scale you are reading.' },
-      { part: 'Centre of gravity (G ≈ 50.0 cm)', role: 'Balance point on a knife-edge fulcrum before hanging masses in moments practicals.' },
-    ],
-    handling: [
-      'Mount vertically next to the pendulum or spring using a second retort clamp and check verticality with a plumb line.',
-      'Use a set-square or horizontal pointer riding on the scale to transfer the centre of the bob to the rule edge.',
-      'Position your eye perpendicular to the scale at the reading mark to eliminate parallax error.',
-      'If the zero end is chipped or worn, start from the 1.0 cm or 10.0 cm mark and subtract.',
-    ],
-    mistakes: [
-      'Recording metre-rule readings as whole numbers (e.g. 60 cm instead of 60.0 cm) — loses precision marks.',
-      'Measuring pendulum length to the top hook of the bob instead of its centre of mass.',
-      'Assuming a metre rule balances at 50.0 cm without balancing it unloaded on the knife edge first.',
-    ],
-    spotInLab: '100 cm hardwood rule with centimetre and millimetre graduations along both long edges.',
-  },
-  {
-    id: 'micrometer',
-    name: 'Micrometer screw gauge (0.01 mm)',
-    subtitle: 'Physics · Engineering',
-    subject: 'Physics',
-    file: '/apparatus/micrometer.svg',
-    practiseTo: '/lab/electronics/ohms-law',
-    description:
-      'A high-precision screw-thread calliper used to measure the diameter of resistance wires (e.g. SWG 28 nichrome wire), pendulum bobs and thin sheets to 0.01 mm (0.001 cm). One full turn of the 50-division thimble advances the spindle by 0.50 mm.',
-    specs: {
-      resolution: '0.01 mm (0.001 cm)',
-      range: '0.00 – 25.00 mm',
-      zeroError: 'Close anvil & spindle via ratchet; note ±0.01 mm offset from datum line',
-      material: 'Hardened steel anvil/spindle + insulated U-frame',
-    },
-    parts: [
-      { part: 'Anvil & spindle faces', role: 'Precision-ground flat jaws between which the wire or sphere is gripped.' },
-      { part: 'Sleeve (main scale)', role: 'Graduated in whole millimetres above the datum line and 0.5 mm half-millimetres below it.' },
-      { part: 'Thimble (50 circular divisions)', role: 'Each division equals 0.50 mm / 50 = 0.01 mm; added to the sleeve reading.' },
-      { part: 'Ratchet stop', role: 'Clicks at a constant torque (3 clicks) so you never crush the wire or spring the U-frame.' },
-    ],
-    handling: [
-      'Wipe the anvil and spindle faces clean with tissue paper, close them using the ratchet stop until it clicks 3 times, and record the zero error.',
-      'Open the jaws, place the wire between anvil and spindle, and close using the ratchet stop (never force the thimble barrel directly).',
-      'Read the last visible 0.5 mm mark on the sleeve, add (thimble division × 0.01 mm), and subtract the zero error.',
-      'Measure the wire diameter at 3 different positions along its length and in two perpendicular directions to check for non-circularity.',
-    ],
-    mistakes: [
-      'Tightening by the main thimble instead of the ratchet stop, flattening soft copper/nichrome wire and introducing a false zero error.',
-      'Missing the 0.50 mm half-millimetre mark visible on the lower half of the sleeve scale.',
-      'Taking only a single diameter reading instead of averaging 3–4 readings along the wire.',
-    ],
-    spotInLab: 'Horseshoe U-frame with a rotating graduated thimble and small clicking ratchet knob at the end.',
-  },
-  {
-    id: 'vernier-caliper',
-    name: 'Vernier caliper (0.1 mm / 0.02 mm)',
-    subtitle: 'Engineering · Physics',
-    subject: 'Engineering',
-    file: '/apparatus/vernier-caliper.svg',
-    practiseTo: '/lab/engineering/beam',
-    description:
-      'A sliding calliper with outside jaws, inside jaws and a depth blade that combines a main millimetre scale with a sliding vernier scale to measure beam width, pendulum bob diameter and cylinder internal depth to 0.01 cm (0.1 mm) or 0.02 mm.',
-    specs: {
-      resolution: '0.01 cm (0.1 mm) or 0.02 mm (50-division vernier)',
-      range: '0.00 – 15.00 cm (0 – 150 mm)',
-      zeroError: 'Close jaws completely and check whether vernier 0 aligns with main 0',
-      material: 'Satin-chrome stainless steel',
-    },
-    parts: [
-      { part: 'Outside jaws', role: 'Grip the external diameter of a pendulum bob, cylinder or test beam width.' },
-      { part: 'Inside (upper) jaws', role: 'Measure the internal bore diameter of a beaker, calorimeter or pipe.' },
-      { part: 'Depth probe blade', role: 'Protrudes from the tail end as the slider moves to measure hole or vessel depth.' },
-      { part: 'Vernier sliding scale', role: '10 divisions spanning 9 mm (0.1 mm resolution) or 50 divisions spanning 49 mm (0.02 mm resolution).' },
-    ],
-    handling: [
-      'Clean and close the jaws completely; record any positive or negative zero error.',
-      'Grip the object squarely between the flat middle flats of the outside jaws (not the sharp tips) and lock the thumb clamp.',
-      'Read the main scale in cm/mm immediately to the left of the vernier zero mark.',
-      'Find which vernier graduation line aligns dead-straight with a main-scale line, multiply by the least count, and add to the main reading.',
-    ],
-    mistakes: [
-      'Reading the main scale at the leading metal edge of the sliding jaw instead of at the vernier 0 line.',
-      'Viewing the vernier coincidence mark at an angle (parallax causes you to pick the neighbouring division).',
-    ],
-    spotInLab: 'Stainless steel rule with fixed and sliding jaws for outside, inside and depth measurements.',
-  },
-  {
-    id: 'glass-block',
-    name: 'Rectangular glass block & optical pins',
-    subtitle: 'Physics',
-    subject: 'Physics',
-    file: '/apparatus/glass-block.svg',
-    practiseTo: '/lab/physics/pendulum',
-    description:
-      'A polished optical crown-glass slab (typically 115 × 65 × 20 mm, refractive index n ≈ 1.50) used with four vertical optical sighting pins on a soft drawing board to verify Snell’s Law (n = sin i / sin r) and measure lateral displacement.',
-    specs: {
-      resolution: 'Protractor ±0.5° · Pin spacing ≥ 5.0 cm',
-      range: 'Angle of incidence i = 15° to 60°',
-      zeroError: 'Re-align block onto traced pencil outline before every sighting',
-      material: 'Optical crown glass + brass/steel sighting pins',
-    },
-    parts: [
-      { part: 'Opposite parallel polished faces', role: 'Refract the ray at entry and exit so the emergent ray is parallel to the incident ray.' },
-      { part: 'Frosted side edges', role: 'Prevent stray internal reflections through the non-working sides.' },
-      { part: 'Incident pins (P₁ & P₂)', role: 'Define the incident ray at angle i to the normal; must be spaced at least 5 cm apart.' },
-      { part: 'Search pins (P₃ & P₄)', role: 'Placed on the emergent side while sighting through the block so all four pin bases appear in one line.' },
-    ],
-    handling: [
-      'Pin a sheet of plain white paper to the soft drawing board, place the glass block centrally, and trace its exact outline with a sharp pencil.',
-      'Remove the block, construct a 90° normal N near the left third of the upper face, and draw incident rays at i = 20°, 30°, 40°, 50°, 60°.',
-      'Stick pins P₁ and P₂ vertically on the incident line at least 5 cm apart.',
-      'Replace the block accurately on its outline, close one eye, look through the lower glass face at the bases of P₁ and P₂, and insert P₃ and P₄ in line.',
-    ],
-    mistakes: [
-      'Placing optical pins closer than 4–5 cm apart, which magnifies angular drawing error when joining the pinholes.',
-      'Sighting the tops of the pins instead of their bases where they enter the paper (tilted pins give wrong rays).',
-      'Measuring the angle of incidence i between the ray and the glass surface instead of between the ray and the 90° normal.',
-    ],
-    spotInLab: 'Heavy transparent rectangular glass slab with two clear long faces and two frosted end faces.',
-  },
-  {
-    id: 'calorimeter',
-    name: 'Copper calorimeter & thermometer',
-    subtitle: 'Physics · Chemistry',
-    subject: 'Physics',
-    file: '/apparatus/calorimeter.svg',
-    practiseTo: '/lab/physics/pendulum',
-    description:
-      'A thin-walled polished copper cup housed inside a cotton-wool lagged wooden jacket with a copper loop stirrer and lid, used to determine specific heat capacity of solids/liquids and enthalpy of neutralisation with minimal heat loss.',
-    specs: {
-      resolution: 'Thermometer 0.5 °C · Electronic balance 0.1 g',
-      range: 'specific heat capacity of copper c ≈ 390 J kg⁻¹ K⁻¹',
-      zeroError: 'Stir continuously and record highest steady temperature reached',
-      material: 'Polished electrolytic copper + cotton-wool lagging + wooden jacket',
-    },
-    parts: [
-      { part: 'Polished inner copper vessel', role: 'Known low specific heat capacity (390 J kg⁻¹ K⁻¹) and shiny surface that minimises radiation heat loss.' },
-      { part: 'Cotton-wool lagging & wooden box', role: 'Traps still air around the copper vessel to prevent conduction and convection heat exchange.' },
-      { part: 'Insulated lid & copper stirrer', role: 'Prevents evaporation/convection from the water surface and equalises temperature throughout the liquid.' },
-      { part: 'Mercury/alcohol thermometer', role: 'Suspended in the liquid (not touching the bottom) to read initial and final equilibrium temperatures.' },
-    ],
-    handling: [
-      'Weigh the dry, empty inner copper calorimeter together with its copper stirrer (mass m₁).',
-      'Fill halfway with water, re-weigh (mass m₂), place inside the lagged jacket, cover with the lid and record steady initial temperature θ₁.',
-      'Transfer the heated solid rapidly (shaking off boiling water drops) or run current through the immersion coil while stirring gently up and down.',
-      'Watch the thermometer thread at eye level and record the maximum steady equilibrium temperature θ₂.',
-    ],
-    mistakes: [
-      'Splashing hot water or carrying boiling water droplets on the string when transferring a heated metal block into the calorimeter.',
-      'Using the glass thermometer bulb as a stirrer (thin glass bulb shatters easily).',
-      'Forgetting to include the heat capacity of the copper calorimeter itself (m₁ · c_copper · Δθ) in the heat balance equation.',
-    ],
-    spotInLab: 'Shiny reddish-brown copper cup nested inside a larger wooden box stuffed with cotton wool.',
-  },
-  {
-    id: 'voltmeter',
-    name: 'Analogue voltmeter & ammeter',
-    subtitle: 'Electronics · Physics',
-    subject: 'Electronics',
-    file: '/apparatus/voltmeter.svg',
-    practiseTo: '/lab/electronics/ohms-law',
-    description:
-      'Moving-coil permanent-magnet bench meters. The Ammeter has very low internal resistance and connects in series to measure current I; the Voltmeter has high multiplier resistance and connects in parallel to measure potential difference V.',
-    specs: {
-      resolution: '0–1 A (0.02 A/div) · 0–3 V (0.05 V/div)',
-      range: 'Dual range binding posts (e.g. 0–1 A / 0–3 A and 0–3 V / 0–15 V)',
-      zeroError: 'Adjust front mechanical zero-screw with circuit key open',
-      material: 'D’Arsonval moving coil + anti-parallax mirror scale',
-    },
-    parts: [
-      { part: 'Black (–) common terminal', role: 'Connected toward the negative terminal of the battery/power supply.' },
-      { part: 'Red (+) range terminals', role: 'Selects full-scale deflection (e.g. 3 V or 15 V); always match the scale you read to the terminal wired.' },
-      { part: 'Mechanical zero-adjust screw', role: 'Small slotted screw below the window that zeroes the pointer when no current flows.' },
-      { part: 'Curved scale & anti-parallax mirror', role: 'Align the pointer with its reflection in the mirror strip so your eye is dead perpendicular.' },
-    ],
-    handling: [
-      'With the key open, check that the pointer rests exactly on 0; turn the zero screw gently with a screwdriver if offset.',
-      'Wire the Ammeter in series and the Voltmeter in parallel across Test Wire X, observing polarity (+ to +) so the needle does not kick backward.',
-      'Tap the key closed momentarily to check that the needle deflects forward and stays within full scale.',
-      'Calculate the value of 1 small division (Range / total divisions) before recording readings.',
-    ],
-    mistakes: [
-      'Connecting the high-resistance voltmeter in series (blocks current) or the low-resistance ammeter in parallel (short-circuits the cell).',
-      'Wiring into the 3 V terminal post while reading numbers off the top 15 V scale arc.',
-      'Reversing + and – leads so the needle slams backward against the zero stop pin.',
-    ],
-    spotInLab: 'Sloping black bench case with a curved V or A scale and red/black terminal binding posts.',
-  },
-  {
-    id: 'rheostat',
-    name: 'Sliding rheostat (variable resistor)',
-    subtitle: 'Electronics · Physics',
-    subject: 'Electronics',
-    file: '/apparatus/rheostat.svg',
-    practiseTo: '/lab/electronics/ohms-law',
-    description:
-      'A coil of oxidised constantan or nichrome wire wound tightly around an insulating ceramic cylinder with a spring-loaded metal slider on an upper brass rail, used to vary circuit resistance smoothly from 0 Ω to maximum rated resistance.',
-    specs: {
-      resolution: 'Continuous stepless sliding contact',
-      range: '0 – 20 Ω (max current 2.5 A)',
-      zeroError: 'Clean slider contacts; connect one bottom terminal + one top terminal',
-      material: 'Ceramic core + oxidised resistance wire + brass slider bar',
-    },
-    parts: [
-      { part: 'Top terminal (connected to slider rail)', role: 'Collects current after it passes through the active fraction of the wire coil into the sliding wiper.' },
-      { part: 'Two bottom terminals (ends of coil)', role: 'Connected to the two ends of the resistance winding; use only ONE bottom terminal for variable resistance.' },
-      { part: 'Sliding contact wiper', role: 'Moves along the upper brass bar to lengthen or shorten the resistance wire path in circuit.' },
-    ],
-    handling: [
-      'Connect one wire to ONE of the bottom end terminals and the second wire to the TOP slider-bar terminal at the opposite end.',
-      'Slide the wiper to maximum resistance (furthest from the wired bottom terminal) before closing the circuit key for the first time.',
-      'Move the slider in 5–6 even steps to spread your (I, V) readings across the full range of the meters.',
-    ],
-    mistakes: [
-      'Connecting both circuit wires to the two bottom terminals (turns the rheostat into a fixed resistor so moving the slider does nothing).',
-      'Connecting both wires to the top bar (short-circuits the rheostat to 0 Ω and overheats the circuit).',
-      'Leaving the plug key closed between readings while the wire heats up and changes resistance.',
-    ],
-    spotInLab: 'Cylindrical grey wire-wound tube on two end brackets with a black slider block riding on a top metal rod.',
-  },
-  {
-    id: 'breadboard-dmm',
-    name: 'Solderless breadboard & digital multimeter',
-    subtitle: 'Electronics',
-    subject: 'Electronics',
-    file: '/apparatus/breadboard-dmm.svg',
-    practiseTo: '/lab/electronics/ohms-law',
-    description:
-      'A reusable prototyping board with internal nickel-silver spring clips arranged in 5-hole vertical terminal columns and horizontal power buses, paired with a 3½-digit Digital Multimeter (DMM) for measuring DC/AC voltage, current, resistance and diode drop.',
-    specs: {
-      resolution: '2.54 mm (0.1 inch) pin pitch · DMM 0.01 V / 0.1 mA / 0.1 Ω',
-      range: '200 mV – 600 V · 200 µA – 10 A · 200 Ω – 20 MΩ',
-      zeroError: 'Touch DMM probes together on 200 Ω range and subtract lead resistance (~0.2 Ω)',
-      material: 'ABS polymer housing + phosphor-bronze/nickel-silver contact clips',
-    },
-    parts: [
-      { part: 'Horizontal power rails (+ red / – blue)', role: 'Run along the top and bottom edges to distribute Vcc and Ground across the board.' },
-      { part: '5-hole terminal columns (A–E, F–J)', role: 'Each column of 5 holes is electrically connected underneath; insert different leads in different columns.' },
-      { part: 'Central IC ravine (isolation channel)', role: '7.62 mm gap separating top (A–E) and bottom (F–J) halves so DIP ICs straddle without shorting pins.' },
-      { part: 'DMM COM, VΩmA & 10A sockets', role: 'Black lead always stays in COM; red lead moves to 10A jack for high-current measurement.' },
-    ],
-    handling: [
-      'Insert the two legs of a resistor, diode or LED into two different vertical 5-hole columns (never the same 5-hole column).',
-      'To measure resistance with the DMM, disconnect the power supply first and place probes across the component.',
-      'To measure current with the DMM, break the circuit branch and connect the meter in series so current flows through the DMM.',
-    ],
-    mistakes: [
-      'Plugging both legs of a resistor or LED into the same 5-hole vertical strip (short-circuits the component directly).',
-      'Switching the DMM to Current (mA/10A) mode and touching the probes in parallel across a battery (blows the internal DMM fuse immediately).',
-      'Measuring resistance (Ω) while circuit power is still switched on.',
-    ],
-    spotInLab: 'White perforated plastic board with red/blue edge stripes next to a handheld yellow-cased digital meter.',
-  },
-  {
-    id: 'dial-gauge',
-    name: 'Dial gauge on magnetic stand',
-    subtitle: 'Engineering',
-    subject: 'Engineering',
-    file: '/apparatus/dial-gauge.svg',
-    practiseTo: '/lab/engineering/beam',
-    description:
-      'A precision rack-and-pinion mechanical comparator mounted on a switchable permanent-magnet stand. Vertical movement of the spring-loaded plunger is magnified by a gear train so 1.00 mm of travel rotates the main pointer one full 360° revolution (100 divisions of 0.01 mm).',
-    specs: {
-      resolution: '0.01 mm (10 µm) per outer dial division',
-      range: '0.00 – 10.00 mm (10 revolutions on inner counter)',
-      zeroError: 'Rotate outer bezel ring to align 0 with pointer under tare load',
-      material: 'Hardened stainless-steel rack & plunger + V-grooved magnetic base',
-    },
-    parts: [
-      { part: 'Spring-loaded contact plunger', role: 'Rests perpendicular to the top mid-span of the test beam and tracks downward deflection.' },
-      { part: 'Outer 0–100 scale & rotatable bezel', role: '100 divisions = 1.00 mm per turn (0.01 mm/div); outer ring turns to zero the gauge.' },
-      { part: 'Inner revolution-counter sub-dial', role: 'Counts whole millimetres (0–10 mm) so you know how many full turns the main needle has made.' },
-      { part: 'Switchable ON/OFF magnetic base', role: 'Locks the stand rigidly to the steel test frame when switched ON.' },
-    ],
-    handling: [
-      'Place the magnetic block on the rigid steel base frame and turn the rotary switch to ON.',
-      'Adjust the cross-arm so the plunger rests vertically (90°) on the centre of the beam with 1–2 mm of initial preload travel.',
-      'With the empty load hanger attached, tap the bench lightly, loosen the bezel clamp, and rotate the dial face until 0 aligns with the needle.',
-      'After adding or removing each 100 g slotted mass, tap the bench lightly to free any plunger stiction and read whole mm + (outer division × 0.01 mm).',
-    ],
-    mistakes: [
-      'Mounting the plunger at an angle θ to the vertical (introduces cosine error: reading = δ / cos θ).',
-      'Setting the plunger with zero preload so it runs out of downward travel as the beam sags.',
-      'Reading only the main needle and forgetting to add whole millimetres from the small inner revolution counter.',
-    ],
-    spotInLab: 'Circular clock-face gauge clamped to a chrome vertical post on a heavy black ON/OFF magnetic block.',
-  },
-  {
-    id: 'venturi-manometer',
-    name: 'Venturi tube & multi-tube manometer',
-    subtitle: 'Engineering · Physics',
-    subject: 'Engineering',
-    file: '/apparatus/venturi-manometer.svg',
-    practiseTo: '/lab/engineering/beam',
-    description:
-      'A horizontal clear acrylic converging-diverging Venturi section fitted with vertical piezometer manometer tubes along its length to demonstrate Bernoulli’s Theorem (p/ρg + v²/2g + z = H) and measure flow rate from the throat pressure head drop.',
-    specs: {
-      resolution: '1 mm H₂O static pressure head on manometer backboard',
-      range: '0 – 400 mm H₂O piezometer head',
-      zeroError: 'Bleed all air bubbles and level all tubes at static no-flow condition',
-      material: 'Machined clear PMMA acrylic Venturi + glass piezometer bank',
-    },
-    parts: [
-      { part: 'Converging inlet cone (14°–21°)', role: 'Accelerates fluid smoothly into the throat while converting static pressure head into velocity head.' },
-      { part: 'Cylindrical Venturi throat', role: 'Minimum cross-sectional area A₂ where velocity v₂ is maximum and piezometer head h₂ is minimum.' },
-      { part: 'Gradual diverging diffuser (5°–7°)', role: 'Decelerates flow and recovers static pressure head with minimal eddy head loss.' },
-      { part: 'Vertical piezometer tubes', role: 'Display local static pressure head h = p / (ρg) in mm of water at 5–11 stations along the tube.' },
-    ],
-    handling: [
-      'Open the inlet supply valve and outlet control valve to purge all trapped air pockets from the Venturi tube and manometer lines.',
-      'Close the outlet valve momentarily with water inside to verify all piezometer menisci settle at the same horizontal datum level.',
-      'Set a steady flow rate so the upstream tube reads near the top of the board and the throat tube reads near the bottom without drawing in air.',
-      'Record every piezometer height h_i at eye level and time the collection of a known volume V in the measuring tank to find actual discharge Q.',
-    ],
-    mistakes: [
-      'Taking piezometer readings while air bubbles are trapped in the connecting tubes (damps and offsets the water column height).',
-      'Confusing static pressure head h with velocity head v²/2g when plotting the Hydraulic Grade Line (HGL) and Total Energy Line (TEL).',
-    ],
-    spotInLab: 'Horizontal waisted Perspex pipe connected to a vertical bank of parallel water-level glass tubes against a millimetre scale.',
-  },
+const CATEGORIES: ('All categories' | ApparatusCategory)[] = [
+  'All categories',
+  'Measuring & Volumetric',
+  'Glassware & Containers',
+  'Heating & Thermal',
+  'Support & Handling',
+  'Microscopy & Specimen',
+  'Electrical & Circuit',
+  'Safety & PPE',
 ];
 
 export function ApparatusEncyclopediaScreen() {
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState('compound-microscope');
   const [filter, setFilter] = useState('All');
+  const [categoryFilter, setCategoryFilter] = useState<'All categories' | ApparatusCategory>(
+    'All categories'
+  );
   const [searchQuery, setSearchQuery] = useState('');
+  const [visibleLimit, setVisibleLimit] = useState(INITIAL_VISIBLE_COUNT);
   const [rotated, setRotated] = useState(false);
   const [zoomed, setZoomed] = useState(false);
   const [hideLabels, setHideLabels] = useState(false);
 
-  const visibleItems = APPARATUS_ITEMS.filter((item) => {
+  const isSearching = searchQuery.trim().length > 0;
+  const q = searchQuery.trim().toLowerCase();
+
+  // Search and filter across all 53 essential laboratory apparatus items
+  const matchedItems = APPARATUS_CATALOG.filter((item) => {
     const matchesSubject =
-      filter === 'All' || item.subject === filter || item.subtitle.includes(filter);
+      filter === 'All' ||
+      item.subject === filter ||
+      item.subtitle.toLowerCase().includes(filter.toLowerCase());
+
+    const matchesCategory =
+      categoryFilter === 'All categories' || item.category === categoryFilter;
+
     const matchesSearch =
-      searchQuery.trim() === '' ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSubject && matchesSearch;
+      !isSearching ||
+      item.name.toLowerCase().includes(q) ||
+      item.subtitle.toLowerCase().includes(q) ||
+      item.subject.toLowerCase().includes(q) ||
+      item.category.toLowerCase().includes(q) ||
+      item.primaryUses.toLowerCase().includes(q) ||
+      item.description.toLowerCase().includes(q) ||
+      item.spotInLab.toLowerCase().includes(q) ||
+      item.parts.some(
+        (p) => p.part.toLowerCase().includes(q) || p.role.toLowerCase().includes(q)
+      );
+
+    return matchesSubject && matchesCategory && matchesSearch;
   });
 
+  // When searching, show all matching items immediately; otherwise show up to visibleLimit with "See more"
+  const displayedItems = isSearching
+    ? matchedItems
+    : matchedItems.slice(0, visibleLimit);
+
+  const remainingCount = Math.max(0, matchedItems.length - displayedItems.length);
+
   const selectedItem =
-    APPARATUS_ITEMS.find((i) => i.id === selectedId) ??
-    visibleItems[0] ??
-    APPARATUS_ITEMS[0]!;
+    APPARATUS_CATALOG.find((i) => i.id === selectedId) ??
+    displayedItems[0] ??
+    APPARATUS_CATALOG[0]!;
 
   const subjectBadgeClass: Record<EncyclopediaItem['subject'], string> = {
     Physics: 'bg-[#EAEFFE] text-[#1D4ED8]',
@@ -1715,7 +1034,7 @@ export function ApparatusEncyclopediaScreen() {
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
-      {/* Dedicated Sidebar with Apparatus Encyclopedia active */}
+      {/* Sidebar with "Encyclopedia" active */}
       <StudentSidebar active="encyclopedia" />
 
       <div className="flex-1 min-w-0">
@@ -1726,7 +1045,7 @@ export function ApparatusEncyclopediaScreen() {
                 ← Labs
               </Link>
               <span className="text-[#6B778C]">
-                {APPARATUS_ITEMS.length} real laboratory instruments across 5 disciplines
+                {APPARATUS_CATALOG.length} essential laboratory apparatus across 5 disciplines
               </span>
             </div>
             <button
@@ -1741,33 +1060,41 @@ export function ApparatusEncyclopediaScreen() {
         </header>
 
         <main className="max-w-[1280px] mx-auto px-6 py-7">
-          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-6">
+          <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-4 mb-4">
             <div>
               <h1 className="font-display text-3xl font-bold text-[#0E1726] mb-1.5">
                 Apparatus encyclopedia
               </h1>
               <p className="text-sm text-[#475467] max-w-2xl">
-                Know the real equipment before you meet it. Every piece is drawn in isometric view
-                with its parts labelled, technical specifications, step-by-step handling, and the
-                exact mistakes WAEC, NECO and university examiners penalise.
+                50+ essential laboratory apparatus and their uses across Physics, Chemistry,
+                Biology, Electronics, and Engineering. Search any instrument by name or function,
+                or expand the catalog below.
               </p>
             </div>
 
+            {/* Search Input & Discipline Pills */}
             <div className="flex flex-wrap items-center gap-2">
-              <input
-                type="search"
-                aria-label="Search apparatus"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search microscope, burette..."
-                className="px-3.5 py-1.5 rounded-full bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C]"
-              />
+              <div className="relative">
+                <input
+                  type="search"
+                  aria-label="Search apparatus"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                  }}
+                  placeholder="Search all 53 apparatus (e.g. crucible, mortar, burette, goggles)..."
+                  className="w-72 sm:w-80 px-3.5 py-1.5 rounded-full bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:border-[#2448D8]"
+                />
+              </div>
               {['All', 'Biology', 'Physics', 'Chemistry', 'Electronics', 'Engineering'].map(
                 (subj) => (
                   <button
                     key={subj}
                     type="button"
-                    onClick={() => setFilter(subj)}
+                    onClick={() => {
+                      setFilter(subj);
+                      setVisibleLimit(INITIAL_VISIBLE_COUNT);
+                    }}
                     className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                       filter === subj
                         ? 'bg-[#0E1726] text-white'
@@ -1781,51 +1108,156 @@ export function ApparatusEncyclopediaScreen() {
             </div>
           </div>
 
-          {/* 2-Column Layout: Left Cards Grid + Right Verbose Detail View */}
+          {/* Functional Category Filter Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-5 pb-3 border-b border-[#E3E8EF]">
+            <div className="flex flex-wrap items-center gap-1.5">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    setCategoryFilter(cat);
+                    setVisibleLimit(INITIAL_VISIBLE_COUNT);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors cursor-pointer ${
+                    categoryFilter === cat
+                      ? 'bg-[#EAEFFE] text-[#1D4ED8] border border-[#2448D8]/30'
+                      : 'bg-white border border-[#E3E8EF] text-[#475467] hover:text-[#0E1726]'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+
+            <div className="text-xs text-[#6B778C] font-mono">
+              {isSearching
+                ? `Found ${matchedItems.length} matching apparatus for "${searchQuery}"`
+                : `Showing ${displayedItems.length} of ${matchedItems.length} apparatus`}
+            </div>
+          </div>
+
+          {/* 2-Column Layout: Left Cards Grid + See More + Right Verbose Detail View */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-            {/* Left 2-col Grid of Apparatus */}
-            <div className="lg:col-span-5 grid grid-cols-2 gap-3 max-h-[860px] overflow-y-auto pr-1">
-              {visibleItems.map((item) => {
-                const active = item.id === selectedItem.id;
-                return (
+            {/* Left Column: Cards Grid + See More Pagination */}
+            <div className="lg:col-span-5 space-y-4">
+              {displayedItems.length === 0 ? (
+                <div className="bg-white rounded-2xl border border-[#E3E8EF] p-8 text-center space-y-2">
+                  <div className="font-display text-sm font-bold text-[#0E1726]">
+                    No apparatus matched &ldquo;{searchQuery}&rdquo;
+                  </div>
+                  <p className="text-xs text-[#475467]">
+                    Try searching for beaker, crucible, mortar, galvanometer, pipette, forceps, or
+                    goggles.
+                  </p>
                   <button
-                    key={item.id}
                     type="button"
                     onClick={() => {
-                      setSelectedId(item.id);
-                      setRotated(false);
-                      setZoomed(false);
+                      setSearchQuery('');
+                      setFilter('All');
+                      setCategoryFilter('All categories');
                     }}
-                    className={`text-left rounded-2xl p-3.5 bg-white transition-all cursor-pointer ${
-                      active
-                        ? 'border-2 border-[#2448D8] shadow-xs'
-                        : 'border border-[#E3E8EF] hover:border-[#93A0B8]'
-                    }`}
+                    className="mt-2 px-4 py-2 rounded-xl bg-[#2448D8] text-white text-xs font-semibold cursor-pointer"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span
-                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${subjectBadgeClass[item.subject]}`}
-                      >
-                        {item.subject}
-                      </span>
-                      <span className="font-mono text-[10px] text-[#6B778C]">
-                        {item.specs.resolution.split(' ')[0]}
-                      </span>
-                    </div>
-                    <div className="h-24 flex items-center justify-center my-2">
-                      <img
-                        src={item.file}
-                        alt={item.name}
-                        className="max-h-22 w-auto object-contain"
-                      />
-                    </div>
-                    <div className="text-xs font-bold text-[#0E1726] leading-snug">
-                      {item.name}
-                    </div>
-                    <div className="text-[11px] text-[#6B778C] mt-0.5">{item.subtitle}</div>
+                    Reset search &amp; filters
                   </button>
-                );
-              })}
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 max-h-[760px] overflow-y-auto pr-1">
+                  {displayedItems.map((item) => {
+                    const active = item.id === selectedItem.id;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        onClick={() => {
+                          setSelectedId(item.id);
+                          setRotated(false);
+                          setZoomed(false);
+                        }}
+                        className={`text-left rounded-2xl p-3.5 bg-white transition-all cursor-pointer flex flex-col justify-between ${
+                          active
+                            ? 'border-2 border-[#2448D8] shadow-xs'
+                            : 'border border-[#E3E8EF] hover:border-[#93A0B8]'
+                        }`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold ${subjectBadgeClass[item.subject]}`}
+                            >
+                              {item.subject}
+                            </span>
+                            <span className="font-mono text-[10px] text-[#6B778C]">
+                              #{item.number}
+                            </span>
+                          </div>
+                          <div className="h-20 flex items-center justify-center my-1.5">
+                            <img
+                              src={item.file}
+                              alt={item.name}
+                              className="max-h-18 w-auto object-contain"
+                            />
+                          </div>
+                          <div className="text-xs font-bold text-[#0E1726] leading-snug">
+                            {item.name}
+                          </div>
+                        </div>
+                        <div className="text-[11px] text-[#6B778C] mt-1 line-clamp-2">
+                          {item.primaryUses}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* See More / Show All / Show Less Controls */}
+              {!isSearching && matchedItems.length > INITIAL_VISIBLE_COUNT && (
+                <div className="bg-white rounded-2xl border border-[#E3E8EF] p-3.5 flex flex-wrap items-center justify-between gap-2">
+                  <div className="text-xs text-[#475467]">
+                    Showing <strong className="text-[#0E1726]">{displayedItems.length}</strong> of{' '}
+                    <strong className="text-[#0E1726]">{matchedItems.length}</strong> apparatus
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {remainingCount > 0 && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setVisibleLimit((prev) =>
+                              Math.min(matchedItems.length, prev + PAGE_STEP)
+                            )
+                          }
+                          className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors cursor-pointer"
+                        >
+                          See more (+{Math.min(PAGE_STEP, remainingCount)})
+                        </button>
+                        {remainingCount > PAGE_STEP && (
+                          <button
+                            type="button"
+                            onClick={() => setVisibleLimit(matchedItems.length)}
+                            className="px-3 py-2 rounded-xl bg-[#F5F7FA] hover:bg-[#EDF1F7] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] transition-colors cursor-pointer"
+                          >
+                            Show all ({matchedItems.length})
+                          </button>
+                        )}
+                      </>
+                    )}
+
+                    {displayedItems.length > INITIAL_VISIBLE_COUNT && (
+                      <button
+                        type="button"
+                        onClick={() => setVisibleLimit(INITIAL_VISIBLE_COUNT)}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-xs font-semibold text-[#475467] cursor-pointer"
+                      >
+                        Show less
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Right Verbose Detail Panel */}
@@ -1833,14 +1265,17 @@ export function ApparatusEncyclopediaScreen() {
               {/* Isometric Drawing Stage */}
               <div className="bg-[#F9FAFC] border-b border-[#E3E8EF] p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-xs font-bold text-[#475467]">
+                      #{selectedItem.number} of {APPARATUS_CATALOG.length}
+                    </span>
                     <span
                       className={`px-2.5 py-1 rounded-md text-xs font-bold ${subjectBadgeClass[selectedItem.subject]}`}
                     >
                       {selectedItem.subject}
                     </span>
-                    <span className="px-2.5 py-1 rounded-md bg-white border border-[#E3E8EF] text-xs text-[#475467]">
-                      Isometric view · not to scale
+                    <span className="px-2.5 py-1 rounded-md bg-white border border-[#E3E8EF] text-xs font-medium text-[#475467]">
+                      {selectedItem.category}
                     </span>
                   </div>
 
@@ -1869,11 +1304,11 @@ export function ApparatusEncyclopediaScreen() {
                   </div>
                 </div>
 
-                <div className="h-[290px] flex items-center justify-center overflow-hidden">
+                <div className="h-[270px] flex items-center justify-center overflow-hidden">
                   <img
                     src={selectedItem.file}
                     alt={selectedItem.name}
-                    className={`max-h-[275px] w-auto object-contain transition-transform duration-300 ${
+                    className={`max-h-[255px] w-auto object-contain transition-transform duration-300 ${
                       rotated ? '-scale-x-100' : ''
                     } ${zoomed ? 'scale-125' : ''}`}
                   />
@@ -1897,6 +1332,14 @@ export function ApparatusEncyclopediaScreen() {
                   >
                     Practise with it →
                   </Link>
+                </div>
+
+                {/* Primary Uses Callout Banner */}
+                <div className="rounded-xl bg-[#EAEFFE]/60 border border-[#2448D8]/20 p-3.5 text-xs text-[#0E1726] leading-relaxed">
+                  <strong className="text-[#1D4ED8] uppercase tracking-wider text-[11px] mr-2">
+                    Primary Laboratory Uses:
+                  </strong>
+                  {selectedItem.primaryUses}
                 </div>
 
                 {/* 4-Tile Technical Specification Strip */}
