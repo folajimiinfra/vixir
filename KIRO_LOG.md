@@ -137,3 +137,12 @@ The initial implementation of lab workspaces (D1-D7) used light theme colors (`b
    - Connected `D1` and `F1`–`F4` to `@vixir/sim-core` (`createRng`, `readScale`, `readStopwatch`, `linearFit`, `pendulumPeriod`, `pendulumAngle`) so bench trials, 3 d.p. significant-figure checks, precautions, auto-marked scores, and timestamped bench replay actions stay synchronized.
 5. **Teacher, Admin, Mobile & 404 (`G1`–`G4`, `H1`, `I1`–`I2`, `404`)**:
    - Completed all teacher, institution admin, mobile companion, and diagnostic 404 screens with Vitest test coverage.
+
+## 2026-11-19 | Kiro | 53-Item Essential Laboratory Apparatus Encyclopedia (`B5`) & Pagination
+
+**Spec Updated:** `.kiro/specs/apparatus-encyclopedia/tasks.md`
+
+**Actions:**
+- Simplified `StudentSidebar` navigation entry to **`Encyclopedia`** (`/apparatus`).
+- Created `apps/web/src/routes/apparatusCatalog.ts` with **53 essential laboratory apparatus items** across all 5 disciplines (`Physics`, `Chemistry`, `Biology`, `Electronics`, `Engineering`) and 7 functional categories (`Measuring & Volumetric`, `Glassware & Containers`, `Heating & Thermal`, `Support & Handling`, `Microscopy & Specimen`, `Electrical & Circuit`, `Safety & PPE`) — covering all 50 standard school science instruments (beaker, measuring cylinder, test tube, test tube holder, conical flask, volumetric flask, pipette, burette, dropper, filter funnel, Bunsen burner, spirit lamp, tripod stand, wire gauze, porcelain crucible, evaporating dish, water bath, heating mantle, retort stand, tongs, spatula, glass rod, mortar & pestle, watch glass, forceps, Vernier caliper, micrometer screw gauge, metre rule, stopwatch, spring balance, ammeter, voltmeter, galvanometer, resistance box, rheostat, compound microscope, dissecting microscope, prepared slides, specimen jar, dissection tray, hand lens, thermometer, laboratory balance, wash bottle, safety goggles, gloves & lab coat, fire extinguisher & first-aid box) plus specialised engineering/biology instruments (potometer, dial gauge, Venturi manometer, breadboard & DMM, rectangular glass block).
+- Added progressive pagination to `ApparatusEncyclopediaScreen`: shows 8 curated items initially with **`See more (+10)`**, **`Show all (53)`**, and **`Show less`** controls, while typing in the search input searches across the entire 53-item catalog immediately.
