@@ -1,0 +1,23 @@
+<svg viewBox="0 0 620 400" role="img" aria-label="Circuit: cells, key, rheostat, ammeter and wire X in series with a voltmeter across wire X" xmlns="http://www.w3.org/2000/svg" width="1240" height="800">
+<path d="M80 70 L460 70 L460 320 L80 320 Z" fill="none" stroke="#55688C" stroke-width="3" stroke-linejoin="round"></path>
+<path d="M460 140 L560 140 L560 174 M560 226 L560 270 L460 270" fill="none" stroke="#55688C" stroke-width="3"></path>
+
+<path d="M80 320 L80 70 L460 70 L460 320 Z" fill="none" stroke="#5EEAD4" stroke-width="3" stroke-dasharray="4 16" stroke-dashoffset="-313.3897534741619" opacity="0.9"></path>
+
+<rect x="64" y="160" width="32" height="70" fill="#0D1526"></rect>
+<line x1="62" y1="172" x2="98" y2="172" stroke="#E6EBF5" stroke-width="3"></line><line x1="70" y1="182" x2="90" y2="182" stroke="#E6EBF5" stroke-width="6"></line>
+<line x1="62" y1="204" x2="98" y2="204" stroke="#E6EBF5" stroke-width="3"></line><line x1="70" y1="214" x2="90" y2="214" stroke="#E6EBF5" stroke-width="6"></line>
+<text x="40" y="198" fill="#C9D3E6" font-size="14" font-family="JetBrains Mono">E</text>
+<rect x="130" y="52" width="150" height="36" fill="#0D1526"></rect>
+<path d="M130 70 L140 70 L148 58 L160 82 L172 58 L184 82 L196 58 L208 82 L220 58 L232 82 L244 58 L256 82 L264 70 L280 70" fill="none" stroke="#E6EBF5" stroke-width="2.5" stroke-linejoin="round"></path>
+<path d="M188 36 L188 54 M182 46 L188 56 L194 46" fill="none" stroke="#2DD4BF" stroke-width="2.5" stroke-linecap="round"></path>
+<text x="196" y="30" fill="#C9D3E6" font-size="13" font-family="JetBrains Mono" text-anchor="middle">Rh = 8 Ω</text>
+<circle cx="350" cy="70" r="26" fill="#121A2B" stroke="#E6EBF5" stroke-width="2.5"></circle><text x="350" y="76" fill="#E6EBF5" font-size="18" font-family="Space Grotesk" text-anchor="middle" font-weight="700">A</text>
+<rect x="446" y="160" width="28" height="90" rx="3" fill="#1C2A47" stroke="#E6EBF5" stroke-width="2.5"></rect>
+<text x="486" y="210" fill="#C9D3E6" font-size="14" font-family="JetBrains Mono">X</text>
+<circle cx="560" cy="200" r="26" fill="#121A2B" stroke="#E6EBF5" stroke-width="2.5"></circle><text x="560" y="206" fill="#E6EBF5" font-size="18" font-family="Space Grotesk" text-anchor="middle" font-weight="700">V</text>
+<rect x="220" y="300" width="80" height="40" fill="#0D1526"></rect>
+<circle cx="230" cy="320" r="4" fill="#E6EBF5"></circle><circle cx="290" cy="320" r="4" fill="#E6EBF5"></circle>
+<line x1="230" y1="320" x2="290" y2="320" stroke="#E6EBF5" stroke-width="3" stroke-linecap="round"></line>
+<text x="260" y="356" fill="#C9D3E6" font-size="13" font-family="JetBrains Mono" text-anchor="middle">K</text>
+</svg>

@@ -1,0 +1,21 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Conical flask (250 cm³)" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+<g transform=""><path d="M121.2,232.0 L162.9,144.0 L197.1,144.0 L238.8,232.0 A58.8 33.9 0 0 1 121.2,232.0 Z" fill="rgba(186, 214, 250, 0.22)" stroke="#5B8DD6" stroke-width="0.8" stroke-linejoin="round"></path><path d="M124.2,232.0 L137.9,202.0 L222.1,202.0 L235.8,232.0 A55.8 32.2 0 0 1 124.2,232.0 Z" fill="rgba(244,114,182,0.45)" stroke="none" stroke-width="0.8" stroke-linejoin="round"></path><path d="M137.9,202.0 A42.1 24.3 0 1 0 222.1,202.0 A42.1 24.3 0 1 0 137.9,202.0 Z" fill="rgba(244,114,182,0.55)" stroke="none" stroke-width="0.8" stroke-linejoin="round"></path><path d="M162.9,144.0 L162.9,108.0 L197.1,108.0 L197.1,144.0 A17.1 9.9 0 0 1 162.9,144.0 Z" fill="rgba(186, 214, 250, 0.22)" stroke="#5B8DD6" stroke-width="0.8" stroke-linejoin="round"></path><path d="M162.9,108.0 A17.1 9.9 0 1 0 197.1,108.0 A17.1 9.9 0 1 0 162.9,108.0 Z" fill="rgba(186,214,250,0.4)" stroke="#5B8DD6" stroke-width="0.8" stroke-linejoin="round"></path><path d="M159.9,108.0 L159.9,104.4 L200.1,104.4 L200.1,108.0 A20.1 11.6 0 0 1 159.9,108.0 Z" fill="rgba(186, 214, 250, 0.22)" stroke="#5B8DD6" stroke-width="0.8" stroke-linejoin="round"></path><path d="M159.9,104.4 A20.1 11.6 0 1 0 200.1,104.4 A20.1 11.6 0 1 0 159.9,104.4 Z" fill="rgba(255,255,255,0.6)" stroke="#5B8DD6" stroke-width="0.8" stroke-linejoin="round"></path></g>
+
+
+<line x1="180.0" y1="108.0" x2="224.0" y2="100.0" stroke="#2448D8" stroke-width="0.8"></line>
+<circle cx="180.0" cy="108.0" r="2" fill="#2448D8"></circle>
+<rect x="224.0" y="93.0" width="172.8" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"></rect>
+<text x="229.0" y="103.0" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Narrow neck — swirl without splashing</text>
+
+<line x1="180.0" y1="208.0" x2="220.0" y2="228.0" stroke="#2448D8" stroke-width="0.8"></line>
+<circle cx="180.0" cy="208.0" r="2" fill="#2448D8"></circle>
+<rect x="220.0" y="221.0" width="67.2" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"></rect>
+<text x="225.0" y="231.0" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Sloping sides</text>
+
+<line x1="152.3" y1="248.0" x2="112.3" y2="272.0" stroke="#2448D8" stroke-width="0.8"></line>
+<circle cx="152.3" cy="248.0" r="2" fill="#2448D8"></circle>
+<rect x="-7.7" y="265.0" width="120.0" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"></rect>
+<text x="-2.7" y="275.0" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Flat base on a white tile</text>
+
+
+</svg>

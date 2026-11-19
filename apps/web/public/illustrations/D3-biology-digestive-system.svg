@@ -1,0 +1,29 @@
+<svg viewBox="0 0 500 600" role="img" aria-label="Human digestive system with food moving through the Stomach" xmlns="http://www.w3.org/2000/svg" width="1000" height="1200">
+<circle cx="250" cy="62" r="44" fill="#FDE7D6" opacity="0.12" stroke="#FDE7D6" stroke-opacity="0.35"></circle>
+<path d="M226 104 L226 128 L150 150 Q120 160 122 200 L132 540 Q140 580 200 584 L300 584 Q360 580 368 540 L378 200 Q380 160 350 150 L274 128 L274 104 Z" fill="#FDE7D6" opacity="0.08" stroke="#FDE7D6" stroke-opacity="0.3"></path>
+<path d="M232 84 Q250 96 268 84" fill="none" stroke="#F87171" stroke-width="4" stroke-linecap="round"></path>
+<ellipse cx="214" cy="96" rx="8" ry="5" fill="#FBBF24" opacity="0.7"></ellipse><ellipse cx="286" cy="96" rx="8" ry="5" fill="#FBBF24" opacity="0.7"></ellipse>
+<circle cx="250.0" cy="135" r="6.5" fill="#F9A8D4"></circle><circle cx="250.5" cy="145" r="8.0" fill="#F9A8D4"></circle><circle cx="251.0" cy="155" r="8.6" fill="#F9A8D4"></circle><circle cx="251.6" cy="165" r="8.0" fill="#F9A8D4"></circle><circle cx="252.1" cy="175" r="6.4" fill="#F9A8D4"></circle><circle cx="252.6" cy="185" r="4.7" fill="#F9A8D4"></circle><circle cx="253.1" cy="195" r="3.5" fill="#F9A8D4"></circle><circle cx="253.7" cy="205" r="3.6" fill="#F9A8D4"></circle><circle cx="254.2" cy="215" r="4.7" fill="#F9A8D4"></circle><circle cx="254.7" cy="225" r="6.5" fill="#F9A8D4"></circle><circle cx="255.2" cy="235" r="8.0" fill="#F9A8D4"></circle><circle cx="255.7" cy="245" r="8.6" fill="#F9A8D4"></circle>
+<path d="M150 252 Q170 228 236 236 Q262 244 258 276 Q250 316 214 320 Q170 322 152 296 Q140 274 150 252 Z" fill="#9F3B32" stroke="#7F1D1D" stroke-width="3"></path>
+<ellipse cx="226" cy="312" rx="9" ry="12" fill="#4D7C0F" stroke="#A3E635" stroke-width="1"></ellipse>
+<g transform="translate(296 290) scale(1.013) translate(-296 -290)"><path d="M256 248 C 286 236, 340 250, 334 296 C 328 332, 292 338, 272 326 C 262 318, 260 302, 268 288 C 274 274, 262 262, 256 248 Z" fill="#F472B6" stroke="#4ADE80" stroke-width="3"></path><path d="M272 270 Q300 262 318 286 M276 300 Q300 296 316 310" fill="none" stroke="#BE185D" stroke-width="1.5" opacity="0.7"></path></g>
+<path d="M232 336 Q270 330 318 338" fill="none" stroke="#FCD34D" stroke-width="9" stroke-linecap="round" opacity="0.85"></path>
+<path d="M172 474 L172 346 L330 346 L330 478 Q326 500 292 506 L262 518" fill="none" stroke="#B45309" stroke-width="22" stroke-linejoin="round" stroke-linecap="round" opacity="0.9"></path>
+<path d="M172 474 L172 346 L330 346 L330 478 Q326 500 292 506 L262 518" fill="none" stroke="transparent" stroke-width="3" stroke-dasharray="0 1000" stroke-dashoffset="-74" stroke-linejoin="round"></path>
+<path d="M258 338 L215 365 L300 375 L215 395 L300 410 L215 425 L300 440 L215 455 L195 472" fill="none" stroke="#FB7185" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"></path>
+<path d="M258 338 L215 365 L300 375 L215 395 L300 410 L215 425 L300 440 L215 455 L195 472" fill="none" stroke="transparent" stroke-width="3" stroke-dasharray="0 1000" stroke-dashoffset="-74" stroke-linejoin="round"></path>
+<path d="M262 518 L252 546" fill="none" stroke="#92400E" stroke-width="14" stroke-linecap="round"></path>
+
+<circle cx="260.1" cy="252.3" r="7.6" fill="#FDBA74" stroke="#FFFFFF" stroke-width="1.5"></circle>
+<g font-family="Inter" font-size="11" fill="#C9D3E6">
+<text x="380" y="92">Mouth &amp; salivary glands</text><line x1="294" y1="96" x2="376" y2="90" stroke="#3A4A68"></line>
+<text x="380" y="190">Oesophagus</text><line x1="258" y1="190" x2="376" y2="188" stroke="#3A4A68"></line>
+<text x="380" y="270">Stomach</text><line x1="336" y1="276" x2="376" y2="268" stroke="#3A4A68"></line>
+<text x="20" y="250">Liver</text><line x1="52" y1="246" x2="150" y2="262" stroke="#3A4A68"></line>
+<text x="20" y="320">Gall bladder</text><line x1="92" y1="316" x2="216" y2="314" stroke="#3A4A68"></line>
+<text x="380" y="338">Pancreas</text><line x1="320" y1="338" x2="376" y2="336" stroke="#3A4A68"></line>
+<text x="380" y="420">Small intestine</text><line x1="300" y1="415" x2="376" y2="416" stroke="#3A4A68"></line>
+<text x="20" y="420">Large intestine</text><line x1="110" y1="416" x2="162" y2="416" stroke="#3A4A68"></line>
+<text x="300" y="560">Rectum &amp; anus</text><line x1="256" y1="546" x2="298" y2="556" stroke="#3A4A68"></line>
+</g>
+</svg>

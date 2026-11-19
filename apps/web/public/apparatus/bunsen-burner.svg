@@ -1,0 +1,43 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Bunsen burner, tripod stand and wire gauze" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+  <!-- Bunsen Burner Base & Gas Tube -->
+  <ellipse cx="180" cy="254" rx="38" ry="15" fill="#475569" stroke="#0F172A" stroke-width="1"/>
+  <path d="M188 238 L254 256 L254 264 L188 246 Z" fill="#B45309" stroke="#0F172A" stroke-width="0.8"/>
+
+  <!-- Rotating Air-Hole Collar -->
+  <rect x="168" y="218" width="24" height="24" rx="2" fill="#D97706" stroke="#0F172A" stroke-width="0.9"/>
+  <ellipse cx="180" cy="230" rx="5" ry="4" fill="#1E293B"/>
+
+  <!-- Barrel / Chimney -->
+  <rect x="172" y="140" width="16" height="80" fill="#64748B" stroke="#0F172A" stroke-width="0.9"/>
+
+  <!-- Roaring Non-Luminous Blue Flame (inner + outer cones) -->
+  <path d="M172 140 C 166 105, 180 86, 180 86 C 180 86, 194 105, 188 140 Z" fill="rgba(59,130,246,0.45)" stroke="#3B82F6" stroke-width="0.8"/>
+  <path d="M175 140 C 173 122, 180 112, 180 112 C 180 112, 187 122, 185 140 Z" fill="rgba(56,189,248,0.85)"/>
+
+  <!-- Iron Tripod Stand & Wire Gauze above flame -->
+  <line x1="126" y1="86" x2="104" y2="264" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+  <line x1="234" y1="86" x2="256" y2="264" stroke="#334155" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M114 82 L180 108 L246 82 L180 56 Z" fill="rgba(203,213,225,0.65)" stroke="#475569" stroke-width="1"/>
+  <ellipse cx="180" cy="82" rx="26" ry="11" fill="#F8FAFC" stroke="#94A3B8" stroke-width="0.8"/>
+
+  <!-- Callouts -->
+  <line x1="180" y1="78" x2="120" y2="42" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="180" cy="78" r="2" fill="#2448D8"/>
+  <rect x="18" y="35" width="102" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="23" y="45" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Wire gauze (ceramic centre)</text>
+
+  <line x1="184" y1="114" x2="244" y2="114" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="184" cy="114" r="2" fill="#2448D8"/>
+  <rect x="244" y="107" width="106" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="249" y="117" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Non-luminous blue cone</text>
+
+  <line x1="172" y1="176" x2="112" y2="176" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="172" cy="176" r="2" fill="#2448D8"/>
+  <rect x="28" y="169" width="84" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="33" y="179" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Barrel (chimney)</text>
+
+  <line x1="186" y1="230" x2="242" y2="216" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="186" cy="230" r="2" fill="#2448D8"/>
+  <rect x="242" y="209" width="96" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="247" y="219" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Rotating air-hole collar</text>
+</svg>

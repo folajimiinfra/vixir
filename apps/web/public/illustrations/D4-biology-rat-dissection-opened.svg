@@ -1,0 +1,37 @@
+<svg viewBox="0 0 600 520" role="img" aria-label="Rat specimen pinned on a dissecting tray, step 4 of 5" xmlns="http://www.w3.org/2000/svg" width="1200" height="1040">
+<rect x="40" y="24" width="520" height="476" rx="22" fill="#1F2937" stroke="#4B5563" stroke-width="4"></rect>
+<rect x="56" y="40" width="488" height="444" rx="14" fill="#2F3A2C"></rect>
+<path d="M300 410 Q310 450 290 470 Q270 492 300 506" fill="none" stroke="#D6B3A3" stroke-width="7" stroke-linecap="round"></path>
+<ellipse cx="226" cy="168" rx="16" ry="34" transform="rotate(40 226 168)" fill="#E7C9BA"></ellipse>
+<ellipse cx="374" cy="168" rx="16" ry="34" transform="rotate(-40 374 168)" fill="#E7C9BA"></ellipse>
+<ellipse cx="232" cy="378" rx="17" ry="38" transform="rotate(-35 232 378)" fill="#E7C9BA"></ellipse>
+<ellipse cx="368" cy="378" rx="17" ry="38" transform="rotate(35 368 378)" fill="#E7C9BA"></ellipse>
+<ellipse cx="300" cy="96" rx="34" ry="46" fill="#E7C9BA"></ellipse>
+<ellipse cx="282" cy="66" rx="6" ry="4" fill="#3F2A2A"></ellipse><ellipse cx="318" cy="66" rx="6" ry="4" fill="#3F2A2A"></ellipse>
+<ellipse cx="300" cy="262" rx="92" ry="152" fill="#EBD0C2"></ellipse>
+
+<g opacity="1.00">
+<ellipse cx="300" cy="262" rx="80" ry="138" fill="#7A2E2E"></ellipse>
+<line x1="300" y1="132" x2="300" y2="176" stroke="#F1F5F9" stroke-width="7" stroke-dasharray="3 2"></line>
+<ellipse cx="270" cy="194" rx="24" ry="28" fill="#F9A8D4" stroke="transparent" stroke-width="4"></ellipse>
+<ellipse cx="330" cy="194" rx="24" ry="28" fill="#F9A8D4" stroke="transparent" stroke-width="4"></ellipse>
+<path d="M300 186 C 286 178, 282 200, 300 216 C 318 200, 314 178, 300 186 Z" fill="#DC2626" stroke="transparent" stroke-width="4"></path>
+<path d="M226 228 Q300 214 374 228" fill="none" stroke="#FCA5A5" stroke-width="3"></path>
+<path d="M232 236 Q300 226 368 236 Q372 268 340 276 Q300 284 252 274 Q228 264 232 236 Z" fill="#7F1D1D" stroke="rgba(74,222,128,0.54)" stroke-width="4"></path>
+<ellipse cx="338" cy="282" rx="26" ry="16" fill="#E9D5B5" stroke="transparent" stroke-width="4"></ellipse>
+<ellipse cx="248" cy="300" rx="12" ry="18" fill="#9F1239" stroke="transparent" stroke-width="4"></ellipse>
+<ellipse cx="352" cy="312" rx="12" ry="18" fill="#9F1239" stroke="transparent" stroke-width="4"></ellipse>
+<path d="M266 304 q14 -12 28 0 t28 0 t28 0 M262 322 q14 -12 28 0 t28 0 t28 0 M266 340 q14 -12 28 0 t28 0 t28 0 M270 358 q14 -12 28 0 t28 0" fill="none" stroke="#FBCFE8" stroke-width="9" stroke-linecap="round"></path>
+<path d="M266 304 q14 -12 28 0 t28 0 t28 0 M262 322 q14 -12 28 0 t28 0 t28 0 M266 340 q14 -12 28 0 t28 0 t28 0 M270 358 q14 -12 28 0 t28 0" fill="none" stroke="transparent" stroke-width="3"></path>
+<ellipse cx="248" cy="352" rx="18" ry="24" fill="#C4A484" stroke="transparent" stroke-width="4"></ellipse>
+<ellipse cx="300" cy="388" rx="14" ry="12" fill="#FDE68A" stroke="transparent" stroke-width="4"></ellipse>
+</g>
+
+<g transform="translate(-70.0 0) scale(0.650 1)"><path d="M300 112 L300 412 Q214 400 210 262 Q214 124 300 112 Z" fill="#EBD0C2" opacity="0.85"></path></g>
+<g transform="translate(175.0 0) scale(0.650 1)"><path d="M300 112 L300 412 Q386 400 390 262 Q386 124 300 112 Z" fill="#EBD0C2" opacity="0.85"></path></g>
+<line x1="300" y1="404" x2="300" y2="124.0" stroke="#991B1B" stroke-width="2.5" opacity="0"></line>
+<g transform="translate(196 140)"><line x1="0" y1="0" x2="0" y2="-22" stroke="#CBD5E1" stroke-width="2"></line><circle cx="0" cy="-24" r="6" fill="#EF4444"></circle></g><g transform="translate(404 140)"><line x1="0" y1="0" x2="0" y2="-22" stroke="#CBD5E1" stroke-width="2"></line><circle cx="0" cy="-24" r="6" fill="#EF4444"></circle></g><g transform="translate(204 414)"><line x1="0" y1="0" x2="0" y2="-22" stroke="#CBD5E1" stroke-width="2"></line><circle cx="0" cy="-24" r="6" fill="#EF4444"></circle></g><g transform="translate(396 414)"><line x1="0" y1="0" x2="0" y2="-22" stroke="#CBD5E1" stroke-width="2"></line><circle cx="0" cy="-24" r="6" fill="#EF4444"></circle></g>
+
+
+<g><line x1="300" y1="200" x2="120" y2="200" stroke="#86EFAC" stroke-width="1"></line><rect x="71" y="190" width="49" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="78" y="204" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Heart</text></g><g><line x1="330" y1="194" x2="480" y2="194" stroke="#86EFAC" stroke-width="1"></line><rect x="480" y="184" width="49" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="487" y="198" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Lungs</text></g><g><line x1="300" y1="256" x2="120" y2="256" stroke="#86EFAC" stroke-width="1"></line><rect x="71" y="246" width="49" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="78" y="260" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Liver</text></g><g><line x1="338" y1="282" x2="480" y2="282" stroke="#86EFAC" stroke-width="1"></line><rect x="480" y="272" width="63" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="487" y="286" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Stomach</text></g><g><line x1="300" y1="330" x2="480" y2="330" stroke="#86EFAC" stroke-width="1"></line><rect x="480" y="320" width="119" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="487" y="334" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Small intestine</text></g><g><line x1="248" y1="352" x2="120" y2="352" stroke="#86EFAC" stroke-width="1"></line><rect x="64" y="342" width="56" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="71" y="356" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Caecum</text></g><g><line x1="352" y1="312" x2="480" y2="312" stroke="#86EFAC" stroke-width="1"></line><rect x="480" y="302" width="63" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="487" y="316" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Kidneys</text></g><g><line x1="300" y1="388" x2="120" y2="388" stroke="#86EFAC" stroke-width="1"></line><rect x="1" y="378" width="119" height="20" rx="5" fill="#0E2A1A" stroke="#166534"></rect><text x="8" y="392" fill="#BBF7D0" font-size="12" font-family="Inter" font-weight="600">Urinary bladder</text></g>
+</svg>

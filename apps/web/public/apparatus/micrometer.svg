@@ -1,0 +1,45 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Micrometer screw gauge (0.01 mm resolution)" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+  <!-- Heavy U-Frame -->
+  <path d="M58 118 L78 118 L78 140 C 78 190, 148 190, 148 140 L148 118 L176 118 L176 146 C 176 222, 58 222, 58 146 Z" fill="#475569" stroke="#0F172A" stroke-width="1" stroke-linejoin="round"/>
+  <text x="116" y="192" text-anchor="middle" fill="#E2E8F0" font-size="8" font-family="JetBrains Mono">0–25 mm · 0.01 mm</text>
+
+  <!-- Fixed Anvil -->
+  <rect x="78" y="122" width="10" height="14" fill="#CBD5E1" stroke="#0F172A" stroke-width="0.9"/>
+  <!-- Movable Spindle -->
+  <rect x="106" y="123" width="42" height="12" fill="#E2E8F0" stroke="#0F172A" stroke-width="0.9"/>
+
+  <!-- Sleeve with datum line and 0.5 mm main scale -->
+  <rect x="176" y="116" width="58" height="26" fill="#CBD5E1" stroke="#0F172A" stroke-width="0.9"/>
+  <line x1="180" y1="129" x2="232" y2="129" stroke="#0F172A" stroke-width="1"/>
+  <line x1="186" y1="123" x2="186" y2="129" stroke="#0F172A" stroke-width="0.9"/>
+  <line x1="196" y1="123" x2="196" y2="129" stroke="#0F172A" stroke-width="0.9"/>
+  <line x1="206" y1="123" x2="206" y2="129" stroke="#0F172A" stroke-width="0.9"/>
+  <line x1="216" y1="123" x2="216" y2="129" stroke="#0F172A" stroke-width="0.9"/>
+
+  <!-- Rotating Thimble (50 circular divisions = 0.01 mm each) -->
+  <polygon points="226,116 242,108 242,150 226,142" fill="#94A3B8" stroke="#0F172A" stroke-width="0.9"/>
+  <rect x="242" y="108" width="56" height="42" fill="#64748B" stroke="#0F172A" stroke-width="0.9"/>
+  <!-- Knurled grip texture & Ratchet Stop -->
+  <rect x="298" y="118" width="24" height="22" rx="2" fill="#334155" stroke="#0F172A" stroke-width="0.9"/>
+
+  <!-- Callouts -->
+  <line x1="84" y1="122" x2="72" y2="74" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="84" cy="122" r="2" fill="#2448D8"/>
+  <rect x="22" y="60" width="96" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="27" y="70" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Anvil &amp; spindle faces</text>
+
+  <line x1="204" y1="116" x2="196" y2="66" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="204" cy="116" r="2" fill="#2448D8"/>
+  <rect x="142" y="52" width="110" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="147" y="62" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Sleeve scale (0.5 mm pitch)</text>
+
+  <line x1="258" y1="150" x2="246" y2="212" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="258" cy="150" r="2" fill="#2448D8"/>
+  <rect x="182" y="212" width="128" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="187" y="222" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Thimble (50 div · 0.01 mm)</text>
+
+  <line x1="312" y1="118" x2="312" y2="82" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="312" cy="118" r="2" fill="#2448D8"/>
+  <rect x="268" y="68" width="76" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="273" y="78" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Ratchet stop</text>
+</svg>
