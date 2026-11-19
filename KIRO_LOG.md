@@ -72,3 +72,36 @@ Add an entry every time a Kiro feature saves real time or changes the outcome. K
 - Build setup screens (C1 Pre-lab, C2 Apparatus setup)
 - Build results/analysis screens (F1 Results & graph, F2 Review & submit)
 - Implement Vix guide integration (E1 Call Vix overlay)
+
+## 2026-11-18 | Folajimi | Lab UI Issues & Fix
+
+**Issue Found:**
+The initial implementation of lab workspaces (D1-D7) used light theme colors (`bg-neutral-50`, `bg-white`, `text-neutral-600`) instead of the dark theme specified in `ui-design.md` steering file.
+
+**Correct Colors (per ui-design.md):**
+- Dark background: `#0B1220` (lab-bg)
+- Panel background: `#121A2B` (lab-panel)
+- Raised area: `#0E1626` (lab-raised)
+- Line color: `#22304A` (lab-line)
+- Text color: `#E6EBF5` (lab-text)
+- Muted text: `#93A0B8` (lab-muted)
+
+**Actions:**
+1. Fixed `LabLayout` component to use dark theme classes (`bg-lab-bg`, `text-lab-text`, `border-lab-line`)
+2. Updated all lab components (Pendulum, Titration, Digestion, Ohm's Law, Beam) with proper dark backgrounds
+3. Updated control panels, tables, and UI elements with correct color classes
+4. Ensured all text, borders, and backgrounds match the dark theme design tokens
+
+**Result:**
+- All lab workspaces now use proper dark theme consistent with design specifications
+- Apparatus displays in dark panels with clear visual hierarchy
+- Data tables have proper dark backgrounds with distinct colors for readings (#2DD4BF)
+- Warning states use amber (#C2410C) as per design tokens
+
+**Files Modified:**
+- `apps/web/src/lab-shell/LabLayout.tsx`
+- `apps/web/src/labs/physics-pendulum/PendulumLab.tsx`
+- `apps/web/src/labs/chemistry-titration/TitrationLab.tsx`
+- `apps/web/src/labs/biology-digestion/DigestionLab.tsx`
+- `apps/web/src/labs/electronics-ohms-law/OhmsLawLab.tsx`
+- `apps/web/src/labs/engineering-beam/BeamLab.tsx`

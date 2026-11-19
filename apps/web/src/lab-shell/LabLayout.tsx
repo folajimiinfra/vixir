@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
 import { Button } from '@vixir/ui';
 import { ChevronRight, Phone, Menu } from 'lucide-react';
+import { color } from '@vixir/ui';
 
 interface LabLayoutProps {
   experimentTitle: string;
@@ -30,21 +31,21 @@ export function LabLayout({
   const showCallVix = mode !== 'exam';
 
   return (
-    <div className="flex flex-col h-screen bg-neutral-50">
+    <div className="flex flex-col h-screen bg-lab-bg font-body text-lab-text">
       {/* Header */}
-      <header className="bg-white border-b border-neutral-200 px-4 py-3 flex items-center justify-between">
+      <header className="bg-lab-panel border-b border-lab-line px-4 py-3 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-4">
           <button
             className="lg:hidden"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             aria-label="Toggle menu"
           >
-            <Menu className="w-5 h-5" />
+            <Menu className="w-5 h-5 text-lab-muted" />
           </button>
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">{experimentTitle}</h1>
-            <div className="flex items-center gap-3 text-sm text-neutral-600">
-              <span className="capitalize">{mode}</span>
+            <h1 className="font-heading text-lg font-semibold text-lab-text">{experimentTitle}</h1>
+            <div className="flex items-center gap-3 text-sm text-lab-muted">
+              <span className="capitalize font-medium">{mode}</span>
               <span>•</span>
               <span>Attempt {attemptNumber}</span>
             </div>
@@ -66,7 +67,7 @@ export function LabLayout({
               onClick={onCallVix}
               variant="outline"
               size="sm"
-              className="gap-2"
+              className="gap-2 border-lab-line text-lab-text hover:bg-lab-panel"
             >
               <Phone className="w-4 h-4" />
               <span className="hidden sm:inline">Call Vix</span>
@@ -89,7 +90,7 @@ export function LabLayout({
 
       {/* Mobile Lab Switcher */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-neutral-200 px-4 py-3 flex flex-wrap gap-2">
+        <div className="lg:hidden bg-lab-panel border-b border-lab-line px-4 py-3 flex flex-wrap gap-2">
           <LabButton label="Physics" active />
           <LabButton label="Chemistry" />
           <LabButton label="Biology" />
@@ -101,10 +102,10 @@ export function LabLayout({
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
         {/* Bench Area (Left/Top) */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden bg-lab-bg">
           {/* Apparatus Tray & Tool Rail */}
-          <div className="bg-neutral-100 border-b border-neutral-200 p-2 flex items-center gap-2 overflow-x-auto">
-            <span className="text-xs font-medium text-neutral-600 whitespace-nowrap">Apparatus:</span>
+          <div className="bg-lab-raised border-b border-lab-line p-2 flex items-center gap-2 overflow-x-auto">
+            <span className="text-xs font-medium text-lab-muted whitespace-nowrap">Apparatus:</span>
             {/* Apparatus items rendered by children */}
           </div>
 
@@ -114,8 +115,8 @@ export function LabLayout({
           </div>
 
           {/* Event Log Strip */}
-          <div className="bg-neutral-50 border-t border-neutral-200 px-4 py-2">
-            <div className="flex items-center gap-2 text-xs text-neutral-600">
+          <div className="bg-lab-bg border-t border-lab-line px-4 py-2">
+            <div className="flex items-center gap-2 text-xs text-lab-muted">
               <span className="font-medium">Last action:</span>
               <span>No events yet</span>
             </div>
@@ -123,9 +124,9 @@ export function LabLayout({
         </div>
 
         {/* Data Panel (Right/Bottom) */}
-        <aside className="w-full lg:w-96 bg-white border-t lg:border-t-0 lg:border-l border-neutral-200 flex flex-col">
+        <aside className="w-full lg:w-96 bg-lab-panel border-t lg:border-t-0 lg:border-l border-lab-line flex flex-col shadow-lg">
           {/* Tabs */}
-          <div className="flex border-b border-neutral-200">
+          <div className="flex border-b border-lab-line">
             <TabButton
               label="Readings"
               active={activeTab === 'readings'}
@@ -149,17 +150,17 @@ export function LabLayout({
           <div className="flex-1 overflow-auto p-4">
             {activeTab === 'readings' && (
               <div className="space-y-2">
-                <p className="text-sm text-neutral-600">No readings recorded yet.</p>
+                <p className="text-sm text-lab-muted">No readings recorded yet.</p>
               </div>
             )}
             {activeTab === 'notebook' && (
               <div className="space-y-2">
-                <p className="text-sm text-neutral-600">Your notes will appear here.</p>
+                <p className="text-sm text-lab-muted">Your notes will appear here.</p>
               </div>
             )}
             {activeTab === 'assistant' && showAssistant && (
               <div className="space-y-2">
-                <p className="text-sm text-neutral-600">
+                <p className="text-sm text-lab-muted">
                   Assistant hints will appear here as you work through the experiment.
                 </p>
               </div>
@@ -176,8 +177,8 @@ function LabButton({ label, active = false }: { label: string; active?: boolean 
     <button
       className={`px-3 py-1.5 text-sm font-medium rounded transition-colors ${
         active
-          ? 'bg-blue-100 text-blue-900'
-          : 'text-neutral-600 hover:bg-neutral-100'
+          ? 'bg-blue-500/20 text-blue-300'
+          : 'text-lab-muted hover:bg-lab-line hover:text-lab-text'
       }`}
     >
       {label}
@@ -199,8 +200,8 @@ function TabButton({
       onClick={onClick}
       className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
         active
-          ? 'text-blue-600 border-b-2 border-blue-600'
-          : 'text-neutral-600 hover:text-neutral-900 hover:bg-neutral-50'
+          ? 'text-blue-300 border-b-2 border-blue-500'
+          : 'text-lab-muted hover:text-lab-text hover:bg-lab-bg'
       }`}
     >
       {label}

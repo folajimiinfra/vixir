@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { LabLayout } from '../../lab-shell/LabLayout';
 import { Button } from '@vixir/ui';
 import { Play, Pause, RotateCcw, Eye, EyeOff } from 'lucide-react';
+import { color, font } from '@vixir/ui';
 
 interface Reading {
   id: number;
@@ -128,7 +129,7 @@ export function PendulumLab() {
       id: readings.length + 1,
       length: Number(displayLength.toFixed(1)),
       time: Number(stopwatchTime.toFixed(2)),
-      oscillations: oscillationCount,
+      oscillations: oscillillationCount,
       period: Number(T.toFixed(3)),
       periodSquared: Number(T2.toFixed(4)),
       warning,
@@ -162,7 +163,7 @@ export function PendulumLab() {
     >
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Pendulum SVG */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
+        <div className="bg-[#121A2B] rounded-lg border border-[#22304A] p-6">
           <svg
             viewBox="0 0 600 500"
             className="w-full h-auto"
@@ -236,11 +237,11 @@ export function PendulumLab() {
         {/* Controls */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Setup Controls */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-4">
-            <h3 className="font-semibold text-neutral-900">Setup</h3>
+          <div className="bg-[#121A2B] rounded-lg border border-[#22304A] p-4 space-y-4">
+            <h3 className="font-heading text-sm font-semibold text-[#E6EBF5]">Setup</h3>
             
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
+              <label className="block text-xs font-medium text-[#93A0B8] mb-2">
                 Length (L): {length} cm
               </label>
               <input
@@ -259,7 +260,7 @@ export function PendulumLab() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">
+              <label className="block text-xs font-medium text-[#93A0B8] mb-2">
                 Initial Angle (θ₀): {angle}°
               </label>
               <input
@@ -273,7 +274,7 @@ export function PendulumLab() {
                 disabled={isSwinging}
               />
               {angle > 10 && (
-                <p className="text-xs text-amber-600 mt-1">
+                <p className="text-xs text-[#C2410C] mt-1">
                   ⚠️ Large angle: small-angle formula may not hold
                 </p>
               )}
@@ -290,7 +291,7 @@ export function PendulumLab() {
                 Eye Level
               </Button>
               {!eyeLevel && (
-                <span className="text-xs text-amber-600">
+                <span className="text-xs text-[#C2410C]">
                   ⚠️ Parallax error present
                 </span>
               )}
@@ -298,14 +299,14 @@ export function PendulumLab() {
           </div>
 
           {/* Measurement Controls */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-4">
-            <h3 className="font-semibold text-neutral-900">Stopwatch</h3>
+          <div className="bg-[#121A2B] rounded-lg border border-[#22304A] p-4 space-y-4">
+            <h3 className="font-heading text-sm font-semibold text-[#E6EBF5]">Stopwatch</h3>
             
             <div className="text-center">
-              <div className="text-4xl font-mono font-bold text-neutral-900 mb-2">
+              <div className={`text-4xl font-mono font-bold text-[#E6EBF5] mb-2`}>
                 {stopwatchTime.toFixed(2)}s
               </div>
-              <div className="text-sm text-neutral-600">
+              <div className="text-xs text-[#93A0B8]">
                 Oscillations: {oscillationCount}
               </div>
             </div>
@@ -363,7 +364,7 @@ export function PendulumLab() {
               </Button>
             </div>
 
-            <p className="text-xs text-neutral-600">
+            <p className="text-xs text-[#93A0B8]">
               Target: 20 oscillations for accurate period measurement
             </p>
           </div>
@@ -371,34 +372,34 @@ export function PendulumLab() {
 
         {/* Readings Table */}
         {readings.length > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4">
-            <h3 className="font-semibold text-neutral-900 mb-3">Readings</h3>
+          <div className="bg-[#121A2B] rounded-lg border border-[#22304A] p-4">
+            <h3 className="font-heading text-sm font-semibold text-[#E6EBF5] mb-3">Readings</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-neutral-200">
-                    <th className="text-left py-2 px-3">#</th>
-                    <th className="text-left py-2 px-3">L (cm)</th>
-                    <th className="text-left py-2 px-3">t (s)</th>
-                    <th className="text-left py-2 px-3">n</th>
-                    <th className="text-left py-2 px-3">T (s)</th>
-                    <th className="text-left py-2 px-3">T² (s²)</th>
-                    <th className="text-left py-2 px-3">Notes</th>
+                  <tr className="border-b border-[#22304A]">
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">#</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">L (cm)</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">t (s)</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">n</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">T (s)</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">T² (s²)</th>
+                    <th className="text-left py-2 px-3 text-[#93A0B8]">Notes</th>
                   </tr>
                 </thead>
                 <tbody>
                   {readings.map((reading) => (
                     <tr
                       key={reading.id}
-                      className={`border-b border-neutral-100 ${reading.warning ? 'bg-amber-50' : ''}`}
+                      className={`border-b border-[#0B1220] ${reading.warning ? 'bg-[#C2410C]/10' : ''}`}
                     >
-                      <td className="py-2 px-3">{reading.id}</td>
-                      <td className="py-2 px-3">{reading.length}</td>
-                      <td className="py-2 px-3">{reading.time}</td>
-                      <td className="py-2 px-3">{reading.oscillations}</td>
-                      <td className="py-2 px-3 font-mono">{reading.period}</td>
-                      <td className="py-2 px-3 font-mono">{reading.periodSquared}</td>
-                      <td className="py-2 px-3 text-amber-600 text-xs">{reading.warning}</td>
+                      <td className="py-2 px-3 text-[#E6EBF5]">{reading.id}</td>
+                      <td className="py-2 px-3 text-[#E6EBF5]">{reading.length}</td>
+                      <td className="py-2 px-3 text-[#E6EBF5]">{reading.time}</td>
+                      <td className="py-2 px-3 text-[#E6EBF5]">{reading.oscillations}</td>
+                      <td className="py-2 px-3 font-mono text-[#2DD4BF]">{reading.period}</td>
+                      <td className="py-2 px-3 font-mono text-[#2DD4BF]">{reading.periodSquared}</td>
+                      <td className="py-2 px-3 text-[#C2410C] text-xs">{reading.warning}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -406,7 +407,7 @@ export function PendulumLab() {
             </div>
             
             {readings.length >= 6 && (
-              <p className="text-sm text-green-600 mt-3">
+              <p className="text-sm text-[#15803D] mt-3">
                 ✓ Six readings recorded. You can now analyse your results.
               </p>
             )}
