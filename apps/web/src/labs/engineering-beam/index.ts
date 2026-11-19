@@ -1,0 +1,1 @@
+export { BeamLab } from './BeamLab';

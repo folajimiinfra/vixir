@@ -37,6 +37,3 @@ Add an entry every time a Kiro feature saves real time or changes the outcome. K
 | 2026-11-18 | Folajimi | Dev server | Running on localhost:5173 with HMR updates applied | All changes live-reloaded |
 | 2026-11-18 | Folajimi | Pendulum Animation Fix | Bob now swings with transform-origin at pivot point (300, 74) | Bob oscillates to-and-fro while setup stays fixed |
 | 2026-11-18 | Folajimi | SVG Animation | Bob group wrapped in <g> with transform-origin attribute | Pendulum string and bob rotate from pivot, not whole SVG |
-| 2026-11-18 | Folajimi | Pendulum CSS Fix | Created .pendulum-bob class with transform-origin | CSS-based animation applied to SVG group |
-| 2026-11-18 | Folajimi | SVG Group | Wrapped bob in <group class="pendulum-bob"> | Transform origin applied via CSS class |
-| 2026-11-18 | Folajimi | Dev Server | HMR updates applied multiple times | CSS changes live-reloaded |

@@ -16,21 +16,9 @@
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
 }
 
-/* Pendulum animation - bob swings from pivot point */
 @keyframes swing {
   0% { transform: rotate(-5deg); }
   100% { transform: rotate(5deg); }
-}
-/* Pendulum animation - bob swings from pivot point */
-@keyframes swing {
-  0% { transform: rotate(-5deg); }
-  100% { transform: rotate(5deg); }
-}
-/* SVG transform-origin requires transform-box and SVG coordinate system */
-.pendulum-bob {
-  transform-origin: 300px 74px;
-  transform-box: fill-box;
-  animation: swing 1.5s ease-in-out infinite alternate;
 }
 
 body { @apply bg-page text-ink font-sans; }

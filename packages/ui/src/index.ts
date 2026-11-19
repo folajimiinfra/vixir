@@ -14,3 +14,5 @@ export const font = {
 } as const;
 
 export const radius = { sm: 8, md: 12, lg: 16, xl: 20 } as const;
+
+export { Button, type ButtonProps } from './button';

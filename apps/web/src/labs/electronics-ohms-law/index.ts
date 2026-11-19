@@ -1,0 +1,1 @@
+export { OhmsLawLab } from './OhmsLawLab';

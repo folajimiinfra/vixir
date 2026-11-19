@@ -1,0 +1,1 @@
+export { DigestionLab } from './DigestionLab';
