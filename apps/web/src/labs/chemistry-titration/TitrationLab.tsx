@@ -1,486 +1,573 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router';
 import { LabLayout } from '../../lab-shell/LabLayout';
-import { Button } from '@vixir/ui';
-import { Droplet, RotateCcw, FlaskConical } from 'lucide-react';
-
-interface Titration {
-  id: number;
-  type: 'Rough' | 'Accurate';
-  initial: number; // cm³
-  final: number; // cm³
-  titre: number; // final - initial
-  concordant?: boolean;
-}
 
 type TapSetting = 'closed' | 'dropwise' | 'slow' | 'fast';
 
+interface TitreRow {
+  id: number;
+  label: string;
+  initial: number;
+  final: number;
+  titre: number;
+  concordant?: boolean;
+}
+
+const INITIAL_TITRATIONS: TitreRow[] = [
+  { id: 1, label: 'Rough', initial: 0.0, final: 24.65, titre: 24.65, concordant: false },
+  { id: 2, label: '1st', initial: 0.2, final: 24.4, titre: 24.2, concordant: true },
+];
+
 export function TitrationLab() {
-  const [buretteVolume, setBuretteVolume] = useState(50.0); // cm³ in burette
-  const [buretteReading, setBuretteReading] = useState(0.0); // cm³ delivered
-  const [initialReading, setInitialReading] = useState<number | null>(null);
+  const navigate = useNavigate();
+  const [initialReading, setInitialReading] = useState(0.4);
+  const [buretteReading, setBuretteReading] = useState(19.0);
   const [tapSetting, setTapSetting] = useState<TapSetting>('closed');
-  const [flaskSwirled, setFlaskSwirled] = useState(true);
-  const [titrations, setTitrations] = useState<Titration[]>([]);
-  const [pH, setPH] = useState(14.0); // Starting pH (NaOH solution)
-  const [showPHCurve, setShowPHCurve] = useState(false);
-  
-  const animationRef = useRef<number>();
-  const lastUpdateRef = useRef<number>(0);
+  const [indicator, setIndicator] = useState<'Phenolphthalein' | 'Methyl orange'>('Phenolphthalein');
+  const [swirled, setSwirled] = useState(true);
+  const [titrations, setTitrations] = useState<TitreRow[]>(INITIAL_TITRATIONS);
+  const [logMsg, setLogMsg] = useState(
+    'log > Flask 3 prepared: 25.0 cm³ of B + 2 drops phenolphthalein.'
+  );
 
-  // Hidden acid concentration (from seed)
-  const acidConcentration = 0.125; // mol/dm³ (will be seeded)
-  const baseConcentration = 0.100; // mol/dm³
-  const baseVolume = 25.0; // cm³
+  const lastTickRef = useRef<number>(0);
 
-  // Tap flow rates (cm³/s)
+  // Equivalence volume = 24.20 cm³ (gives titre = 24.20 cm³, so final reading = 24.60 cm³ when initial = 0.40)
+  const equivalenceTitre = 24.2;
+  const volumeDelivered = Math.max(0, buretteReading - initialReading);
+
   const flowRates: Record<TapSetting, number> = {
     closed: 0,
-    dropwise: 0.05,
-    slow: 0.35,
-    fast: 1.4,
+    dropwise: 0.08,
+    slow: 0.45,
+    fast: 1.6,
   };
 
-  // Calculate pH based on volumes
-  const calculatePH = (volumeAdded: number) => {
-    const molesBase = (baseVolume / 1000) * baseConcentration;
-    const molesAcid = (volumeAdded / 1000) * acidConcentration;
-    const totalVolume = (baseVolume + volumeAdded) / 1000;
-
-    if (molesAcid < molesBase) {
-      // Excess base
-      const excessOH = (molesBase - molesAcid) / totalVolume;
-      const pOH = -Math.log10(excessOH);
-      return 14 - pOH;
-    } else if (molesAcid > molesBase) {
-      // Excess acid
-      const excessH = (molesAcid - molesBase) / totalVolume;
-      return -Math.log10(excessH);
-    } else {
-      return 7.0; // Equivalence point
+  const calculatePH = (volAdded: number): number => {
+    const diff = equivalenceTitre - volAdded;
+    if (diff > 0.05) {
+      return Math.min(13.0, Math.max(8.3, 11.2 + Math.log10(diff / 10)));
     }
+    if (Math.abs(diff) <= 0.05) {
+      return 7.0;
+    }
+    return Math.max(1.4, 3.2 - Math.log10(-diff + 0.1));
   };
 
-  // Animation loop for tap flow
+  const pH = calculatePH(volumeDelivered);
+
   useEffect(() => {
-    if (tapSetting !== 'closed' && buretteVolume > 0) {
-      const animate = (timestamp: number) => {
-        if (!lastUpdateRef.current) lastUpdateRef.current = timestamp;
-        const delta = (timestamp - lastUpdateRef.current) / 1000;
-        
-        if (delta > 0) {
-          const volumeChange = flowRates[tapSetting] * delta;
-          
-          setBuretteVolume(prev => Math.max(0, prev - volumeChange));
-          setBuretteReading(prev => {
-            const newReading = prev + volumeChange;
-            setPH(calculatePH(newReading));
-            return newReading;
-          });
-          
-          // Mark as not swirled after adding acid
-          if (volumeChange > 0.1) {
-            setFlaskSwirled(false);
-          }
-          
-          lastUpdateRef.current = timestamp;
-        }
-        
-        if (buretteVolume > 0 && tapSetting !== 'closed') {
-          animationRef.current = requestAnimationFrame(animate);
-        }
-      };
-      
-      animationRef.current = requestAnimationFrame(animate);
-    } else {
-      lastUpdateRef.current = 0;
-    }
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [tapSetting, buretteVolume, acidConcentration]);
-
-  const handleRecordInitial = () => {
-    // Round to nearest 0.05
-    const rounded = Math.round(buretteReading / 0.05) * 0.05;
-    setInitialReading(rounded);
-  };
-
-  const handleRecordFinal = () => {
-    if (initialReading === null) {
-      alert('Please record initial reading first!');
+    if (tapSetting === 'closed' || buretteReading >= 50) {
+      lastTickRef.current = 0;
       return;
     }
 
-    // Round to nearest 0.05
-    const rounded = Math.round(buretteReading / 0.05) * 0.05;
-    const titre = rounded - initialReading;
-    
-    const type = titrations.length === 0 ? 'Rough' : 'Accurate';
-    
-    // Check concordance with last accurate titration
-    let concordant = false;
-    if (type === 'Accurate' && titrations.length > 0) {
-      const lastAccurate = [...titrations].reverse().find(t => t.type === 'Accurate');
-      if (lastAccurate) {
-        concordant = Math.abs(titre - lastAccurate.titre) <= 0.10;
-      }
-    }
+    let frameId: number;
+    const step = (now: number) => {
+      if (!lastTickRef.current) lastTickRef.current = now;
+      const dt = (now - lastTickRef.current) / 1000;
+      lastTickRef.current = now;
 
-    const newTitration: Titration = {
-      id: titrations.length + 1,
-      type,
-      initial: initialReading,
-      final: rounded,
-      titre: Number(titre.toFixed(2)),
-      concordant,
+      setBuretteReading((prev) => {
+        const next = Math.min(50.0, prev + flowRates[tapSetting] * dt);
+        return next;
+      });
+      if (dt > 0) setSwirled(false);
+
+      frameId = requestAnimationFrame(step);
     };
-    
-    setTitrations([...titrations, newTitration]);
-  };
 
-  const handleNewTitration = () => {
-    setBuretteVolume(50.0);
-    setBuretteReading(0.0);
-    setInitialReading(null);
-    setPH(14.0);
-    setFlaskSwirled(true);
-    setTapSetting('closed');
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [tapSetting, buretteReading]);
+
+  const handleSetTap = (nextTap: TapSetting) => {
+    setTapSetting(nextTap);
+    setLogMsg(
+      nextTap === 'closed'
+        ? `log > Tap closed at ${buretteReading.toFixed(2)} cm³.`
+        : `log > Tap set to ${nextTap} (${flowRates[nextTap]} cm³ s⁻¹).`
+    );
   };
 
   const handleSwirl = () => {
-    setFlaskSwirled(true);
+    setSwirled(true);
+    setLogMsg('log > Conical flask swirled — indicator colour uniform.');
   };
 
-  // Get flask color based on pH (phenolphthalein indicator)
-  const getFlaskColor = () => {
-    if (pH >= 8.2) return '#FF69B4'; // Pink
-    if (pH >= 7.5) return '#FFB6C1'; // Light pink (fading)
-    return 'transparent'; // Colorless
+  const handleRefillAndNewFlask = () => {
+    setTapSetting('closed');
+    setInitialReading(0.0);
+    setBuretteReading(0.0);
+    setSwirled(true);
+    setLogMsg(
+      `log > Burette refilled to 0.00 cm³. Fresh 25.0 cm³ of B pipetted into clean flask.`
+    );
   };
 
-  // Check for concordant titrations
-  const concordantTitrations = titrations.filter(t => t.concordant);
-  const meanTitre = concordantTitrations.length >= 2
-    ? concordantTitrations.reduce((sum, t) => sum + t.titre, 0) / concordantTitrations.length
-    : null;
+  const handleRecordFinal = () => {
+    setTapSetting('closed');
+    const roundedFinal = Math.round(buretteReading * 20) / 20;
+    const titre = Number((roundedFinal - initialReading).toFixed(2));
+    const idx = titrations.length;
+    const label = idx === 0 ? 'Rough' : idx === 1 ? '1st' : idx === 2 ? '2nd' : `${idx}th`;
+    const isConcordant = titrations.some(
+      (t) => t.label !== 'Rough' && Math.abs(t.titre - titre) <= 0.1
+    );
 
-  // Equivalence volume (for practice mode pH curve)
-  const equivalenceVolume = (baseVolume * baseConcentration) / acidConcentration;
-  const overshoot = buretteReading > equivalenceVolume + 0.10;
+    const newRow: TitreRow = {
+      id: titrations.length + 1,
+      label,
+      initial: initialReading,
+      final: roundedFinal,
+      titre,
+      concordant: isConcordant,
+    };
+
+    setTitrations((prev) => [...prev, newRow]);
+    setLogMsg(
+      `log > Recorded ${label} titration: initial ${initialReading.toFixed(2)} cm³, final ${roundedFinal.toFixed(2)} cm³, titre ${titre.toFixed(2)} cm³.`
+    );
+  };
+
+  // Liquid height inside burette (0 cm³ is at y=30, 50 cm³ is at y=330)
+  const liquidTopY = 30 + (buretteReading / 50) * 300;
+  const liquidHeight = Math.max(0, 336 - liquidTopY);
+
+  // Solution colour in flask
+  const getSolutionFill = () => {
+    if (indicator === 'Phenolphthalein') {
+      if (pH >= 8.4) return 'rgba(236, 72, 153, 0.80)';
+      if (pH >= 7.8) return 'rgba(244, 114, 182, 0.42)';
+      return 'rgba(203, 213, 225, 0.18)';
+    } else {
+      if (pH >= 4.4) return 'rgba(250, 204, 21, 0.72)';
+      if (pH >= 3.2) return 'rgba(251, 146, 60, 0.75)';
+      return 'rgba(239, 68, 68, 0.75)';
+    }
+  };
+
+  // Dot on pH curve (V(acid) 0..40 maps to x 35..235, pH 1..14 maps to y 112..25)
+  const curveDotX = 35 + (Math.min(volumeDelivered, 40) / 40) * 200;
+  const curveDotY = 112 - ((pH - 1) / 13) * 87;
 
   return (
     <LabLayout
-      experimentTitle="Acid-Base Titration"
-      mode="practice"
-      attemptNumber={1}
-      onCallVix={() => console.log('Call Vix')}
-      onNextStep={() => console.log('Calculate concentration')}
-      nextStepLabel="Calculate"
-      nextStepDisabled={!meanTitre}
-    >
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* Apparatus SVG */}
-        <div className="bg-white rounded-lg border border-neutral-200 p-6">
-          <svg
-            viewBox="0 0 700 600"
-            className="w-full h-auto"
-            style={{ maxHeight: '600px' }}
-          >
-            {/* Burette Stand */}
-            <rect x="280" y="50" width="6" height="400" fill="#666" />
-            <rect x="240" y="50" width="86" height="12" fill="#666" />
-            <rect x="260" y="440" width="46" height="100" fill="#666" rx="8" />
-            
-            {/* Burette */}
-            <g id="burette">
-              <rect x="290" y="80" width="30" height="300" fill="#E8F4F8" stroke="#333" strokeWidth="2" />
-              
-              {/* Liquid in burette */}
-              <rect
-                x="292"
-                y={380 - (buretteVolume / 50) * 300}
-                width="26"
-                height={(buretteVolume / 50) * 300}
-                fill="#B8E6F0"
-              />
-              
-              {/* Scale markings */}
-              {Array.from({ length: 11 }, (_, i) => i * 5).map(mark => (
-                <g key={mark}>
-                  <line
-                    x1="290"
-                    y1={80 + (mark / 50) * 300}
-                    x2="285"
-                    y2={80 + (mark / 50) * 300}
-                    stroke="#333"
-                    strokeWidth="1"
-                  />
-                  <text
-                    x="275"
-                    y={85 + (mark / 50) * 300}
-                    fontSize="10"
-                    textAnchor="end"
-                    fill="#333"
-                  >
-                    {mark}
-                  </text>
-                </g>
-              ))}
-              
-              {/* Tap */}
-              <circle cx="305" cy="385" r="8" fill={tapSetting !== 'closed' ? '#4A90E2' : '#999'} stroke="#333" strokeWidth="2" />
-              
-              {/* Tip & drops */}
-              <rect x="302" y="385" width="6" height="15" fill="#999" />
-              
-              {/* Animated drops when tap open */}
-              {tapSetting !== 'closed' && (
-                <>
-                  <circle cx="305" cy="405" r="3" fill="#B8E6F0" opacity="0.8" />
-                  <circle cx="305" cy="415" r="2.5" fill="#B8E6F0" opacity="0.6" />
-                </>
-              )}
-            </g>
-            
-            {/* Conical Flask */}
-            <g id="flask">
-              <path
-                d="M 250 430 L 240 480 Q 235 520 250 540 L 360 540 Q 375 520 370 480 L 360 430 Z"
-                fill={getFlaskColor()}
-                fillOpacity="0.6"
-                stroke="#333"
-                strokeWidth="2"
-              />
-              <ellipse cx="305" cy="430" rx="55" ry="8" fill="none" stroke="#333" strokeWidth="2" />
-              
-              {/* Solution level */}
-              <ellipse
-                cx="305"
-                cy="520"
-                rx="50"
-                ry="6"
-                fill={getFlaskColor()}
-                stroke="#333"
-                strokeWidth="1"
-              />
-              
-              {/* Swirl warning indicator */}
-              {!flaskSwirled && tapSetting === 'closed' && (
-                <text x="305" y="500" textAnchor="middle" fontSize="12" fill="#D97706">
-                  ⚠ Swirl flask
-                </text>
-              )}
-              
-              {/* Local color streak when not swirled */}
-              {!flaskSwirled && (
-                <ellipse
-                  cx="320"
-                  cy="510"
-                  rx="15"
-                  ry="8"
-                  fill="#B8E6F0"
-                  opacity="0.8"
-                />
-              )}
-            </g>
-            
-            {/* Meniscus view (magnified) */}
-            <g id="meniscus-view" transform="translate(450, 100)">
-              <rect x="0" y="0" width="150" height="100" fill="#F9FAFB" stroke="#D1D5DB" strokeWidth="2" rx="4" />
-              <text x="75" y="20" textAnchor="middle" fontSize="12" fontWeight="bold" fill="#374151">
-                Meniscus View
-              </text>
-              
-              {/* Magnified reading */}
-              <line x1="20" y1="60" x2="130" y2="60" stroke="#333" strokeWidth="1" />
-              <path
-                d="M 20 60 Q 75 65 130 60"
-                fill="none"
-                stroke="#4A90E2"
-                strokeWidth="2"
-              />
-              <text x="75" y="85" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#1F2937">
-                {buretteReading.toFixed(2)} cm³
-              </text>
-            </g>
-            
-            {/* pH display (practice mode) */}
-            {showPHCurve && (
-              <g id="ph-display" transform="translate(450, 220)">
-                <rect x="0" y="0" width="150" height="60" fill="#FEF3C7" stroke="#F59E0B" strokeWidth="2" rx="4" />
-                <text x="75" y="25" textAnchor="middle" fontSize="14" fontWeight="bold" fill="#92400E">
-                  pH: {pH.toFixed(2)}
-                </text>
-                <text x="75" y="45" textAnchor="middle" fontSize="10" fill="#92400E">
-                  Practice mode only
-                </text>
-              </g>
-            )}
-          </svg>
-        </div>
-
-        {/* Controls */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Tap Control */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-4">
-            <h3 className="font-semibold text-neutral-900">Burette Control</h3>
-            
+      experimentTitle="Acid–base titration: HCl vs NaOH"
+      subtitle="Graded · find the concentration of acid A · autosaved"
+      activeLab="chemistry"
+      mode="graded"
+      headerRightExtra={
+        <span className="hidden sm:inline-block px-3 py-1 rounded-full bg-[#121A2B] border border-[#22304A] text-xs text-[#C9D3E6]">
+          Lab coat ✓ · Goggles ✓
+        </span>
+      }
+      nextStepLabel="Calculate →"
+      onNextStep={() => navigate('/attempt/demo/results')}
+      toolRail={[
+        { id: 'pointer', label: 'Interact', icon: 'pointer', active: true },
+        { id: 'flask', label: 'Glassware', icon: 'flask' },
+        { id: 'zoom', label: 'Meniscus magnifier', icon: 'zoom' },
+        { id: 'alert', label: 'Hazard sheet', icon: 'alert' },
+        { id: 'note', label: 'Lab notebook', icon: 'note' },
+      ]}
+      toolRailAccent="bg-[#3A2112] text-[#FDBA74]"
+      leftTray={
+        <div className="space-y-4">
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-[#93A0B8] mb-2.5">
+              APPARATUS
+            </div>
             <div className="space-y-2">
-              {(['closed', 'dropwise', 'slow', 'fast'] as TapSetting[]).map(setting => (
-                <button
-                  key={setting}
-                  onClick={() => setTapSetting(setting)}
-                  className={`w-full px-4 py-2 text-sm font-medium rounded border transition-colors ${
-                    tapSetting === setting
-                      ? 'bg-blue-100 border-blue-500 text-blue-900'
-                      : 'bg-white border-neutral-300 text-neutral-700 hover:bg-neutral-50'
-                  }`}
-                  disabled={buretteVolume <= 0}
+              {[
+                { name: 'Burette, 50 cm³', sub: '± 0.05 cm³ · rinsed with acid A' },
+                { name: 'Pipette, 25.0 cm³', sub: 'rinsed with base B' },
+                { name: 'Conical flask, 250 cm³', sub: 'rinsed with distilled water' },
+                { name: 'White tile · retort stand', sub: 'on bench' },
+              ].map((item) => (
+                <div
+                  key={item.name}
+                  className="bg-[#121A2B] border border-[#22304A] rounded-xl px-3 py-2.5"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="capitalize">{setting}</span>
-                    {setting !== 'closed' && (
-                      <span className="text-xs text-neutral-500">
-                        {flowRates[setting]} cm³/s
-                      </span>
-                    )}
-                  </div>
+                  <div className="text-xs font-semibold text-[#E6EBF5]">{item.name}</div>
+                  <div className="text-[11px] text-[#93A0B8] leading-snug mt-0.5">{item.sub}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[11px] font-bold tracking-wider uppercase text-[#93A0B8] mb-2">
+              REAGENTS
+            </div>
+            <div className="space-y-2">
+              <div className="bg-[#121A2B] border border-[#22304A] rounded-xl px-3 py-2.5">
+                <div className="text-xs font-semibold text-[#E6EBF5]">A · HCl (aq)</div>
+                <div className="text-[11px] text-[#93A0B8]">concentration unknown</div>
+              </div>
+              <div className="bg-[#121A2B] border border-[#22304A] rounded-xl px-3 py-2.5">
+                <div className="text-xs font-semibold text-[#E6EBF5]">B · NaOH (aq)</div>
+                <div className="text-[11px] text-[#93A0B8]">0.100 mol dm⁻³</div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="indicator-select"
+              className="block text-[11px] text-[#93A0B8] mb-1.5"
+            >
+              Indicator (2 drops)
+            </label>
+            <select
+              id="indicator-select"
+              value={indicator}
+              onChange={(e) =>
+                setIndicator(e.target.value as 'Phenolphthalein' | 'Methyl orange')
+              }
+              className="w-full bg-[#121A2B] border border-[#22304A] rounded-xl px-3 py-2 text-xs text-[#E6EBF5] focus:outline-none focus:border-[#F97316]"
+            >
+              <option value="Phenolphthalein">Phenolphthalein</option>
+              <option value="Methyl orange">Methyl orange</option>
+            </select>
+          </div>
+        </div>
+      }
+      bottomDock={
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-stretch">
+          {/* Burette tap controls */}
+          <div className="md:col-span-6 bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5 flex flex-col justify-between space-y-2.5">
+            <div className="text-xs text-[#93A0B8]">Burette tap</div>
+            <div className="grid grid-cols-4 gap-2">
+              {(['closed', 'dropwise', 'slow', 'fast'] as TapSetting[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => handleSetTap(mode)}
+                  className={`py-2 rounded-lg text-xs font-semibold capitalize transition-colors cursor-pointer ${
+                    tapSetting === mode
+                      ? 'bg-[#F97316] text-[#0B1220]'
+                      : 'bg-[#0B1220] hover:bg-[#192338] border border-[#22304A] text-[#E6EBF5]'
+                  }`}
+                >
+                  {mode}
                 </button>
               ))}
             </div>
 
-            {overshoot && (
-              <p className="text-xs text-amber-600">
-                ⚠️ Overshoot: You've passed the end point by more than 0.10 cm³
-              </p>
-            )}
-
-            <div className="pt-2 border-t border-neutral-200">
-              <Button
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                type="button"
                 onClick={handleSwirl}
-                variant="outline"
-                size="sm"
-                className="w-full gap-2"
-                disabled={flaskSwirled}
+                className="py-2 px-2.5 rounded-lg bg-[#0B1220] hover:bg-[#192338] border border-[#22304A] text-xs font-semibold text-[#E6EBF5] transition-colors cursor-pointer"
               >
-                <FlaskConical className="w-4 h-4" />
-                Swirl Flask
-              </Button>
+                Swirl flask
+              </button>
+              <button
+                type="button"
+                onClick={handleRefillAndNewFlask}
+                className="py-2 px-2.5 rounded-lg bg-[#0B1220] hover:bg-[#192338] border border-[#22304A] text-xs font-semibold text-[#E6EBF5] transition-colors cursor-pointer leading-tight"
+              >
+                Refill &amp; new flask
+              </button>
+              <button
+                type="button"
+                onClick={handleRecordFinal}
+                className="py-2 px-2.5 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-xs font-semibold text-white transition-colors cursor-pointer"
+              >
+                Record final
+              </button>
             </div>
           </div>
 
-          {/* Recording */}
-          <div className="bg-white rounded-lg border border-neutral-200 p-4 space-y-4">
-            <h3 className="font-semibold text-neutral-900">Record Readings</h3>
-            
-            <div className="text-center space-y-2">
-              <div className="text-sm text-neutral-600">Current reading</div>
-              <div className="text-3xl font-mono font-bold text-neutral-900">
-                {buretteReading.toFixed(2)} cm³
-              </div>
-              {initialReading !== null && (
-                <div className="text-sm text-neutral-600">
-                  Initial: {initialReading.toFixed(2)} cm³
-                </div>
-              )}
+          {/* Burette reading */}
+          <div className="md:col-span-3 bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5 flex flex-col justify-between">
+            <div className="text-xs text-[#93A0B8]">Burette reading</div>
+            <div className="font-mono text-3xl font-semibold text-[#FDBA74] my-1">
+              {buretteReading.toFixed(2)}
             </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                onClick={handleRecordInitial}
-                variant="outline"
-                size="sm"
-                disabled={initialReading !== null}
-              >
-                Record Initial
-              </Button>
-              
-              <Button
-                onClick={handleRecordFinal}
-                variant="default"
-                size="sm"
-                disabled={initialReading === null}
-              >
-                Record Final
-              </Button>
-
-              <Button
-                onClick={handleNewTitration}
-                variant="outline"
-                size="sm"
-                className="col-span-2 gap-2"
-                disabled={initialReading === null}
-              >
-                <RotateCcw className="w-4 h-4" />
-                New Titration
-              </Button>
+            <div className="text-xs font-mono text-[#93A0B8]">
+              cm³ · initial {initialReading.toFixed(2)}
             </div>
+          </div>
 
-            <div className="pt-2 border-t border-neutral-200">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={showPHCurve}
-                  onChange={(e) => setShowPHCurve(e.target.checked)}
-                  className="rounded"
-                />
-                Show pH (practice mode)
-              </label>
+          {/* pH probe */}
+          <div className="md:col-span-3 bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5 flex flex-col justify-between">
+            <div className="text-xs text-[#93A0B8]">pH probe (practice only)</div>
+            <div className="font-mono text-3xl font-semibold text-[#E6EBF5] my-1">
+              {pH.toFixed(2)}
             </div>
+            <div className="text-xs font-mono text-[#93A0B8]">25.0 °C</div>
           </div>
         </div>
-
-        {/* Titrations Table */}
-        {titrations.length > 0 && (
-          <div className="bg-white rounded-lg border border-neutral-200 p-4">
-            <h3 className="font-semibold text-neutral-900 mb-3">Titrations</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+      }
+      logMessage={logMsg}
+      rightPanel={
+        <div className="space-y-3.5">
+          <div>
+            <h2 className="font-display text-sm font-bold text-[#E6EBF5] mb-2">
+              Titration table
+            </h2>
+            <div className="bg-[#121A2B] border border-[#22304A] rounded-xl overflow-hidden">
+              <table className="w-full text-xs font-mono">
                 <thead>
-                  <tr className="border-b border-neutral-200">
-                    <th className="text-left py-2 px-3">#</th>
-                    <th className="text-left py-2 px-3">Type</th>
-                    <th className="text-left py-2 px-3">Initial (cm³)</th>
-                    <th className="text-left py-2 px-3">Final (cm³)</th>
-                    <th className="text-left py-2 px-3">Titre (cm³)</th>
-                    <th className="text-left py-2 px-3">Status</th>
+                  <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
+                    <th className="py-2 px-2.5 text-left">Burette / cm³</th>
+                    <th className="py-2 px-2 text-right">Initial</th>
+                    <th className="py-2 px-2 text-right">Final</th>
+                    <th className="py-2 px-2.5 text-right">Titre</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {titrations.map((titration) => (
+                  {titrations.map((row) => (
                     <tr
-                      key={titration.id}
-                      className={`border-b border-neutral-100 ${titration.concordant ? 'bg-green-50' : ''}`}
+                      key={row.id}
+                      className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
                     >
-                      <td className="py-2 px-3">{titration.id}</td>
-                      <td className="py-2 px-3">{titration.type}</td>
-                      <td className="py-2 px-3 font-mono">{titration.initial.toFixed(2)}</td>
-                      <td className="py-2 px-3 font-mono">{titration.final.toFixed(2)}</td>
-                      <td className="py-2 px-3 font-mono font-bold">{titration.titre.toFixed(2)}</td>
-                      <td className="py-2 px-3 text-xs">
-                        {titration.concordant && <span className="text-green-600">✓ Concordant</span>}
+                      <td className="py-1.5 px-2.5 font-sans font-medium">{row.label}</td>
+                      <td className="py-1.5 px-2 text-right">{row.initial.toFixed(2)}</td>
+                      <td className="py-1.5 px-2 text-right">{row.final.toFixed(2)}</td>
+                      <td className="py-1.5 px-2.5 text-right text-[#FDBA74] font-semibold">
+                        {row.titre.toFixed(2)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            
-            {meanTitre && (
-              <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded">
-                <p className="text-sm font-semibold text-green-900">
-                  Mean concordant titre: {meanTitre.toFixed(2)} cm³
-                </p>
-                <p className="text-xs text-green-700 mt-1">
-                  Two concordant titrations achieved. You can now calculate the acid concentration.
-                </p>
-              </div>
-            )}
+          </div>
+
+          <div className="bg-[#121A2B] border border-[#22304A] rounded-xl p-3 text-xs text-[#C9D3E6] leading-relaxed">
+            Record at least two accurate titres within 0.10 cm³ of each other.
+          </div>
+
+          {/* pH curve */}
+          <div className="bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5">
+            <div className="text-xs text-[#93A0B8] mb-2">pH curve · this flask</div>
+            <svg viewBox="0 0 260 145" className="w-full h-auto">
+              <line x1="35" y1="15" x2="35" y2="115" stroke="#3A4A68" strokeWidth="1" />
+              <line x1="35" y1="115" x2="240" y2="115" stroke="#3A4A68" strokeWidth="1" />
+              <line
+                x1="35"
+                y1="68"
+                x2="240"
+                y2="68"
+                stroke="#3A4A68"
+                strokeWidth="1"
+                strokeDasharray="3 3"
+              />
+              <text
+                x="138"
+                y="135"
+                fill="#93A0B8"
+                fontSize="8"
+                fontFamily="JetBrains Mono, monospace"
+                textAnchor="middle"
+              >
+                V(acid) / cm³ (0 – 40)
+              </text>
+              <text
+                x="12"
+                y="68"
+                fill="#93A0B8"
+                fontSize="8"
+                fontFamily="JetBrains Mono, monospace"
+                textAnchor="middle"
+                transform="rotate(-90 12 68)"
+              >
+                pH
+              </text>
+              {/* Sigmoidal titration curve */}
+              <path
+                d="M 35 24 Q 130 28 153 38 C 156 42, 156 96, 160 100 Q 185 108 238 110"
+                fill="none"
+                stroke="#FDBA74"
+                strokeWidth="1.75"
+              />
+              {/* Current volume marker */}
+              <circle cx={curveDotX} cy={curveDotY} r="3.5" fill="#FFFFFF" />
+            </svg>
+          </div>
+
+          {/* Lab Assistant */}
+          <div className="bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5">
+            <div className="text-[11px] font-bold tracking-wider uppercase text-[#60A5FA] mb-1.5">
+              LAB ASSISTANT
+            </div>
+            <p className="text-xs text-[#C9D3E6] leading-relaxed">
+              Near the end point, the pink fades more slowly after each drop. What should you
+              change about how fast you add acid?
+            </p>
+          </div>
+        </div>
+      }
+    >
+      {/* Top Status Pill on Bench */}
+      <div className="flex items-center justify-between z-10">
+        <div className="px-3 py-1 rounded-full bg-[#121A2B]/90 border border-[#22304A] text-xs text-[#E6EBF5]">
+          Titration {titrations.length}nd · tap {tapSetting}
+        </div>
+        {!swirled && (
+          <div className="px-3 py-1 rounded-full bg-[#3A2112] border border-[#F97316] text-xs text-[#FDBA74]">
+            Local colour streak — swirl flask
           </div>
         )}
+      </div>
+
+      {/* Main Burette + Conical Flask + Meniscus ×8 SVG matching D2-chemistry-titration-bench.svg */}
+      <div className="flex-1 flex items-center justify-center my-1">
+        <svg
+          viewBox="0 0 600 460"
+          className="w-full max-w-[660px] h-auto max-h-[430px]"
+          role="img"
+          aria-label={`Burette above a conical flask on a white tile; burette reads ${buretteReading.toFixed(2)} cubic centimetres`}
+        >
+          {/* Bench surface */}
+          <rect x="60" y="440" width="480" height="12" rx="3" fill="#22304A" />
+          {/* Retort stand base */}
+          <rect x="170" y="428" width="90" height="14" rx="3" fill="#3A4A68" />
+          {/* Retort stand vertical rod */}
+          <rect x="206" y="20" width="10" height="410" fill="#3A4A68" />
+          {/* Boss & clamp */}
+          <rect x="212" y="120" width="80" height="10" rx="3" fill="#55688C" />
+          <rect x="280" y="112" width="24" height="26" rx="4" fill="#8A6A4A" />
+
+          {/* Burette glass column */}
+          <rect
+            x="289"
+            y="26"
+            width="22"
+            height="312"
+            rx="4"
+            fill="#C9D3E6"
+            opacity="0.12"
+            stroke="#93A0B8"
+            strokeWidth="1"
+          />
+
+          {/* Acid liquid column inside burette */}
+          <rect
+            x="291"
+            y={liquidTopY}
+            width="18"
+            height={liquidHeight}
+            fill="#93C5FD"
+            opacity="0.35"
+          />
+
+          {/* Curved meniscus line at top of liquid column */}
+          <path
+            d={`M 291 ${liquidTopY} Q 300 ${liquidTopY + 4} 309 ${liquidTopY}`}
+            fill="none"
+            stroke="#BFDBFE"
+            strokeWidth="1.5"
+          />
+
+          {/* Burette scale graduations 0..50 */}
+          {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50].map((mark) => {
+            const y = 30 + (mark / 50) * 300;
+            const isLabelled = mark % 10 === 0;
+            return (
+              <g key={mark}>
+                <line
+                  x1="311"
+                  y1={y}
+                  x2={isLabelled ? 320 : 316}
+                  y2={y}
+                  stroke="#93A0B8"
+                  strokeWidth="1"
+                />
+                {isLabelled && (
+                  <text
+                    x="324"
+                    y={y + 3}
+                    fill="#93A0B8"
+                    fontSize="9"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {mark}
+                  </text>
+                )}
+              </g>
+            );
+          })}
+
+          {/* Stopcock & jet tip */}
+          <rect x="296" y="338" width="8" height="18" fill="#C9D3E6" opacity="0.3" />
+          <rect x="287" y="342" width="26" height="8" rx="3" fill="#F97316" />
+          <path d="M298 356 L302 356 L301 372 L299 372 Z" fill="#C9D3E6" opacity="0.4" />
+
+          {/* Falling drops when tap is open */}
+          {tapSetting !== 'closed' && (
+            <>
+              <circle cx="300" cy="382" r="2.5" fill="#93C5FD" />
+              <circle cx="300" cy="396" r="2.2" fill="#93C5FD" opacity="0.75" />
+            </>
+          )}
+
+          {/* Conical Flask outline */}
+          <path
+            d="M286 372 L314 372 L314 392 L352 428 Q356 436 346 438 L254 438 Q244 436 248 428 L286 392 Z"
+            fill="#C9D3E6"
+            opacity="0.10"
+            stroke="#93A0B8"
+            strokeWidth="1.2"
+          />
+
+          {/* Solution inside Conical Flask */}
+          <path
+            d="M273 404 L327 404 L350 430 Q352 436 346 437 L254 437 Q248 436 250 430 Z"
+            fill={getSolutionFill()}
+          />
+
+          {/* White porcelain tile under flask */}
+          <rect x="232" y="438" width="136" height="4" fill="#F1F5F9" />
+
+          {/* Magnified Meniscus ×8 Circle Inset */}
+          <g transform="translate(470 150)">
+            <circle cx="0" cy="0" r="62" fill="#0B1220" stroke="#F97316" strokeWidth="2" />
+            {[-32, -24, -16, -8, 0, 8, 16, 24, 32].map((dy) => (
+              <line
+                key={dy}
+                x1="-20"
+                y1={dy}
+                x2={dy === 0 ? 10 : 2}
+                y2={dy}
+                stroke="#93A0B8"
+                strokeWidth="1"
+              />
+            ))}
+            <text
+              x="16"
+              y="3"
+              fill="#C9D3E6"
+              fontSize="9"
+              fontFamily="JetBrains Mono, monospace"
+            >
+              {buretteReading.toFixed(1)}
+            </text>
+            <path d="M-40 -4 Q-20 10 0 -4" fill="none" stroke="#93C5FD" strokeWidth="2" />
+            <line
+              x1="-48"
+              y1="3"
+              x2="12"
+              y2="3"
+              stroke="#F97316"
+              strokeWidth="1"
+              strokeDasharray="3 2"
+            />
+            <text
+              x="0"
+              y="78"
+              fill="#FDBA74"
+              fontSize="11"
+              textAnchor="middle"
+              fontFamily="JetBrains Mono, monospace"
+            >
+              meniscus ×8
+            </text>
+          </g>
+        </svg>
       </div>
     </LabLayout>
   );
