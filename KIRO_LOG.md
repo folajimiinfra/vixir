@@ -115,3 +115,25 @@ The initial implementation of lab workspaces (D1-D7) used light theme colors (`b
 - Replaced the external `<img>` in `A1` (`Landing.tsx`) with an inline `HeroPendulumCard` SVG driven by `requestAnimationFrame` simple harmonic motion around the stationary split-cork pivot `(168, 52)` (with `prefers-reduced-motion` guard).
 - Loaded `Space Grotesk`, `Inter`, and `JetBrains Mono` in `apps/web/index.html` and mapped `--font-display`, `--font-sans`, `--font-mono`, `lab-grid-bg`, and `lab-dot-bg` in `apps/web/src/index.css`.
 - Refined `A2` (`Auth.tsx`) split-screen layout with role-specific join codes (`Student`, `Teacher`, `Admin`) and password visibility toggle.
+
+## 2026-11-19 | Kiro | Spec-Driven Frontend Build (`B1`–`I2`), 21-Item Apparatus Encyclopedia & Interactive Labs
+
+**Kiro Features Used:**
+- **Steering (`.kiro/steering/screens.md`, `ui-design.md`, `simulation-realism.md`, `vix-safety.md`)**: Guided light-surface (`#F5F7FA`) vs dark-lab (`#0B1220`) token split, `data-vix-id` spotlight regions, and Socratic graded-mode guardrails.
+- **Specs & Task Checklists (`.kiro/specs/frontend-app/tasks.md`, `lab-shell/tasks.md`, `vix-guide/tasks.md`, `apparatus-encyclopedia/tasks.md`)**: Broke all 28 canonical screens (`A1`–`I2`) + 404 route into atomic implementation tasks.
+- **Hooks (`.kiro/hooks/sim-core-test-on-save.json`, `web-test-on-save.json`)**: Ran `@vixir/sim-core` fast-check property tests and `@vixir/web` TypeScript typechecks automatically on save.
+
+**Key Deliverables Completed:**
+1. **Student & 21-Item Apparatus Encyclopedia (`B1`–`B5`)**:
+   - Added dedicated `Apparatus encyclopedia` entry in `StudentSidebar`.
+   - Expanded `B5` (`/apparatus`) to 21 verbose apparatus items across all 5 disciplines (`Physics`, `Chemistry`, `Biology`, `Electronics`, `Engineering`) with interactive SVG stage (`Zoom ×1.25`, `Rotate view`, `Hide/Show labels`), 4-tile technical specification strip, anatomy parts breakdown table, step-by-step SOP, and WAEC/NECO marking penalties.
+2. **Pre-Lab (`C1`–`C3`), Vix Guide (`E1`–`E2`) & In-Lab Vix Overlay (`VixInLabOverlay.tsx`)**:
+   - Wired `Call Vix` inside `LabLayout` to open `E1` Connect and `E2` Live Spotlight Tour directly over any active lab workspace with orange region highlighting, multilingual explanations (`English`, `Pidgin`, `Yorùbá`, `Hausa`, `Igbo`), and Web Speech API readout.
+3. **11 Interactive Lab Simulations (`D1`–`D7` + 4 Secondary Practicals)**:
+   - Upgraded `D6` Electronics Ohm's Law to a full interactive schematic builder on a dot-grid canvas with draggable components, rheostat wiper, extra components (`+ Resistor 5Ω`, `+ Si Diode`, `+ Green LED`, `+ 100µF Cap`), pin wiring, scope probe, and zero-error calibration.
+   - Upgraded `D7` Engineering Beam Deflection with a real-time 3D isometric/orbit projection engine (360° yaw & pitch drag + camera presets).
+   - Added 4 secondary interactive benches: *Refraction through a rectangular glass block* (`/lab/physics/refraction`), *Principle of moments* (`/lab/physics/moments`), *Qualitative analysis of salts* (`/lab/chemistry/qualitative-analysis`), and *Biochemical food tests* (`/lab/biology/food-tests`).
+4. **Post-Lab (`F1`–`F4`) & `@vixir/sim-core` Deterministic Seeded RNG Store (`labSessionStore.ts`)**:
+   - Connected `D1` and `F1`–`F4` to `@vixir/sim-core` (`createRng`, `readScale`, `readStopwatch`, `linearFit`, `pendulumPeriod`, `pendulumAngle`) so bench trials, 3 d.p. significant-figure checks, precautions, auto-marked scores, and timestamped bench replay actions stay synchronized.
+5. **Teacher, Admin, Mobile & 404 (`G1`–`G4`, `H1`, `I1`–`I2`, `404`)**:
+   - Completed all teacher, institution admin, mobile companion, and diagnostic 404 screens with Vitest test coverage.

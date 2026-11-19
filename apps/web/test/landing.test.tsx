@@ -1,9 +1,140 @@
-import { render, screen } from '@testing-library/react';
-import { createMemoryRouter, RouterProvider } from 'react-router';
-import { routes } from '../src/App';
+import { render, screen, fireEvent } from '@testing-library/react';
+import { MemoryRouter } from 'react-router';
+import { describe, expect, it } from 'vitest';
+import { Landing } from '../src/routes/Landing';
+import { LabWorkspace } from '../src/routes/LabWorkspace';
+import {
+  StudentDashboardScreen,
+  LabsHubScreen,
+  ExperimentLibraryScreen,
+  ApparatusEncyclopediaScreen,
+} from '../src/routes/StudentScreens';
+import {
+  ResultsGraphScreen,
+  ReviewSubmitScreen,
+  MarkedReportScreen,
+  BenchReplayScreen,
+} from '../src/routes/PostlabScreens';
+import {
+  TeacherDashboardScreen,
+  ClassResultsScreen,
+  InstitutionAdminScreen,
+} from '../src/routes/TeacherAdminScreens';
+import { NotFound } from '../src/routes/NotFound';
+import { useLabSessionStore, computeAutoMark } from '../src/store/labSessionStore';
 
-it('renders the landing headline and links every screen', () => {
-  render(<RouterProvider router={createMemoryRouter(routes, { initialEntries: ['/'] })} />);
-  expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Every student deserves a real practical.');
-  expect(screen.getByText('Lab workspace')).toBeInTheDocument();
+describe('A1 Landing', () => {
+  it('renders headline, Try-the-pendulum CTA, inline swinging bob SVG, and no pricing', () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Landing />
+      </MemoryRouter>
+    );
+    expect(
+      screen.getByRole('heading', { name: /Every student deserves a real practical/i })
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Try the pendulum lab/i })).toBeInTheDocument();
+    expect(screen.getByTestId('hero-pendulum-bob')).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/pricing|per seat|\$\/month/i);
+  });
+});
+
+describe('Lab Workspaces & Core Screens', () => {
+  it('renders D1–D7 and all 4 new secondary interactive lab workspaces without error', () => {
+    const codes = [
+      'D1',
+      'D2',
+      'D3',
+      'D4',
+      'D5',
+      'D6',
+      'D7',
+      'refraction',
+      'moments',
+      'qualitative-analysis',
+      'food-tests',
+    ] as const;
+    for (const code of codes) {
+      const { unmount } = render(
+        <MemoryRouter>
+          <LabWorkspace labCode={code} />
+        </MemoryRouter>
+      );
+      unmount();
+    }
+  });
+
+  it('opens the in-lab Vix Connect modal and transitions to the live spotlight tour over the active bench', () => {
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="D1" />
+      </MemoryRouter>
+    );
+
+    const callBtn = screen.getByRole('button', { name: /Call Vix/i });
+    fireEvent.click(callBtn);
+
+    // E1 Connect modal appears over the bench
+    expect(
+      screen.getByRole('dialog', { name: /Connect to Vix lab guide/i })
+    ).toBeInTheDocument();
+
+    const connectBtn = screen.getByRole('button', { name: /Connect Vix to bench/i });
+    fireEvent.click(connectBtn);
+
+    const startTourBtn = screen.getByRole('button', { name: /Start live spotlight tour/i });
+    fireEvent.click(startTourBtn);
+
+    // E2 Live spotlight floating card is now active over the bench
+    expect(
+      screen.getByRole('complementary', { name: /Vix live in-lab guide/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/POINTING AT · LAB BENCH/i)).toBeInTheDocument();
+  });
+
+  it('syncs deterministic seeded RNG readings and auto-marking between labSessionStore and F1–F4 screens', () => {
+    const store = useLabSessionStore.getState();
+    const initialMark = computeAutoMark(
+      store.pendulumRows,
+      store.precautions,
+      store.gValue
+    );
+    expect(initialMark.total).toBe(18);
+    expect(initialMark.maxTotal).toBe(20);
+
+    // Fix the 2 d.p. warning and add 3rd precaution -> reaches 20 / 20
+    store.fixAllDecimalPlaces();
+    store.setPrecautions((p) => ({ ...p, centreSwing: true }));
+
+    const updatedState = useLabSessionStore.getState();
+    const fullMark = computeAutoMark(
+      updatedState.pendulumRows,
+      updatedState.precautions,
+      updatedState.gValue
+    );
+    expect(fullMark.total).toBe(20);
+    expect(fullMark.warningsCount).toBe(0);
+  });
+
+  it('renders Student, Post-lab, Teacher, and Admin screens matching design specs', () => {
+    const views = [
+      <StudentDashboardScreen key="b1" />,
+      <LabsHubScreen key="b2" />,
+      <ExperimentLibraryScreen key="b3" />,
+      <ApparatusEncyclopediaScreen key="b5" />,
+      <ResultsGraphScreen key="f1" />,
+      <ReviewSubmitScreen key="f2" />,
+      <MarkedReportScreen key="f3" />,
+      <BenchReplayScreen key="f4" />,
+      <TeacherDashboardScreen key="g1" />,
+      <ClassResultsScreen key="g3" />,
+      <InstitutionAdminScreen key="h1" />,
+      <NotFound key="404" />,
+    ];
+
+    for (const view of views) {
+      const { unmount } = render(<MemoryRouter>{view}</MemoryRouter>);
+      unmount();
+    }
+  });
 });
