@@ -105,3 +105,13 @@ The initial implementation of lab workspaces (D1-D7) used light theme colors (`b
 - `apps/web/src/labs/biology-digestion/DigestionLab.tsx`
 - `apps/web/src/labs/electronics-ohms-law/OhmsLawLab.tsx`
 - `apps/web/src/labs/engineering-beam/BeamLab.tsx`
+
+## 2026-11-19 | Kiro | A1 Inline Pendulum Pivot Fix & Design Token Alignment
+
+**Issue Caught via `landing/requirements.md` & `ui-design.md` Steering:**
+- Applying a CSS rotation class to an external `<img src="D1-physics-pendulum-bench.svg" />` rotated the entire SVG viewport instead of only the pendulum bob and string.
+
+**Actions:**
+- Replaced the external `<img>` in `A1` (`Landing.tsx`) with an inline `HeroPendulumCard` SVG driven by `requestAnimationFrame` simple harmonic motion around the stationary split-cork pivot `(168, 52)` (with `prefers-reduced-motion` guard).
+- Loaded `Space Grotesk`, `Inter`, and `JetBrains Mono` in `apps/web/index.html` and mapped `--font-display`, `--font-sans`, `--font-mono`, `lab-grid-bg`, and `lab-dot-bg` in `apps/web/src/index.css`.
+- Refined `A2` (`Auth.tsx`) split-screen layout with role-specific join codes (`Student`, `Teacher`, `Admin`) and password visibility toggle.
