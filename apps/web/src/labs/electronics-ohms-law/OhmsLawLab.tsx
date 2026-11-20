@@ -106,6 +106,9 @@ export function OhmsLawLab() {
     targetWireId: string | null;
   } | null>(null);
 
+  // Live cursor position in SVG space for rubber-band wire preview
+  const [cursorSvgPt, setCursorSvgPt] = useState<{ x: number; y: number } | null>(null);
+
   // Circuit & instrument parameters
   const [keyClosed, setKeyClosed] = useState(true);
   const [rheostatOhm, setRheostatOhm] = useState(8.0);
@@ -210,13 +213,26 @@ export function OhmsLawLab() {
     }
   };
 
-  // Convert pointer event to SVG coordinates accounting for dynamic pan & zoom viewBox
+  // Convert pointer event to exact SVG coordinates using native CTM inverse (works at any zoom/aspect ratio)
   const viewWidth = 640 / zoom;
   const viewHeight = 400 / zoom;
 
   const toSvgCoords = (clientX: number, clientY: number) => {
     const svg = svgRef.current;
     if (!svg) return { x: 300, y: 200 };
+    if (typeof svg.createSVGPoint === 'function' && typeof svg.getScreenCTM === 'function') {
+      const ctm = svg.getScreenCTM();
+      if (ctm) {
+        const pt = svg.createSVGPoint();
+        pt.x = clientX;
+        pt.y = clientY;
+        const transformed = pt.matrixTransform(ctm.inverse());
+        return {
+          x: Math.round(transformed.x / 5) * 5,
+          y: Math.round(transformed.y / 5) * 5,
+        };
+      }
+    }
     const rect = svg.getBoundingClientRect();
     const scaleX = viewWidth / Math.max(1, rect.width);
     const scaleY = viewHeight / Math.max(1, rect.height);
@@ -224,6 +240,59 @@ export function OhmsLawLab() {
       x: Math.round((pan.x + (clientX - rect.left) * scaleX) / 5) * 5,
       y: Math.round((pan.y + (clientY - rect.top) * scaleY) / 5) * 5,
     };
+  };
+
+  // Connect a wire between two node terminals (avoiding self-loops and exact duplicates)
+  const connectTerminals = (
+    fromNodeId: string,
+    fromTerm: 'a' | 'b',
+    toNodeId: string,
+    toTerm: 'a' | 'b'
+  ) => {
+    if (fromNodeId === toNodeId && fromTerm === toTerm) {
+      setPendingTerm(null);
+      return;
+    }
+    const alreadyExists = wires.some(
+      (w) =>
+        (w.fromNode === fromNodeId &&
+          w.fromTerm === fromTerm &&
+          w.toNode === toNodeId &&
+          w.toTerm === toTerm) ||
+        (w.fromNode === toNodeId &&
+          w.fromTerm === toTerm &&
+          w.toNode === fromNodeId &&
+          w.toTerm === fromTerm)
+    );
+    const fromLabel = nodes.find((n) => n.id === fromNodeId)?.label ?? fromNodeId;
+    const toLabel = nodes.find((n) => n.id === toNodeId)?.label ?? toNodeId;
+    if (alreadyExists) {
+      setPendingTerm(null);
+      setLogMsg(`log > ${fromLabel}:${fromTerm} is already connected to ${toLabel}:${toTerm}.`);
+      return;
+    }
+    const newWire: CircuitWire = {
+      id: `w-${Date.now().toString().slice(-4)}`,
+      fromNode: fromNodeId,
+      fromTerm,
+      toNode: toNodeId,
+      toTerm,
+    };
+    setWires((prev) => [...prev, newWire]);
+    setPendingTerm(null);
+    setSelectedNodeId(toNodeId);
+    setLogMsg(
+      `log > Connected wire from ${fromLabel}:${fromTerm} → ${toLabel}:${toTerm}.`
+    );
+  };
+
+  // Pick whichever terminal ('a' or 'b') on targetNode is closer to a given SVG point
+  const getClosestTerminal = (targetNode: CircuitNode, refPt: { x: number; y: number }): 'a' | 'b' => {
+    const posA = getTerminalPos(targetNode, 'a');
+    const posB = getTerminalPos(targetNode, 'b');
+    const distA = Math.hypot(posA.x - refPt.x, posA.y - refPt.y);
+    const distB = Math.hypot(posB.x - refPt.x, posB.y - refPt.y);
+    return distA <= distB ? 'a' : 'b';
   };
 
   const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -239,10 +308,15 @@ export function OhmsLawLab() {
   };
 
   const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    const pt = toSvgCoords(e.clientX, e.clientY);
+    if (pendingTerm) {
+      setCursorSvgPt(pt);
+    }
+
     if (draggingWiper) {
-      const rhNode = nodes.find((n) => n.kind === 'rheostat');
+      const rhNode = nodes.find((n) => n.id === selectedNodeId && n.kind === 'rheostat') ??
+        nodes.find((n) => n.kind === 'rheostat');
       if (!rhNode) return;
-      const pt = toSvgCoords(e.clientX, e.clientY);
       const frac = Math.max(0, Math.min(1, (pt.x - (rhNode.x - 62)) / 124));
       const newRh = Math.round(frac * 20);
       updateRheostat(newRh);
@@ -251,7 +325,6 @@ export function OhmsLawLab() {
     }
 
     if (draggingNodeId) {
-      const pt = toSvgCoords(e.clientX, e.clientY);
       // Unclamped free movement across the entire infinite schematic plane
       setNodes((prev) =>
         prev.map((n) =>
@@ -292,29 +365,36 @@ export function OhmsLawLab() {
     setLogMsg('log > Centered and fitted schematic canvas view (100%).');
   };
 
-  const handleTerminalClick = (nodeId: string, term: 'a' | 'b', e: React.MouseEvent) => {
+  const handleTerminalInteraction = (
+    nodeId: string,
+    term: 'a' | 'b',
+    e: React.MouseEvent | React.PointerEvent
+  ) => {
     e.stopPropagation();
+    setCircuitMenu(null);
+    setSelectedNodeId(nodeId);
+    const nodeObj = nodes.find((n) => n.id === nodeId);
+
     if (!pendingTerm) {
       setPendingTerm({ nodeId, term });
-      setLogMsg(`log > Selected terminal ${nodeId}:${term}. Click another terminal to wire.`);
+      if (nodeObj) {
+        setCursorSvgPt(getTerminalPos(nodeObj, term));
+      }
+      setLogMsg(
+        `log > Wiring from ${nodeObj?.label ?? nodeId}:${term} — click any target component or terminal pin to connect.`
+      );
       return;
     }
+
     if (pendingTerm.nodeId === nodeId && pendingTerm.term === term) {
       setPendingTerm(null);
+      setCursorSvgPt(null);
+      setLogMsg('log > Cancelled pending wire connection.');
       return;
     }
-    const newWire: CircuitWire = {
-      id: `w-${Date.now()}`,
-      fromNode: pendingTerm.nodeId,
-      fromTerm: pendingTerm.term,
-      toNode: nodeId,
-      toTerm: term,
-    };
-    setWires((prev) => [...prev, newWire]);
-    setPendingTerm(null);
-    setLogMsg(
-      `log > Connected wire from ${pendingTerm.nodeId} to ${nodeId}.`
-    );
+
+    connectTerminals(pendingTerm.nodeId, pendingTerm.term, nodeId, term);
+    setCursorSvgPt(null);
   };
 
   const handleAddComponent = (kind: ComponentKind, customPos?: { x: number; y: number }) => {
@@ -1388,8 +1468,25 @@ export function OhmsLawLab() {
           </span>
 
           {pendingTerm && (
-            <span className="px-3 py-1 rounded-full bg-[#3A2112] border border-[#F97316] text-xs text-[#FDBA74]">
-              Wiring from {pendingTerm.nodeId}:{pendingTerm.term} — click target terminal
+            <span className="px-3 py-1 rounded-full bg-[#3A2112] border border-[#F97316] text-xs text-[#FDBA74] inline-flex items-center gap-2">
+              <span>
+                Wiring from{' '}
+                <strong>
+                  {nodes.find((n) => n.id === pendingTerm.nodeId)?.label ?? pendingTerm.nodeId}:
+                  {pendingTerm.term}
+                </strong>{' '}
+                — click any component or terminal pin to connect
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingTerm(null);
+                  setCursorSvgPt(null);
+                }}
+                className="px-1.5 py-0.5 rounded bg-[#0B1220] text-[#FCA5A5] hover:text-white text-[10px] font-mono cursor-pointer"
+              >
+                Cancel ×
+              </button>
             </span>
           )}
         </div>
@@ -1550,6 +1647,27 @@ export function OhmsLawLab() {
               );
             })}
 
+            {/* Live Rubber-Band Wire Preview when pendingTerm is active */}
+            {pendingTerm &&
+              cursorSvgPt &&
+              (() => {
+                const srcNode = nodes.find((n) => n.id === pendingTerm.nodeId);
+                if (!srcNode) return null;
+                const pStart = getTerminalPos(srcNode, pendingTerm.term);
+                return (
+                  <g className="pointer-events-none">
+                    <path
+                      d={`M ${pStart.x} ${pStart.y} L ${cursorSvgPt.x} ${ pStart.y} L ${cursorSvgPt.x} ${cursorSvgPt.y}`}
+                      fill="none"
+                      stroke="#F97316"
+                      strokeWidth="2.5"
+                      strokeDasharray="6 4"
+                    />
+                    <circle cx={cursorSvgPt.x} cy={cursorSvgPt.y} r="4.5" fill="#F97316" />
+                  </g>
+                );
+              })()}
+
             {/* Render Interactive Draggable Circuit Nodes */}
             {nodes.map((node) => {
               const isSelected = selectedNodeId === node.id;
@@ -1571,6 +1689,34 @@ export function OhmsLawLab() {
                       if (e.button === 2) return;
                       e.stopPropagation();
                       setCircuitMenu(null);
+
+                      // If a wire is currently being pulled (pendingTerm is active) and user clicks another component body, connect directly to its closest terminal!
+                      if (pendingTerm && pendingTerm.nodeId !== node.id) {
+                        const clickPt = toSvgCoords(e.clientX, e.clientY);
+                        const bestTerm = getClosestTerminal(node, clickPt);
+                        connectTerminals(
+                          pendingTerm.nodeId,
+                          pendingTerm.term,
+                          node.id,
+                          bestTerm
+                        );
+                        setCursorSvgPt(null);
+                        return;
+                      }
+
+                      // If in "Wire Pins" tool mode and no pendingTerm yet, start wiring from the closest terminal of this component
+                      if (activeTool === 'wire' && !pendingTerm) {
+                        const clickPt = toSvgCoords(e.clientX, e.clientY);
+                        const bestTerm = getClosestTerminal(node, clickPt);
+                        setSelectedNodeId(node.id);
+                        setPendingTerm({ nodeId: node.id, term: bestTerm });
+                        setCursorSvgPt(getTerminalPos(node, bestTerm));
+                        setLogMsg(
+                          `log > Wiring from ${node.label}:${bestTerm} — click any target component or terminal pin to connect.`
+                        );
+                        return;
+                      }
+
                       setSelectedNodeId(node.id);
                       if (activeTool === 'probe') {
                         setProbedNodeId(node.id);
@@ -1580,8 +1726,21 @@ export function OhmsLawLab() {
                       if (node.kind === 'key') {
                         handleToggleKey();
                       }
-                      if (activeTool === 'pointer') {
-                        setDraggingNodeId(node.id);
+                      setDraggingNodeId(node.id);
+                    }}
+                    onPointerUp={(e) => {
+                      // Support drag-and-release from a terminal pin onto another component body
+                      if (pendingTerm && pendingTerm.nodeId !== node.id) {
+                        e.stopPropagation();
+                        const releasePt = toSvgCoords(e.clientX, e.clientY);
+                        const bestTerm = getClosestTerminal(node, releasePt);
+                        connectTerminals(
+                          pendingTerm.nodeId,
+                          pendingTerm.term,
+                          node.id,
+                          bestTerm
+                        );
+                        setCursorSvgPt(null);
                       }
                     }}
                     onContextMenu={(e) => {
@@ -1912,39 +2071,66 @@ export function OhmsLawLab() {
                     )}
                   </g>
 
-                  {/* Interactive Wiring Terminal Pins (visible in Wire tool or when selected) */}
-                  {(activeTool === 'wire' || isSelected) && (
-                    <>
-                      <circle
-                        cx={termA.x}
-                        cy={termA.y}
-                        r="5.5"
-                        fill={
-                          pendingTerm?.nodeId === node.id && pendingTerm?.term === 'a'
-                            ? '#F97316'
-                            : '#112D2B'
-                        }
-                        stroke="#5EEAD4"
-                        strokeWidth="2"
-                        onClick={(e) => handleTerminalClick(node.id, 'a', e)}
-                        className="cursor-pointer"
-                      />
-                      <circle
-                        cx={termB.x}
-                        cy={termB.y}
-                        r="5.5"
-                        fill={
-                          pendingTerm?.nodeId === node.id && pendingTerm?.term === 'b'
-                            ? '#F97316'
-                            : '#112D2B'
-                        }
-                        stroke="#5EEAD4"
-                        strokeWidth="2"
-                        onClick={(e) => handleTerminalClick(node.id, 'b', e)}
-                        className="cursor-pointer"
-                      />
-                    </>
-                  )}
+                  {/* Always-Visible Interactive Wiring Terminal Pins (A & B) on every component */}
+                  {(['a', 'b'] as const).map((termKey) => {
+                    const pos = termKey === 'a' ? termA : termB;
+                    const isSourceTerm =
+                      pendingTerm?.nodeId === node.id && pendingTerm?.term === termKey;
+                    const isTargetCandidate =
+                      Boolean(pendingTerm) && pendingTerm?.nodeId !== node.id;
+
+                    return (
+                      <g
+                        key={termKey}
+                        onPointerDown={(e) => {
+                          if (e.button === 2) return;
+                          handleTerminalInteraction(node.id, termKey, e);
+                        }}
+                        onPointerUp={(e) => {
+                          if (pendingTerm && pendingTerm.nodeId !== node.id) {
+                            e.stopPropagation();
+                            connectTerminals(
+                              pendingTerm.nodeId,
+                              pendingTerm.term,
+                              node.id,
+                              termKey
+                            );
+                            setCursorSvgPt(null);
+                          }
+                        }}
+                        className="cursor-crosshair"
+                      >
+                        {/* Large invisible hit target so pins are effortless to click even at 45% zoom */}
+                        <circle cx={pos.x} cy={pos.y} r="14" fill="transparent" />
+                        {/* Pulsing target halo when wiring is in progress */}
+                        {(isSourceTerm || isTargetCandidate) && (
+                          <circle
+                            cx={pos.x}
+                            cy={pos.y}
+                            r="10"
+                            fill="none"
+                            stroke={isSourceTerm ? '#F97316' : '#5EEAD4'}
+                            strokeWidth="1.5"
+                            strokeDasharray="3 2"
+                          />
+                        )}
+                        <circle
+                          cx={pos.x}
+                          cy={pos.y}
+                          r={isSourceTerm || isTargetCandidate || isSelected ? '6.5' : '5'}
+                          fill={
+                            isSourceTerm
+                              ? '#F97316'
+                              : isTargetCandidate
+                                ? '#0D9488'
+                                : '#112D2B'
+                          }
+                          stroke={isSourceTerm ? '#FDBA74' : '#5EEAD4'}
+                          strokeWidth="2"
+                        />
+                      </g>
+                    );
+                  })}
                 </g>
               );
             })}
