@@ -86,6 +86,26 @@ export function OhmsLawLab() {
   const [draggingWiper, setDraggingWiper] = useState(false);
   const svgRef = useRef<SVGSVGElement | null>(null);
 
+  // Infinite Schematic Canvas Pan & Zoom ("Move Above and Beyond")
+  const [pan, setPan] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [zoom, setZoom] = useState<number>(1);
+  const [panStart, setPanStart] = useState<{
+    clientX: number;
+    clientY: number;
+    panX: number;
+    panY: number;
+  } | null>(null);
+
+  // Custom Circuit Lab Right-Click Context Menu
+  const [circuitMenu, setCircuitMenu] = useState<{
+    clientX: number;
+    clientY: number;
+    svgX: number;
+    svgY: number;
+    targetNodeId: string | null;
+    targetWireId: string | null;
+  } | null>(null);
+
   // Circuit & instrument parameters
   const [keyClosed, setKeyClosed] = useState(true);
   const [rheostatOhm, setRheostatOhm] = useState(8.0);
@@ -190,17 +210,32 @@ export function OhmsLawLab() {
     }
   };
 
-  // Convert pointer event to SVG coordinates (viewBox 0 0 640 400)
+  // Convert pointer event to SVG coordinates accounting for dynamic pan & zoom viewBox
+  const viewWidth = 640 / zoom;
+  const viewHeight = 400 / zoom;
+
   const toSvgCoords = (clientX: number, clientY: number) => {
     const svg = svgRef.current;
     if (!svg) return { x: 300, y: 200 };
     const rect = svg.getBoundingClientRect();
-    const scaleX = 640 / Math.max(1, rect.width);
-    const scaleY = 400 / Math.max(1, rect.height);
+    const scaleX = viewWidth / Math.max(1, rect.width);
+    const scaleY = viewHeight / Math.max(1, rect.height);
     return {
-      x: Math.round(((clientX - rect.left) * scaleX) / 10) * 10,
-      y: Math.round(((clientY - rect.top) * scaleY) / 10) * 10,
+      x: Math.round((pan.x + (clientX - rect.left) * scaleX) / 5) * 5,
+      y: Math.round((pan.y + (clientY - rect.top) * scaleY) / 5) * 5,
     };
+  };
+
+  const handleSvgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (circuitMenu) setCircuitMenu(null);
+    if (e.button !== 0 && e.button !== 1) return;
+    // Clicking on the empty schematic canvas starts panning the board
+    setPanStart({
+      clientX: e.clientX,
+      clientY: e.clientY,
+      panX: pan.x,
+      panY: pan.y,
+    });
   };
 
   const handleSvgPointerMove = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -217,19 +252,44 @@ export function OhmsLawLab() {
 
     if (draggingNodeId) {
       const pt = toSvgCoords(e.clientX, e.clientY);
-      const clampedX = Math.max(40, Math.min(600, pt.x));
-      const clampedY = Math.max(40, Math.min(360, pt.y));
+      // Unclamped free movement across the entire infinite schematic plane
       setNodes((prev) =>
         prev.map((n) =>
-          n.id === draggingNodeId ? { ...n, x: clampedX, y: clampedY } : n
+          n.id === draggingNodeId ? { ...n, x: pt.x, y: pt.y } : n
         )
       );
+      return;
+    }
+
+    if (panStart) {
+      const svg = svgRef.current;
+      if (!svg) return;
+      const rect = svg.getBoundingClientRect();
+      const dx = ((e.clientX - panStart.clientX) * viewWidth) / Math.max(1, rect.width);
+      const dy = ((e.clientY - panStart.clientY) * viewHeight) / Math.max(1, rect.height);
+      setPan({
+        x: Math.round(panStart.panX - dx),
+        y: Math.round(panStart.panY - dy),
+      });
     }
   };
 
   const handleSvgPointerUp = () => {
     setDraggingNodeId(null);
     setDraggingWiper(false);
+    setPanStart(null);
+  };
+
+  const handleSvgWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    setZoom((z) => Math.max(0.45, Math.min(2.4, Number((z * factor).toFixed(2)))));
+  };
+
+  const handleCenterCanvas = () => {
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
+    setLogMsg('log > Centered and fitted schematic canvas view (100%).');
   };
 
   const handleTerminalClick = (nodeId: string, term: 'a' | 'b', e: React.MouseEvent) => {
@@ -257,7 +317,7 @@ export function OhmsLawLab() {
     );
   };
 
-  const handleAddComponent = (kind: ComponentKind) => {
+  const handleAddComponent = (kind: ComponentKind, customPos?: { x: number; y: number }) => {
     const count = nodes.filter((n) => n.kind === kind).length + 1;
     const defaults: Record<
       ComponentKind,
@@ -280,19 +340,30 @@ export function OhmsLawLab() {
       id: newId,
       kind,
       label: cfg.label,
-      x: 260 + ((nodes.length * 30) % 140),
-      y: 190 + ((nodes.length * 20) % 80),
+      x: customPos ? customPos.x : pan.x + 260 + ((nodes.length * 30) % 140),
+      y: customPos ? customPos.y : pan.y + 190 + ((nodes.length * 20) % 80),
       rotation: cfg.rot,
       value: cfg.value,
       unit: cfg.unit,
     };
 
-    // Automatically wire into series loop if added as a resistor/diode/LED
     setNodes((prev) => [...prev, newNode]);
     setSelectedNodeId(newId);
     setLogMsg(
-      `log > Added ${cfg.label} (${cfg.value} ${cfg.unit}) to circuit board. Drag to position or wire its terminals.`
+      `log > Added ${cfg.label} (${cfg.value} ${cfg.unit}) to circuit board. Drag freely or right-click for component actions.`
     );
+  };
+
+  const handleDuplicateNode = (nodeId: string) => {
+    const target = nodes.find((n) => n.id === nodeId);
+    if (!target) return;
+    handleAddComponent(target.kind, { x: target.x + 45, y: target.y + 45 });
+  };
+
+  const handleDisconnectNodeWires = (nodeId: string) => {
+    const target = nodes.find((n) => n.id === nodeId);
+    setWires((prev) => prev.filter((w) => w.fromNode !== nodeId && w.toNode !== nodeId));
+    setLogMsg(`log > Disconnected all wires attached to ${target?.label ?? nodeId}.`);
   };
 
   const handleRemoveSelectedNode = () => {
@@ -1357,20 +1428,77 @@ export function OhmsLawLab() {
             <RefreshCw className="w-3 h-3" />
             Reset diagram
           </button>
+
+          {/* Canvas Pan & Zoom Controls ("Move Above & Beyond") */}
+          <div className="inline-flex items-center bg-[#121A2B] border border-[#22304A] rounded-lg p-0.5">
+            <button
+              type="button"
+              title="Zoom out schematic canvas"
+              onClick={() => setZoom((z) => Math.max(0.45, Number((z - 0.15).toFixed(2))))}
+              className="px-2 py-0.5 text-xs font-mono text-[#C9D3E6] hover:text-white cursor-pointer"
+            >
+              −
+            </button>
+            <button
+              type="button"
+              title="Reset pan & zoom to 100%"
+              onClick={handleCenterCanvas}
+              className="px-2 py-0.5 text-[11px] font-mono text-[#5EEAD4] hover:underline cursor-pointer"
+            >
+              {Math.round(zoom * 100)}%
+            </button>
+            <button
+              type="button"
+              title="Zoom in schematic canvas"
+              onClick={() => setZoom((z) => Math.min(2.4, Number((z + 0.15).toFixed(2))))}
+              className="px-2 py-0.5 text-xs font-mono text-[#C9D3E6] hover:text-white cursor-pointer"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Main Interactive Canvas: Schematic Builder OR 3D Bench Apparatus View */}
-      <div className="flex-1 flex items-center justify-center my-1">
+      {/* Main Interactive Canvas: Infinite Pan/Zoom Schematic Builder OR 3D Bench Apparatus View */}
+      <div
+        className="flex-1 flex items-center justify-center my-1 relative min-h-[430px]"
+        onClick={() => {
+          if (circuitMenu) setCircuitMenu(null);
+        }}
+      >
         {viewMode === 'schematic' ? (
           <svg
             ref={svgRef}
-            viewBox="0 0 640 400"
+            viewBox={`${pan.x} ${pan.y} ${viewWidth} ${viewHeight}`}
+            onPointerDown={handleSvgPointerDown}
             onPointerMove={handleSvgPointerMove}
             onPointerUp={handleSvgPointerUp}
-            className="w-full max-w-[680px] h-auto max-h-[420px]"
+            onPointerLeave={handleSvgPointerUp}
+            onWheel={handleSvgWheel}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const pt = toSvgCoords(e.clientX, e.clientY);
+              const x = Math.min(
+                e.clientX,
+                (typeof window !== 'undefined' ? window.innerWidth : 1200) - 260
+              );
+              const y = Math.min(
+                e.clientY,
+                (typeof window !== 'undefined' ? window.innerHeight : 800) - 340
+              );
+              setCircuitMenu({
+                clientX: Math.max(12, x),
+                clientY: Math.max(12, y),
+                svgX: pt.x,
+                svgY: pt.y,
+                targetNodeId: null,
+                targetWireId: null,
+              });
+            }}
+            className="w-full h-full min-h-[430px] cursor-grab active:cursor-grabbing"
             role="img"
-            aria-label="Interactive circuit builder: drag components, wire terminals, adjust rheostat and toggle key"
+            aria-label="Interactive circuit builder: drag components freely, pan and zoom canvas, or right-click for circuit lab menu"
           >
             {/* Render Wires */}
             {wires.map((w) => {
@@ -1385,7 +1513,20 @@ export function OhmsLawLab() {
                       setLogMsg(`log > Removed wire connection ${w.id}.`);
                     }
                   }}
-                  className={activeTool === 'wire' ? 'cursor-pointer' : ''}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const pt = toSvgCoords(e.clientX, e.clientY);
+                    setCircuitMenu({
+                      clientX: e.clientX,
+                      clientY: e.clientY,
+                      svgX: pt.x,
+                      svgY: pt.y,
+                      targetNodeId: null,
+                      targetWireId: w.id,
+                    });
+                  }}
+                  className="cursor-pointer"
                 >
                   <path
                     d={pathD}
@@ -1427,7 +1568,9 @@ export function OhmsLawLab() {
                         : node.rotation
                     })`}
                     onPointerDown={(e) => {
+                      if (e.button === 2) return;
                       e.stopPropagation();
+                      setCircuitMenu(null);
                       setSelectedNodeId(node.id);
                       if (activeTool === 'probe') {
                         setProbedNodeId(node.id);
@@ -1440,6 +1583,28 @@ export function OhmsLawLab() {
                       if (activeTool === 'pointer') {
                         setDraggingNodeId(node.id);
                       }
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setSelectedNodeId(node.id);
+                      const pt = toSvgCoords(e.clientX, e.clientY);
+                      const x = Math.min(
+                        e.clientX,
+                        (typeof window !== 'undefined' ? window.innerWidth : 1200) - 260
+                      );
+                      const y = Math.min(
+                        e.clientY,
+                        (typeof window !== 'undefined' ? window.innerHeight : 800) - 340
+                      );
+                      setCircuitMenu({
+                        clientX: Math.max(12, x),
+                        clientY: Math.max(12, y),
+                        svgX: pt.x,
+                        svgY: pt.y,
+                        targetNodeId: node.id,
+                        targetWireId: null,
+                      });
                     }}
                     className="cursor-grab active:cursor-grabbing"
                   >
@@ -1826,6 +1991,269 @@ export function OhmsLawLab() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Custom Electronics Circuit Workbench Right-Click Context Menu */}
+        {circuitMenu && (
+          <div
+            role="menu"
+            aria-label="Circuit workbench context menu"
+            style={{ left: circuitMenu.clientX, top: circuitMenu.clientY }}
+            onClick={(e) => e.stopPropagation()}
+            className="fixed z-50 w-64 rounded-xl bg-[#121A2B]/98 border border-[#2DD4BF]/50 shadow-[0_20px_50px_rgba(0,0,0,0.75)] backdrop-blur-md p-1.5 text-xs text-[#E6EBF5]"
+          >
+            {circuitMenu.targetNodeId ? (
+              (() => {
+                const targetNode = nodes.find((n) => n.id === circuitMenu.targetNodeId);
+                return (
+                  <>
+                    <div className="px-2.5 py-1.5 border-b border-[#1E2A42] flex items-center justify-between">
+                      <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5EEAD4]">
+                        COMPONENT · {targetNode?.label ?? circuitMenu.targetNodeId}
+                      </span>
+                      <span className="font-mono text-[10px] text-[#93A0B8]">
+                        {targetNode?.value} {targetNode?.unit}
+                      </span>
+                    </div>
+
+                    <div className="py-1 space-y-0.5">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setSelectedNodeId(circuitMenu.targetNodeId);
+                          handleRotateSelectedNode();
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+                      >
+                        <span>Rotate component 90°</span>
+                        <span className="font-mono text-[10px] text-[#93A0B8]">R</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveTool('wire');
+                          setPendingTerm({ nodeId: circuitMenu.targetNodeId!, term: 'a' });
+                          setLogMsg(
+                            `log > Wiring from ${targetNode?.label ?? circuitMenu.targetNodeId}:a — click another component terminal.`
+                          );
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#5EEAD4] cursor-pointer"
+                      >
+                        <span>Wire from Terminal A</span>
+                        <span className="font-mono text-[10px]">Pin A</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveTool('wire');
+                          setPendingTerm({ nodeId: circuitMenu.targetNodeId!, term: 'b' });
+                          setLogMsg(
+                            `log > Wiring from ${targetNode?.label ?? circuitMenu.targetNodeId}:b — click another component terminal.`
+                          );
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#5EEAD4] cursor-pointer"
+                      >
+                        <span>Wire from Terminal B</span>
+                        <span className="font-mono text-[10px]">Pin B</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setActiveTool('probe');
+                          setProbedNodeId(circuitMenu.targetNodeId!);
+                          setLogMsg(
+                            `log > Attached oscilloscope probe to ${targetNode?.label ?? circuitMenu.targetNodeId}.`
+                          );
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+                      >
+                        <span>Attach oscilloscope probe</span>
+                        <span className="font-mono text-[10px] text-[#93A0B8]">CH1</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          handleDuplicateNode(circuitMenu.targetNodeId!);
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+                      >
+                        <span>Duplicate component</span>
+                        <span className="font-mono text-[10px] text-[#93A0B8]">+1</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          handleDisconnectNodeWires(circuitMenu.targetNodeId!);
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#FDBA74] cursor-pointer"
+                      >
+                        <span>Disconnect attached wires</span>
+                        <span className="font-mono text-[10px]">Unwire</span>
+                      </button>
+
+                      <div className="pt-1 border-t border-[#1E2A42]">
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setSelectedNodeId(circuitMenu.targetNodeId);
+                            handleRemoveSelectedNode();
+                            setCircuitMenu(null);
+                          }}
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#3B1219] flex items-center justify-between text-[#FCA5A5] font-semibold cursor-pointer"
+                        >
+                          <span>Delete component</span>
+                          <span className="font-mono text-[10px]">Del</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()
+            ) : circuitMenu.targetWireId ? (
+              <>
+                <div className="px-2.5 py-1.5 border-b border-[#1E2A42] font-mono text-[10px] font-bold uppercase tracking-wider text-[#5EEAD4]">
+                  WIRE CONNECTION · {circuitMenu.targetWireId}
+                </div>
+                <div className="py-1 space-y-0.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setWires((prev) =>
+                        prev.filter((w) => w.id !== circuitMenu.targetWireId)
+                      );
+                      setLogMsg(`log > Deleted wire connection ${circuitMenu.targetWireId}.`);
+                      setCircuitMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#3B1219] text-[#FCA5A5] font-semibold cursor-pointer"
+                  >
+                    Remove wire connection
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="px-2.5 py-1.5 border-b border-[#1E2A42] flex items-center justify-between">
+                  <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#5EEAD4]">
+                    CIRCUIT WORKBENCH MENU
+                  </span>
+                  <span className="font-mono text-[10px] text-[#93A0B8]">
+                    ({circuitMenu.svgX}, {circuitMenu.svgY})
+                  </span>
+                </div>
+
+                <div className="py-1 space-y-0.5">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleRecord();
+                      setCircuitMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#5EEAD4] font-semibold cursor-pointer"
+                  >
+                    <span>Record V &amp; I reading</span>
+                    <span className="font-mono text-[10px]">
+                      {displayedVoltageV.toFixed(2)}V / {displayedCurrentA.toFixed(2)}A
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      handleToggleKey();
+                      setCircuitMenu(null);
+                    }}
+                    className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+                  >
+                    <span>{keyClosed ? 'Open circuit key (K)' : 'Close circuit key (K)'}</span>
+                    <span className="font-mono text-[10px] text-[#93A0B8]">
+                      {keyClosed ? 'CLOSED' : 'OPEN'}
+                    </span>
+                  </button>
+
+                  <div className="pt-1 border-t border-[#1E2A42]">
+                    <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#93A0B8]">
+                      Place component here
+                    </div>
+                    {(
+                      [
+                        { kind: 'resistor' as const, label: '+ Resistor (5.0 Ω)' },
+                        { kind: 'ammeter' as const, label: '+ Ammeter (0–1 A)' },
+                        { kind: 'voltmeter' as const, label: '+ Voltmeter (0–3 V)' },
+                        { kind: 'diode' as const, label: '+ Silicon Diode (0.65 V)' },
+                        { kind: 'led' as const, label: '+ Green LED (1.8 V)' },
+                        { kind: 'capacitor' as const, label: '+ Capacitor (100 µF)' },
+                      ] as const
+                    ).map((item) => (
+                      <button
+                        key={item.kind}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          handleAddComponent(item.kind, {
+                            x: circuitMenu.svgX,
+                            y: circuitMenu.svgY,
+                          });
+                          setCircuitMenu(null);
+                        }}
+                        className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] text-[#C9D3E6] hover:text-white cursor-pointer"
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="pt-1 border-t border-[#1E2A42] space-y-0.5">
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        handleCenterCanvas();
+                        setCircuitMenu(null);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+                    >
+                      <span>Center &amp; fit canvas view</span>
+                      <span className="font-mono text-[10px] text-[#93A0B8]">100%</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        handleResetStandardCircuit();
+                        handleCenterCanvas();
+                        setCircuitMenu(null);
+                      }}
+                      className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] text-[#FDBA74] cursor-pointer"
+                    >
+                      Reset standard Ohm’s law diagram
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { Landing } from '../src/routes/Landing';
+import { Auth } from '../src/routes/Auth';
 import { LabWorkspace } from '../src/routes/LabWorkspace';
 import {
   StudentDashboardScreen,
@@ -224,5 +225,31 @@ describe('Lab Workspaces & Core Screens', () => {
     expect(
       screen.getByText(/Dissection of a Mammal \(Rat — Rattus norvegicus\)/i)
     ).toBeInTheDocument();
+  });
+
+  it('cycles the 5-lab calculation carousel on Auth and opens custom lab context menu on right-click in OhmsLawLab', () => {
+    const { unmount } = render(
+      <MemoryRouter>
+        <Auth />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText(/Simple Pendulum — Determination of g/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /chemistry/i }));
+    expect(
+      screen.getByText(/Acid–Base Titration — Standardizing HCl with Na₂CO₃/i)
+    ).toBeInTheDocument();
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="D6" />
+      </MemoryRouter>
+    );
+
+    const canvasSvg = screen.getByRole('img', { name: /Interactive circuit builder/i });
+    fireEvent.contextMenu(canvasSvg, { clientX: 250, clientY: 200 });
+    expect(screen.getByRole('menu', { name: /Circuit workbench context menu/i })).toBeInTheDocument();
+    expect(screen.getByText(/CIRCUIT WORKBENCH MENU/i)).toBeInTheDocument();
   });
 });

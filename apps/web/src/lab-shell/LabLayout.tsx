@@ -166,6 +166,12 @@ export function LabLayout({
   const [vixStepIdx, setVixStepIdx] = useState(3); // Default to Bench
   const [dimNonActive, setDimNonActive] = useState(true);
 
+  // Global Laboratory Right-Click Context Menu
+  const [labContextMenu, setLabContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   const activeVixRegion: VixTargetRegion | null =
     vixMode === 'tour' ? (VIX_TOUR_STEPS[vixStepIdx]?.id ?? 'bench') : null;
 
@@ -200,7 +206,18 @@ export function LabLayout({
   const subExperiments = SUB_EXPERIMENTS_BY_LAB[activeLab] ?? [];
 
   return (
-    <div className="min-h-screen bg-[#0B1220] text-[#E6EBF5] flex flex-col select-none relative">
+    <div
+      className="min-h-screen bg-[#0B1220] text-[#E6EBF5] flex flex-col select-none relative"
+      onClick={() => {
+        if (labContextMenu) setLabContextMenu(null);
+      }}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        const x = Math.min(e.clientX, (typeof window !== 'undefined' ? window.innerWidth : 1200) - 250);
+        const y = Math.min(e.clientY, (typeof window !== 'undefined' ? window.innerHeight : 800) - 310);
+        setLabContextMenu({ x: Math.max(12, x), y: Math.max(12, y) });
+      }}
+    >
       {/* Top Lab Header */}
       <header
         data-vix-id="top-bar"
@@ -423,6 +440,104 @@ export function LabLayout({
           onToggleDim={() => setDimNonActive((d) => !d)}
           onEndCall={() => setVixMode('closed')}
         />
+      )}
+
+      {/* Global Laboratory Bench Right-Click Context Menu */}
+      {labContextMenu && (
+        <div
+          role="menu"
+          aria-label="Laboratory bench context menu"
+          style={{ left: labContextMenu.x, top: labContextMenu.y }}
+          onClick={(e) => e.stopPropagation()}
+          className="fixed z-50 w-60 rounded-xl bg-[#121A2B]/98 border border-[#38BDF8]/40 shadow-[0_20px_50px_rgba(0,0,0,0.65)] backdrop-blur-md p-1.5 text-xs text-[#E6EBF5]"
+        >
+          <div className="px-2.5 py-1.5 border-b border-[#1E2A42] flex items-center justify-between">
+            <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#38BDF8]">
+              VIXIR LAB BENCH MENU
+            </span>
+            <span className="font-mono text-[10px] text-[#93A0B8] capitalize">
+              {activeLab}
+            </span>
+          </div>
+
+          <div className="py-1 space-y-0.5">
+            {mode !== 'exam' && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setLabContextMenu(null);
+                  setVixMode('connect');
+                }}
+                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#FDBA74] font-semibold cursor-pointer"
+              >
+                <span>Call Vix AI Lab Guide</span>
+                <span className="font-mono text-[10px]">Spotlight</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setLabContextMenu(null);
+                handleNext();
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+            >
+              <span>Plot Results &amp; Graph</span>
+              <span className="font-mono text-[10px] text-[#93A0B8]">F1 →</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setLabContextMenu(null);
+                navigate('/attempt/demo/submit');
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+            >
+              <span>Review &amp; Submit Practical</span>
+              <span className="font-mono text-[10px] text-[#93A0B8]">F2</span>
+            </button>
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setLabContextMenu(null);
+                navigate('/apparatus');
+              }}
+              className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between cursor-pointer"
+            >
+              <span>Inspect Apparatus Encyclopedia</span>
+              <span className="font-mono text-[10px] text-[#93A0B8]">123 items</span>
+            </button>
+          </div>
+
+          {subExperiments.length > 1 && (
+            <div className="pt-1 border-t border-[#1E2A42]">
+              <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-[#93A0B8]">
+                Switch {activeLab} practical
+              </div>
+              {subExperiments.map((exp) => (
+                <button
+                  key={exp.to}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setLabContextMenu(null);
+                    navigate(exp.to);
+                  }}
+                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] text-[#C9D3E6] hover:text-white cursor-pointer"
+                >
+                  {exp.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       )}
     </div>
   );
