@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router';
 import {
   ChevronLeft,
@@ -172,6 +172,40 @@ export function LabLayout({
     y: number;
   } | null>(null);
 
+  // Interactive Tool Rail State (makes every icon on the left tool rail functional with tooltips & bench overlays)
+  const defaultRail: ToolRailItem[] = [
+    { id: 'pointer', label: 'Select & interact with bench', icon: 'pointer' },
+    { id: 'ruler', label: 'Precision ruler & vernier scale', icon: 'ruler' },
+    { id: 'zoom', label: 'Magnifier loupe (×1.20 eye-level)', icon: 'zoom' },
+    { id: 'note', label: 'Lab notebook & precautions', icon: 'note' },
+    { id: 'clock', label: 'Digital stopwatch & lap timer', icon: 'clock' },
+  ];
+  const effectiveToolRail = toolRail && toolRail.length > 0 ? toolRail : defaultRail;
+
+  const [selectedRailId, setSelectedRailId] = useState<string>(
+    effectiveToolRail.find((t) => t.active)?.id ?? effectiveToolRail[0]?.id ?? 'pointer'
+  );
+  const [hoveredRailId, setHoveredRailId] = useState<string | null>(null);
+  const [rulerCursorCm, setRulerCursorCm] = useState<number>(42.5);
+  const [labNotesText, setLabNotesText] = useState<string>(
+    '• Zero error checked at eye level (no parallax).\n• Repeated readings taken and mean recorded to 2 d.p.'
+  );
+  const [stopwatchRunning, setStopwatchRunning] = useState(false);
+  const [stopwatchMs, setStopwatchMs] = useState(0);
+  const [stopwatchLaps, setStopwatchLaps] = useState<number[]>([]);
+
+  useEffect(() => {
+    if (!stopwatchRunning) return;
+    const t = window.setInterval(() => {
+      setStopwatchMs((prev) => prev + 100);
+    }, 100);
+    return () => window.clearInterval(t);
+  }, [stopwatchRunning]);
+
+  const activeRailTool =
+    effectiveToolRail.find((t) => t.id === selectedRailId) ?? effectiveToolRail[0]!;
+  const isBenchZoomed = activeRailTool?.icon === 'zoom';
+
   const activeVixRegion: VixTargetRegion | null =
     vixMode === 'tour' ? (VIX_TOUR_STEPS[vixStepIdx]?.id ?? 'bench') : null;
 
@@ -328,30 +362,90 @@ export function LabLayout({
       <div className="flex-1 flex flex-col lg:flex-row min-h-0">
         {/* Left Section: Tool Rail + Apparatus Tray */}
         <div className="flex border-b lg:border-b-0 lg:border-r border-[#1E2A42] shrink-0">
-          {toolRail && toolRail.length > 0 && (
+          {effectiveToolRail.length > 0 && (
             <aside
               data-vix-id="tool-rail"
               aria-label="Bench tools"
-              className={`w-12 bg-[#0B1220] border-r border-[#1E2A42] py-3 flex flex-col items-center gap-2 shrink-0 ${getRegionHighlightClass(
+              className={`w-12 bg-[#0B1220] border-r border-[#1E2A42] py-3 flex flex-col items-center gap-2 shrink-0 relative z-30 ${getRegionHighlightClass(
                 'tool-rail'
               )}`}
             >
-              {toolRail.map((tool) => (
-                <button
-                  key={tool.id}
-                  type="button"
-                  aria-label={tool.label}
-                  title={tool.label}
-                  onClick={tool.onClick}
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors cursor-pointer ${
-                    tool.active
-                      ? toolRailAccent
-                      : 'text-[#93A0B8] hover:text-[#E6EBF5] hover:bg-[#121A2B]'
-                  }`}
-                >
-                  {renderToolIcon(tool.icon)}
-                </button>
-              ))}
+              {effectiveToolRail.map((tool, idx) => {
+                // If the parent lab explicitly controls active tool (more than 1 tool has active boolean defined), respect it; otherwise use selectedRailId
+                const hasExplicitController =
+                  effectiveToolRail.filter((t) => typeof t.onClick === 'function').length >= 2;
+                const isActive = hasExplicitController
+                  ? Boolean(tool.active)
+                  : selectedRailId === tool.id;
+                const isHovered = hoveredRailId === tool.id;
+
+                const toolShortcut =
+                  tool.icon === 'pointer'
+                    ? 'V'
+                    : tool.icon === 'ruler'
+                      ? 'M'
+                      : tool.icon === 'zoom'
+                        ? 'Z'
+                        : tool.icon === 'note'
+                          ? 'N'
+                          : tool.icon === 'clock'
+                            ? 'T'
+                            : `${idx + 1}`;
+
+                return (
+                  <div
+                    key={tool.id}
+                    className="relative flex items-center"
+                    onMouseEnter={() => setHoveredRailId(tool.id)}
+                    onMouseLeave={() =>
+                      setHoveredRailId((prev) => (prev === tool.id ? null : prev))
+                    }
+                  >
+                    <button
+                      type="button"
+                      aria-label={tool.label}
+                      aria-pressed={isActive}
+                      onFocus={() => setHoveredRailId(tool.id)}
+                      onBlur={() =>
+                        setHoveredRailId((prev) => (prev === tool.id ? null : prev))
+                      }
+                      onClick={() => {
+                        setSelectedRailId((prev) =>
+                          prev === tool.id && tool.icon !== 'pointer' ? 'pointer' : tool.id
+                        );
+                        if (tool.onClick) {
+                          tool.onClick();
+                        }
+                      }}
+                      className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                        isActive
+                          ? `${toolRailAccent} ring-1 ring-white/20 shadow-sm`
+                          : 'text-[#93A0B8] hover:text-[#E6EBF5] hover:bg-[#121A2B]'
+                      }`}
+                    >
+                      {renderToolIcon(tool.icon)}
+                    </button>
+
+                    {/* Instant Floating Vixir Tooltip Pill */}
+                    {isHovered && (
+                      <div
+                        role="tooltip"
+                        className="pointer-events-none absolute left-12 z-50 px-3 py-1.5 rounded-xl bg-[#121A2B] border border-[#38BDF8]/50 shadow-[0_10px_28px_rgba(0,0,0,0.65)] whitespace-nowrap flex items-center gap-2.5"
+                      >
+                        <div>
+                          <div className="text-xs font-semibold text-white">{tool.label}</div>
+                          <div className="text-[10px] text-[#93A0B8]">
+                            {isActive ? 'Active on bench — click to toggle' : 'Click to activate tool'}
+                          </div>
+                        </div>
+                        <span className="px-1.5 py-0.5 rounded bg-[#0B1220] border border-[#22304A] font-mono text-[10px] text-[#7DD3FC]">
+                          {toolShortcut}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </aside>
           )}
 
@@ -371,11 +465,186 @@ export function LabLayout({
         <div className="flex-1 flex flex-col min-w-0">
           <div
             data-vix-id="bench"
-            className={`flex-1 relative flex flex-col justify-between p-4 min-h-[420px] ${
+            className={`flex-1 relative flex flex-col justify-between p-4 min-h-[420px] overflow-hidden ${
               dotGrid ? 'lab-dot-bg' : 'lab-grid-bg'
             } ${getRegionHighlightClass('bench')}`}
           >
-            {children}
+            {/* Active Tool Rail Interactive Overlays (Ruler, Zoom Loupe, Lab Notes, Stopwatch, Safety/Calibration) */}
+            {selectedRailId !== 'pointer' && activeRailTool && (
+              <div className="z-20 mb-2">
+                {/* 1. RULER / SCALE OVERLAY */}
+                {activeRailTool.icon === 'ruler' && (
+                  <div className="bg-[#121A2B]/95 border border-[#38BDF8]/50 rounded-xl p-3 shadow-lg space-y-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <span className="font-mono font-bold text-[#7DD3FC]">
+                        PRECISION BENCH RULER &amp; VERNIER SCALE · LEAST COUNT ±0.05 cm
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <span className="font-mono text-white font-bold">
+                          Cursor: {rulerCursorCm.toFixed(2)} cm ({(rulerCursorCm * 10).toFixed(1)} mm)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedRailId('pointer')}
+                          className="px-2 py-0.5 rounded bg-[#0B1220] text-[#93A0B8] hover:text-white text-[11px] cursor-pointer"
+                        >
+                          Close ×
+                        </button>
+                      </div>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={0.05}
+                      value={rulerCursorCm}
+                      onChange={(e) => setRulerCursorCm(parseFloat(e.target.value))}
+                      aria-label="Slide precision ruler cursor in cm"
+                      className="w-full accent-[#38BDF8] cursor-pointer"
+                    />
+                    <div className="flex justify-between font-mono text-[10px] text-[#93A0B8]">
+                      <span>0.0 cm</span>
+                      <span>20.0 cm</span>
+                      <span>40.0 cm</span>
+                      <span>60.0 cm</span>
+                      <span>80.0 cm</span>
+                      <span>100.0 cm</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. ZOOM / MAGNIFIER LOUPE BANNER */}
+                {activeRailTool.icon === 'zoom' && (
+                  <div className="bg-[#121A2B]/95 border border-[#38BDF8]/50 rounded-xl px-3.5 py-2 shadow-lg flex items-center justify-between text-xs">
+                    <span className="font-mono font-semibold text-[#7DD3FC]">
+                      OPTICAL MAGNIFIER LOUPE ACTIVE (×1.15) · Eye-level zero-parallax inspection
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRailId('pointer')}
+                      className="px-2.5 py-1 rounded-lg bg-[#0B1220] border border-[#22304A] text-white font-semibold cursor-pointer"
+                    >
+                      Reset 100% ×
+                    </button>
+                  </div>
+                )}
+
+                {/* 3. LAB NOTEBOOK & PRECAUTIONS SCRATCHPAD */}
+                {activeRailTool.icon === 'note' && (
+                  <div className="bg-[#121A2B]/95 border border-[#38BDF8]/50 rounded-xl p-3.5 shadow-lg space-y-2">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-mono font-bold text-[#7DD3FC]">
+                        LAB NOTEBOOK &amp; WAEC / NECO PRECAUTIONS PAD ({experimentTitle})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRailId('pointer')}
+                        className="px-2 py-0.5 rounded bg-[#0B1220] text-[#93A0B8] hover:text-white text-[11px] cursor-pointer"
+                      >
+                        Hide notes ×
+                      </button>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={labNotesText}
+                      onChange={(e) => setLabNotesText(e.target.value)}
+                      placeholder="Record your experimental precautions, zero-error checks, and observations..."
+                      className="w-full rounded-lg bg-[#0B1220] border border-[#22304A] p-2.5 text-xs font-mono text-[#E6EBF5] focus:outline-none focus:border-[#38BDF8]"
+                    />
+                  </div>
+                )}
+
+                {/* 4. DIGITAL SPLIT-LAP STOPWATCH & TIMING LOG */}
+                {activeRailTool.icon === 'clock' && (
+                  <div className="bg-[#121A2B]/95 border border-[#38BDF8]/50 rounded-xl p-3.5 shadow-lg flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-[11px] font-bold uppercase text-[#7DD3FC]">
+                        AUXILIARY STOPWATCH
+                      </span>
+                      <span className="font-mono text-lg font-bold text-white bg-[#0B1220] px-3 py-1 rounded-lg border border-[#22304A]">
+                        {(stopwatchMs / 1000).toFixed(2)} s
+                      </span>
+                      {stopwatchLaps.length > 0 && (
+                        <span className="font-mono text-[11px] text-[#4ADE80]">
+                          Laps ({stopwatchLaps.length}):{' '}
+                          {stopwatchLaps.map((l) => `${(l / 1000).toFixed(2)}s`).join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setStopwatchRunning((r) => !r)}
+                        className="px-3 py-1 rounded-lg bg-[#2563EB] hover:bg-[#1D4ED8] text-white font-semibold cursor-pointer"
+                      >
+                        {stopwatchRunning ? 'Pause' : 'Start'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setStopwatchLaps((prev) => [...prev.slice(-3), stopwatchMs])
+                        }
+                        className="px-2.5 py-1 rounded-lg bg-[#0B1220] border border-[#22304A] text-[#C9D3E6] cursor-pointer"
+                      >
+                        Lap
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setStopwatchRunning(false);
+                          setStopwatchMs(0);
+                          setStopwatchLaps([]);
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-[#0B1220] border border-[#22304A] text-[#FCA5A5] cursor-pointer"
+                      >
+                        Reset
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedRailId('pointer')}
+                        className="px-2 py-1 rounded-lg bg-[#0B1220] text-[#93A0B8] hover:text-white cursor-pointer"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 5. SAFETY / GLASSWARE / CALIBRATION INSPECTOR (alert, flask, gauge, wave, pen) */}
+                {(activeRailTool.icon === 'alert' ||
+                  activeRailTool.icon === 'flask' ||
+                  activeRailTool.icon === 'gauge' ||
+                  activeRailTool.icon === 'wave' ||
+                  activeRailTool.icon === 'pen') && (
+                  <div className="bg-[#121A2B]/95 border border-[#FDBA74]/50 rounded-xl px-3.5 py-2.5 shadow-lg flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div>
+                      <span className="font-mono font-bold uppercase text-[#FDBA74] mr-2">
+                        {activeRailTool.label}:
+                      </span>
+                      <span className="text-[#C9D3E6]">
+                        Apparatus zero-calibrated · Meniscus/scale read at eye level · PPE &amp; safety
+                        checks verified ✓
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedRailId('pointer')}
+                      className="px-2.5 py-1 rounded bg-[#0B1220] text-[#93A0B8] hover:text-white cursor-pointer"
+                    >
+                      Close ×
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div
+              className={`flex-1 flex flex-col justify-between transition-transform duration-300 ${
+                isBenchZoomed ? 'scale-[1.12] origin-center' : ''
+              }`}
+            >
+              {children}
+            </div>
           </div>
 
           {bottomDock && (

@@ -234,11 +234,48 @@ describe('Lab Workspaces & Core Screens', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByText(/Simple Pendulum — Determination of g/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /chemistry/i }));
     expect(
-      screen.getByText(/Acid–Base Titration — Standardizing HCl with Na₂CO₃/i)
+      screen.getByText(/Simple Pendulum — Determination of Acceleration Due to Gravity g/i)
     ).toBeInTheDocument();
+
+    // Verify Sign in form validation rejects invalid email/matric ("jj") and short password ("12")
+    fireEvent.change(screen.getByLabelText(/Email or matric \/ admission number/i), {
+      target: { value: 'jj' },
+    });
+    fireEvent.change(screen.getByLabelText(/^Password$/i), {
+      target: { value: '12' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /^Sign in$/i }));
+    expect(
+      screen.getByText(/Enter a valid school email .* or matric number/i)
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Password must be at least 8 characters/i)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="D1" />
+      </MemoryRouter>
+    );
+
+    // Hovering a left tool-rail button displays its floating tooltip
+    const rulerBtn = screen.getByRole('button', { name: /Measure length/i });
+    fireEvent.mouseEnter(rulerBtn.parentElement!);
+    expect(screen.getByRole('tooltip')).toHaveTextContent(/Measure length/i);
+
+    // Clicking the tool-rail buttons activates the Ruler, Lab Notes, and Timing Log widgets
+    fireEvent.click(rulerBtn);
+    expect(
+      screen.getByText(/PRECISION BENCH RULER & VERNIER SCALE/i)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Lab notes/i }));
+    expect(
+      screen.getByText(/LAB NOTEBOOK & WAEC \/ NECO PRECAUTIONS PAD/i)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Timing log/i }));
+    expect(screen.getByText(/AUXILIARY STOPWATCH/i)).toBeInTheDocument();
     unmount();
 
     render(
