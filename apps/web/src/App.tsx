@@ -28,7 +28,6 @@ import {
   ExperimentBuilderScreen,
   InstitutionAdminScreen,
 } from './routes/TeacherAdminScreens';
-import { MobileHomeScreen, MobileLabScreen } from './routes/MobileScreens';
 import { NotFound } from './routes/NotFound';
 import { Placeholder } from './routes/Placeholder';
 import { screens } from './routes/screens';
@@ -85,10 +84,6 @@ export function renderScreenByCode(code: string) {
       return <ExperimentBuilderScreen />;
     case 'H1':
       return <InstitutionAdminScreen />;
-    case 'I1':
-      return <MobileHomeScreen />;
-    case 'I2':
-      return <MobileLabScreen />;
     default: {
       const s = screens.find((sc) => sc.code === code) ?? screens[0]!;
       return <Placeholder screen={s} />;

@@ -36,6 +36,4 @@ export const screens: ScreenDef[] = [
   { code: 'G3', title: 'Class results & analytics', path: '/teacher/assignments/demo/results', png: 'G3-class-results.png', spec: 'teacher-and-classes' },
   { code: 'G4', title: 'Experiment builder', path: '/teacher/builder', png: 'G4-experiment-builder.png', spec: 'experiment-builder' },
   { code: 'H1', title: 'Institution admin console', path: '/admin', png: 'H1-institution-admin.png', spec: 'auth-and-tenancy' },
-  { code: 'I1', title: 'Mobile student home (offline)', path: '/m', png: 'I1-mobile-home.png', spec: 'offline-pwa' },
-  { code: 'I2', title: 'Mobile lab workspace', path: '/m/lab/physics/pendulum', png: 'I2-mobile-lab.png', spec: 'offline-pwa' },
 ];

@@ -466,25 +466,6 @@ export function Landing() {
               </p>
             </div>
           </div>
-
-          {/* Offline Banner */}
-          <div className="bg-[#FDECE3] border border-[#F9D7C4] rounded-2xl p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="font-display text-base font-bold text-[#7C2D12] mb-1">
-                Works offline. Runs on a budget Android phone.
-              </h3>
-              <p className="text-sm text-[#9A3412]">
-                Install Vixir once, run practicals with no data, and results sync when a
-                connection returns.
-              </p>
-            </div>
-            <Link
-              to="/m/lab/physics/pendulum"
-              className="px-4 py-2.5 rounded-xl bg-[#B54708] hover:bg-[#9A3412] text-white text-sm font-semibold whitespace-nowrap transition-colors"
-            >
-              See the mobile lab
-            </Link>
-          </div>
         </div>
       </section>
 
