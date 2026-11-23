@@ -3,8 +3,10 @@ package org.vixir.school;
 import java.security.SecureRandom;
 import java.util.Locale;
 import java.util.random.RandomGenerator;
+import org.springframework.stereotype.Component;
 
 /** Class join codes like PHY-SS3-7KQ2 (backend-api Req 4.1). Pure, so it is property-tested with jqwik. */
+@Component
 public final class JoinCodeGenerator {
     /** No 0/O, 1/I/L — easy to read aloud and type on a phone. */
     public static final String ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";

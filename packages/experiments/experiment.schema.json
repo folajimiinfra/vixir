@@ -24,7 +24,7 @@
     "procedure": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
     "precautions": { "type": "array", "minItems": 1, "items": { "type": "object", "required": ["text", "keywords"], "properties": { "text": { "type": "string" }, "keywords": { "type": "array", "items": { "type": "string" }, "minItems": 1 } } } },
     "glossary": { "type": "object", "additionalProperties": { "type": "string" } },
-    "tours": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "object", "required": ["regionId", "say"], "properties": { "regionId": { "type": "string" }, "say": { "type": "string" } } } } },
+    "tours": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "object", "required": ["regionId", "caption"], "properties": { "regionId": { "type": "string" }, "caption": { "type": "string" } } } } },
     "sources": { "type": "array", "items": { "type": "string" } }
   },
   "additionalProperties": false

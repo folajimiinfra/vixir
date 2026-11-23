@@ -1,0 +1,2383 @@
+{
+    "openapi": "3.1.0",
+    "info": {
+        "title": "Vixir API",
+        "description": "REST API for Vixir, the open-source virtual practical laboratory.\n\n**Authentication.** Obtain an access token from `POST /api/v1/auth/login` (or `/register`, `/google`)\nand send it as `Authorization: Bearer <token>`. The refresh token is set as the httpOnly cookie\n`vx_refresh` (path `/api/v1/auth/refresh`); call `POST /api/v1/auth/refresh` to rotate both.\n\n**Errors** use RFC 9457 problem details (`application/problem+json`) with an extra `code` property.\nResources the caller may not access return **404**, not 403, so their existence is not revealed.\n\n**Internal endpoints** (`/api/v1/internal/**`) are for the Vix agent only and take a service JWT\nsigned with `VIXIR_SERVICE_SECRET` with `scope=vix-agent`.\n",
+        "contact": {
+            "name": "Vixir"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "0.1.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "This server"
+        }
+    ],
+    "security": [
+        {
+            "bearerAuth": []
+        }
+    ],
+    "tags": [
+        {
+            "name": "Auth",
+            "description": "Register, sign in, refresh and sign out"
+        },
+        {
+            "name": "Me",
+            "description": "The signed-in user's profile"
+        },
+        {
+            "name": "Classes",
+            "description": "Classes, join codes and enrolment"
+        },
+        {
+            "name": "Assignments",
+            "description": "Teacher-set experiments for a class"
+        },
+        {
+            "name": "Experiments",
+            "description": "Public experiment catalogue"
+        },
+        {
+            "name": "Attempts",
+            "description": "Starting and resuming lab attempts"
+        },
+        {
+            "name": "Events",
+            "description": "Attempt event log (offline-safe batch sync)"
+        },
+        {
+            "name": "Submissions",
+            "description": "Submitting an attempt for marking"
+        },
+        {
+            "name": "Review",
+            "description": "Teacher results, overrides, release and flags; student reports"
+        },
+        {
+            "name": "Vix",
+            "description": "Vix voice-guide sessions and scripted tours"
+        },
+        {
+            "name": "Internal (Vix agent)",
+            "description": "Service-to-service endpoints for the Vix agent"
+        },
+        {
+            "name": "System",
+            "description": "Health and smoke tests"
+        }
+    ],
+    "paths": {
+        "/api/v1/vix/sessions": {
+            "post": {
+                "tags": [
+                    "Vix"
+                ],
+                "summary": "Start a Vix session",
+                "description": "Returns a LiveKit room token. Refused for exam-mode attempts and when the institution has disabled Vix; the client should then fall back to the scripted tour.",
+                "operationId": "bootstrap",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/VixBootstrapRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Session bootstrap",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/VixBootstrap"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vix/sessions/{id}/end": {
+            "post": {
+                "tags": [
+                    "Vix"
+                ],
+                "summary": "End my Vix session",
+                "description": "Optional body with the number of turns, e.g. turns: 12.",
+                "operationId": "end",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {}
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "204": {
+                        "description": "Ended"
+                    }
+                }
+            }
+        },
+        "/api/v1/internal/vix/sessions/{id}/messages": {
+            "post": {
+                "tags": [
+                    "Internal (Vix agent)"
+                ],
+                "summary": "Store a transcript message",
+                "description": "Stored only when the school has enabled transcript retention.",
+                "operationId": "message",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            "example": {
+                                "role": "VIX",
+                                "text": "What do you notice about the period?",
+                                "policyBlocked": false
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Stored or ignored"
+                    }
+                },
+                "security": [
+                    {
+                        "serviceToken": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/internal/vix/sessions/{id}/end": {
+            "post": {
+                "tags": [
+                    "Internal (Vix agent)"
+                ],
+                "summary": "End a session from the agent",
+                "operationId": "end_1",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            "example": {
+                                "turns": 12
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "204": {
+                        "description": "Ended"
+                    }
+                },
+                "security": [
+                    {
+                        "serviceToken": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/classes": {
+            "get": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "List my classes",
+                "description": "Teachers and admins get the classes they own; students get the classes they are enrolled in.",
+                "operationId": "list",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ClassResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Create a class",
+                "description": "The caller becomes the class owner. A join code is generated.",
+                "operationId": "create",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateBody"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Class created",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ClassResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classes/{id}/join-code/rotate": {
+            "post": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Rotate a class join code",
+                "description": "Owner or co-teacher only. The old code stops working.",
+                "operationId": "rotateCode",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New join code",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "joinCode": "PHY-SS2-9XB2"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classes/join": {
+            "post": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Join a class with a join code",
+                "operationId": "join",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "example": {
+                                "code": "PHY-SS2-7KQ4"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ClassResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/register": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Register with email and password",
+                "description": "Creates a STUDENT, TEACHER or ADMIN account. A STUDENT may pass classCode to join a class at sign-up. Rate limited.",
+                "operationId": "register",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/RegisterRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Access token in body; refresh token set as vx_refresh cookie",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "accessToken": "eyJ...",
+                                    "tokenType": "Bearer"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/auth/refresh": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Rotate tokens using the refresh cookie",
+                "description": "Reads the vx_refresh cookie, returns a new access token and sets a new refresh cookie.",
+                "operationId": "refresh",
+                "responses": {
+                    "200": {
+                        "description": "Access token in body; refresh token set as vx_refresh cookie",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "accessToken": "eyJ...",
+                                    "tokenType": "Bearer"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "refreshCookie": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/auth/logout": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign out",
+                "description": "Revokes the caller's refresh tokens (when a valid bearer token is sent) and clears the refresh cookie.",
+                "operationId": "logout",
+                "responses": {
+                    "204": {
+                        "description": "Signed out"
+                    }
+                }
+            }
+        },
+        "/api/v1/auth/login": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign in with email and password",
+                "description": "Rate limited.",
+                "operationId": "login",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/LoginRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Access token in body; refresh token set as vx_refresh cookie",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "accessToken": "eyJ...",
+                                    "tokenType": "Bearer"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/auth/google": {
+            "post": {
+                "tags": [
+                    "Auth"
+                ],
+                "summary": "Sign in with a Google ID token",
+                "description": "Creates a STUDENT account on first sign-in.",
+                "operationId": "google",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "example": {
+                                "idToken": "<google-id-token>"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "Access token in body; refresh token set as vx_refresh cookie",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "accessToken": "eyJ...",
+                                    "tokenType": "Bearer"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/attempts": {
+            "post": {
+                "tags": [
+                    "Attempts"
+                ],
+                "summary": "Start or resume an attempt",
+                "description": "Send assignmentId to start or resume a graded attempt, or experimentId for free practice. Returns the seed and experiment config; for a resumed attempt, also the events logged so far.",
+                "operationId": "start",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/StartAttemptRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Attempt bootstrap",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AttemptBootstrap"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{attemptId}/submit": {
+            "post": {
+                "tags": [
+                    "Submissions"
+                ],
+                "summary": "Submit an attempt for marking",
+                "description": "Returns 202 at once; marking runs in the background. Send an Idempotency-Key header so retries do not create duplicate submissions. Own attempts only.",
+                "operationId": "submit",
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Idempotency-Key",
+                        "in": "header",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/SubmitRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "202": {
+                        "description": "Accepted for marking",
+                        "content": {
+                            "application/json": {
+                                "example": {
+                                    "submissionId": "3f6c2a1e-5b7d-4c11-9a0e-2d4f8b9c1a23"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{attemptId}/events": {
+            "get": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Get attempt events",
+                "description": "For resume and bench replay. Pass afterSeq to fetch only newer events. Own attempts only.",
+                "operationId": "get",
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "afterSeq",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AttemptEventResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Events"
+                ],
+                "summary": "Upload a batch of attempt events",
+                "description": "Up to 200 events per batch. Idempotent by clientEventId, so offline sync can retry safely; duplicates are reported, not stored again. Own attempts only.",
+                "operationId": "ingest",
+                "parameters": [
+                    {
+                        "name": "attemptId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/EventIngestRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/IngestResult"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/anonymous": {
+            "post": {
+                "tags": [
+                    "Attempts"
+                ],
+                "summary": "Start anonymous practice",
+                "description": "Public (landing page). Sets or reads the httpOnly vx_anon cookie that identifies the anonymous user.",
+                "operationId": "startAnonymous",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "example": {
+                                "experimentId": "phy.pendulum.g"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Attempt bootstrap",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AttemptBootstrap"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/assignments": {
+            "get": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "List assignments for a class",
+                "description": "Owner or co-teacher of the class only.",
+                "operationId": "list_1",
+                "parameters": [
+                    {
+                        "name": "classId",
+                        "in": "query",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AssignmentResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "Create an assignment",
+                "description": "Owner or co-teacher of classId only. dueAt must be after opensAt; the experiment version must be PUBLISHED. Defaults: noiseLevel=REALISTIC, attemptsAllowed=2, releasePolicy=MANUAL.",
+                "operationId": "create_1",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/CreateAssignmentRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "201": {
+                        "description": "Assignment created",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignmentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/release": {
+            "post": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Release marks to students",
+                "description": "Teacher (owner or co-teacher). Moves every MARKED attempt to RELEASED.",
+                "operationId": "release",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Released"
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/publish": {
+            "post": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "Publish an assignment",
+                "description": "Makes it visible to enrolled students.",
+                "operationId": "publish",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignmentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/close": {
+            "post": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "Close an assignment",
+                "description": "No new attempts can be started.",
+                "operationId": "close",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignmentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/submissions/{id}/mark": {
+            "patch": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Override a criterion score or add a comment",
+                "description": "Send either criterionKey + score + reason to override one criterion (the total is recomputed and the change is audited), or comment to set the teacher comment.",
+                "operationId": "patchMark",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {}
+                            },
+                            "examples": {
+                                "override": {
+                                    "description": "override",
+                                    "value": {
+                                        "criterionKey": "sig_figs",
+                                        "score": 2,
+                                        "reason": "Accepted 3 s.f."
+                                    }
+                                },
+                                "comment": {
+                                    "description": "comment",
+                                    "value": {
+                                        "comment": "Good graph, check your units."
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarkReportResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/me": {
+            "get": {
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Get the signed-in user",
+                "operationId": "get_1",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "tags": [
+                    "Me"
+                ],
+                "summary": "Update the signed-in user's profile",
+                "description": "Only non-null fields are changed.",
+                "operationId": "patch",
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "$ref": "#/components/schemas/PatchMeRequest"
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/UserResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/flags/{id}": {
+            "patch": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Resolve a review flag",
+                "operationId": "resolveFlag",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "example": {
+                                "note": "Checked with the student, readings are genuine."
+                            }
+                        }
+                    },
+                    "required": true
+                },
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/FlagResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/vix/tours/{screenCode}": {
+            "get": {
+                "tags": [
+                    "Vix"
+                ],
+                "summary": "Get the scripted tour for a screen",
+                "description": "Public, cacheable for 1 hour. Steps come from the tours section of the latest published experiment config. Pass experimentId to choose an experiment; otherwise the first published experiment (by id) with a tour for the screen is used. 404 TOUR_NOT_FOUND when no experiment has one.",
+                "operationId": "tour",
+                "parameters": [
+                    {
+                        "name": "screenCode",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "experimentId",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/Tour"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/ping": {
+            "get": {
+                "tags": [
+                    "System"
+                ],
+                "summary": "Smoke test",
+                "description": "Public. Used by CI and deploy checks.",
+                "operationId": "ping",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/me/assignments": {
+            "get": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "List my assignments (student dashboard)",
+                "description": "Published assignments for every class the caller is enrolled in.",
+                "operationId": "myAssignments",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/AssignmentResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/internal/vix/sessions/{id}/context": {
+            "get": {
+                "tags": [
+                    "Internal (Vix agent)"
+                ],
+                "summary": "Get session context for the agent",
+                "description": "Mode, locale, the student's first name and the experiment id and version. Never includes the seed, hidden values or readings.",
+                "operationId": "context",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "serviceToken": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/experiments": {
+            "get": {
+                "tags": [
+                    "Experiments"
+                ],
+                "summary": "List published experiments",
+                "description": "Public. Optionally filter by subject, e.g. physics.",
+                "operationId": "list_2",
+                "parameters": [
+                    {
+                        "name": "subject",
+                        "in": "query",
+                        "required": false,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/ExperimentSummary"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/experiments/{id}": {
+            "get": {
+                "tags": [
+                    "Experiments"
+                ],
+                "summary": "Get the latest published version of an experiment",
+                "description": "Public.",
+                "operationId": "getLatest",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExperimentVersionDetail"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/experiments/{id}/versions/{version}": {
+            "get": {
+                "tags": [
+                    "Experiments"
+                ],
+                "summary": "Get a published experiment version",
+                "description": "Public. Returns the full config and rubric.",
+                "operationId": "getVersion",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    {
+                        "name": "version",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/ExperimentVersionDetail"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": []
+            }
+        },
+        "/api/v1/classes/{id}/students": {
+            "get": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "List students in a class",
+                "description": "Owner or co-teacher only.",
+                "operationId": "students",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/UserResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{id}": {
+            "get": {
+                "tags": [
+                    "Attempts"
+                ],
+                "summary": "Get an attempt",
+                "description": "Own attempts only.",
+                "operationId": "get_2",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AttemptResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/attempts/{id}/report": {
+            "get": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Get my marked report",
+                "description": "Student, own attempt only, and only after the teacher has released marks (404 before that).",
+                "operationId": "report",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/MarkReportResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}": {
+            "get": {
+                "tags": [
+                    "Assignments"
+                ],
+                "summary": "Get an assignment",
+                "description": "Owner or co-teacher of the class only.",
+                "operationId": "get_3",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignmentResponse"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/results": {
+            "get": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Get assignment results",
+                "description": "Teacher (owner or co-teacher). Per-student state and score, score histogram, per-criterion averages, open flag count.",
+                "operationId": "results",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "$ref": "#/components/schemas/AssignmentResults"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/flags": {
+            "get": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "List open review flags",
+                "description": "Teacher (owner or co-teacher). Flags such as duplicate readings or statistical outliers.",
+                "operationId": "flags",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/components/schemas/FlagResponse"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/assignments/{id}/analytics": {
+            "get": {
+                "tags": [
+                    "Review"
+                ],
+                "summary": "Get assignment analytics",
+                "description": "Teacher (owner or co-teacher). Results plus the most common reasons marks were lost.",
+                "operationId": "analytics",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "content": {
+                            "*/*": {
+                                "schema": {
+                                    "type": "object",
+                                    "additionalProperties": {}
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/classes/{id}/students/{studentId}": {
+            "delete": {
+                "tags": [
+                    "Classes"
+                ],
+                "summary": "Remove a student from a class",
+                "description": "Owner or co-teacher only.",
+                "operationId": "removeStudent",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    },
+                    {
+                        "name": "studentId",
+                        "in": "path",
+                        "required": true,
+                        "schema": {
+                            "type": "string",
+                            "format": "uuid"
+                        }
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "Removed"
+                    }
+                }
+            }
+        }
+    },
+    "components": {
+        "schemas": {
+            "VixBootstrapRequest": {
+                "type": "object",
+                "properties": {
+                    "attemptId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "screen": {
+                        "type": "string"
+                    },
+                    "consent": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "voice": {
+                        "type": "string"
+                    },
+                    "locale": {
+                        "type": "string"
+                    }
+                }
+            },
+            "VixBootstrap": {
+                "type": "object",
+                "properties": {
+                    "sessionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "livekitUrl": {
+                        "type": "string"
+                    },
+                    "token": {
+                        "type": "string"
+                    },
+                    "room": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "scriptedTourUrl": {
+                        "type": "string"
+                    }
+                }
+            },
+            "CreateBody": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "subject": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "level": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "level",
+                    "name",
+                    "subject"
+                ]
+            },
+            "ClassResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "level": {
+                        "type": "string"
+                    },
+                    "joinCode": {
+                        "type": "string"
+                    },
+                    "ownerId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "institutionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "studentCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "RegisterRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "password": {
+                        "type": "string",
+                        "maxLength": 2147483647,
+                        "minLength": 8
+                    },
+                    "firstName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "lastName": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "role": {
+                        "type": "string",
+                        "enum": [
+                            "STUDENT",
+                            "TEACHER",
+                            "ADMIN"
+                        ]
+                    },
+                    "classCode": {
+                        "type": "string"
+                    },
+                    "institutionName": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "minLength": 0
+                    }
+                },
+                "required": [
+                    "email",
+                    "firstName",
+                    "lastName",
+                    "password",
+                    "role"
+                ]
+            },
+            "LoginRequest": {
+                "type": "object",
+                "properties": {
+                    "email": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "password": {
+                        "type": "string",
+                        "minLength": 1
+                    }
+                },
+                "required": [
+                    "email",
+                    "password"
+                ]
+            },
+            "StartAttemptRequest": {
+                "type": "object",
+                "properties": {
+                    "assignmentId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "experimentId": {
+                        "type": "string"
+                    }
+                }
+            },
+            "AttemptBootstrap": {
+                "type": "object",
+                "properties": {
+                    "attemptId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "attemptNo": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "seed": {
+                        "type": "string"
+                    },
+                    "experiment": {
+                        "$ref": "#/components/schemas/ExperimentRef"
+                    },
+                    "resume": {
+                        "$ref": "#/components/schemas/ResumeInfo"
+                    }
+                }
+            },
+            "AttemptEventResponse": {
+                "type": "object",
+                "properties": {
+                    "clientEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "seq": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "simTimeMs": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "clientTs": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "serverTs": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "payload": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                }
+            },
+            "ExperimentRef": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "config": {}
+                }
+            },
+            "ResumeInfo": {
+                "type": "object",
+                "properties": {
+                    "lastEventSeq": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/AttemptEventResponse"
+                        }
+                    }
+                }
+            },
+            "SubmitRequest": {
+                "type": "object",
+                "properties": {
+                    "results": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "declarationAccepted": {
+                        "type": "boolean"
+                    },
+                    "clientSubmittedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "results"
+                ]
+            },
+            "EventDto": {
+                "type": "object",
+                "properties": {
+                    "clientEventId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "seq": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "simTimeMs": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "clientTs": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "payload": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    }
+                },
+                "required": [
+                    "clientEventId",
+                    "type"
+                ]
+            },
+            "EventIngestRequest": {
+                "type": "object",
+                "properties": {
+                    "events": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/EventDto"
+                        },
+                        "maxItems": 200,
+                        "minItems": 0
+                    }
+                },
+                "required": [
+                    "events"
+                ]
+            },
+            "IngestResult": {
+                "type": "object",
+                "properties": {
+                    "accepted": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    "duplicates": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    "lastEventSeq": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            },
+            "CreateAssignmentRequest": {
+                "type": "object",
+                "properties": {
+                    "classId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "experimentId": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "experimentVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "minLength": 1
+                    },
+                    "instructions": {
+                        "type": "string"
+                    },
+                    "noiseLevel": {
+                        "type": "string"
+                    },
+                    "attemptsAllowed": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "releasePolicy": {
+                        "type": "string"
+                    },
+                    "opensAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dueAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                },
+                "required": [
+                    "classId",
+                    "dueAt",
+                    "experimentId",
+                    "experimentVersion",
+                    "mode",
+                    "opensAt"
+                ]
+            },
+            "AssignmentResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "classId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "experimentId": {
+                        "type": "string"
+                    },
+                    "experimentVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "noiseLevel": {
+                        "type": "string"
+                    },
+                    "attemptsAllowed": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "releasePolicy": {
+                        "type": "string"
+                    },
+                    "opensAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "dueAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "CriterionView": {
+                "type": "object",
+                "properties": {
+                    "criterionKey": {
+                        "type": "string"
+                    },
+                    "awarded": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "max": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "reason": {
+                        "type": "string"
+                    },
+                    "overridden": {
+                        "type": "boolean"
+                    }
+                }
+            },
+            "MarkReportResponse": {
+                "type": "object",
+                "properties": {
+                    "mark": {
+                        "$ref": "#/components/schemas/MarkView"
+                    },
+                    "criteria": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/CriterionView"
+                        }
+                    }
+                }
+            },
+            "MarkView": {
+                "type": "object",
+                "properties": {
+                    "submissionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "maxTotal": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "markerVersion": {
+                        "type": "string"
+                    },
+                    "teacherComment": {
+                        "type": "string"
+                    },
+                    "reviewed": {
+                        "type": "boolean"
+                    },
+                    "markedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "releasedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "PatchMeRequest": {
+                "type": "object",
+                "properties": {
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "locale": {
+                        "type": "string"
+                    }
+                }
+            },
+            "UserResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "email": {
+                        "type": "string"
+                    },
+                    "firstName": {
+                        "type": "string"
+                    },
+                    "lastName": {
+                        "type": "string"
+                    },
+                    "role": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "locale": {
+                        "type": "string"
+                    },
+                    "institutionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "FlagResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "submissionId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "object",
+                        "additionalProperties": {}
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "resolvedBy": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "createdAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "Tour": {
+                "type": "object",
+                "properties": {
+                    "screenCode": {
+                        "type": "string"
+                    },
+                    "experimentId": {
+                        "type": "string"
+                    },
+                    "experimentVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "steps": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/TourStep"
+                        }
+                    }
+                }
+            },
+            "TourStep": {
+                "type": "object",
+                "properties": {
+                    "regionId": {
+                        "type": "string"
+                    },
+                    "caption": {
+                        "type": "string"
+                    }
+                }
+            },
+            "ExperimentSummary": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "title": {
+                        "type": "string"
+                    },
+                    "subject": {
+                        "type": "string"
+                    },
+                    "latestVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "curricula": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                }
+            },
+            "ExperimentVersionDetail": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "version": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "config": {},
+                    "rubricCriteria": {},
+                    "rubricMaxTotal": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "curricula": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "publishedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "AttemptResponse": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "assignmentId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "experimentId": {
+                        "type": "string"
+                    },
+                    "experimentVersion": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "attemptNo": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "lastEventSeq": {
+                        "type": "integer",
+                        "format": "int32"
+                    },
+                    "startedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    },
+                    "submittedAt": {
+                        "type": "string",
+                        "format": "date-time"
+                    }
+                }
+            },
+            "AssignmentResults": {
+                "type": "object",
+                "properties": {
+                    "enrolledCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "submittedCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    },
+                    "perStudent": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/components/schemas/StudentStatus"
+                        }
+                    },
+                    "histogram": {
+                        "type": "array",
+                        "items": {
+                            "type": "integer",
+                            "format": "int32"
+                        }
+                    },
+                    "criterionAverages": {
+                        "type": "object",
+                        "additionalProperties": {
+                            "type": "number",
+                            "format": "double"
+                        }
+                    },
+                    "openFlagCount": {
+                        "type": "integer",
+                        "format": "int64"
+                    }
+                }
+            },
+            "StudentStatus": {
+                "type": "object",
+                "properties": {
+                    "userId": {
+                        "type": "string",
+                        "format": "uuid"
+                    },
+                    "state": {
+                        "type": "string"
+                    },
+                    "total": {
+                        "type": "integer",
+                        "format": "int32"
+                    }
+                }
+            }
+        },
+        "securitySchemes": {
+            "refreshCookie": {
+                "type": "apiKey",
+                "description": "httpOnly refresh token cookie set by the auth endpoints",
+                "name": "vx_refresh",
+                "in": "cookie"
+            },
+            "serviceToken": {
+                "type": "http",
+                "description": "Service JWT for the Vix agent (HS256 with VIXIR_SERVICE_SECRET, scope=vix-agent)",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            },
+            "bearerAuth": {
+                "type": "http",
+                "description": "Access token from /api/v1/auth/login, /register or /google",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    }
+}

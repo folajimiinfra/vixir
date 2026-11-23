@@ -1,34 +1,36 @@
-# Local dev: `docker compose up db` (Postgres only) or `docker compose up` (Postgres + API).
-# School-server mode: `docker compose --profile school up -d` also serves the built web app.
 services:
-  db:
+  postgres:
     image: postgres:17-alpine
     environment:
       POSTGRES_DB: vixir
-      POSTGRES_USER: vixir
-      POSTGRES_PASSWORD: vixir
-    ports: ["5432:5432"]
-    volumes: [dbdata:/var/lib/postgresql/data]
+      POSTGRES_USER: ${VIXIR_DB_USER:-vixir}
+      POSTGRES_PASSWORD: ${VIXIR_DB_PASSWORD:-vixir}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U vixir"]
+      test: ["CMD-SHELL", "pg_isready -U ${VIXIR_DB_USER:-vixir}"]
       interval: 5s
+      timeout: 3s
       retries: 10
+
   api:
-    build: { context: ., dockerfile: apps/api/Dockerfile }
+    build:
+      context: apps/api
+      dockerfile: Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env
     environment:
-      VIXIR_DB_URL: jdbc:postgresql://db:5432/vixir
-      VIXIR_DB_USER: vixir
-      VIXIR_DB_PASSWORD: vixir
-      VIXIR_JWT_SECRET: local-dev-secret-local-dev-secret-0123
-      VIXIR_SERVICE_SECRET: local-service-secret-local-service-0123
-      VIXIR_WEB_ORIGINS: http://localhost:5173,http://localhost:8081
+      # Override DB URL so the API reaches the postgres service by name, not localhost
+      VIXIR_DB_URL: jdbc:postgresql://postgres:5432/vixir
+      VIXIR_WEB_ORIGINS: http://localhost:5173
       SPRING_PROFILES_ACTIVE: demo
-    ports: ["8080:8080"]
-    depends_on: { db: { condition: service_healthy } }
-  web:
-    profiles: ["school"]
-    build: { context: ., dockerfile: apps/web/Dockerfile, args: { VITE_API_URL: "http://localhost:8080" } }
-    ports: ["8081:80"]
-    depends_on: [api]
+    ports:
+      - "8080:8080"
+
 volumes:
-  dbdata:
+  pgdata:

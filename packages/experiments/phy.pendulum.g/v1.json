@@ -59,12 +59,12 @@
   },
   "tours": {
     "D1": [
-      { "regionId": "header", "say": "This bar shows your experiment, your attempts left, and the switcher between labs." },
-      { "regionId": "tray", "say": "Your apparatus lives here. Each item is placed on the bench during setup." },
-      { "regionId": "bench", "say": "This is your bench. The orange ball is the bob; the scale on the right is the metre rule." },
-      { "regionId": "dock", "say": "Set the length and angle here, release the bob, then start and stop the stopwatch yourself." },
-      { "regionId": "log", "say": "Every action and warning is written here." },
-      { "regionId": "data", "say": "Your readings appear in this table with a live preview graph." }
+      { "regionId": "header", "caption": "This bar shows your experiment, your attempts left, and the switcher between labs." },
+      { "regionId": "tray", "caption": "Your apparatus lives here. Each item is placed on the bench during setup." },
+      { "regionId": "bench", "caption": "This is your bench. The orange ball is the bob; the scale on the right is the metre rule." },
+      { "regionId": "dock", "caption": "Set the length and angle here, release the bob, then start and stop the stopwatch yourself." },
+      { "regionId": "log", "caption": "Every action and warning is written here." },
+      { "regionId": "data", "caption": "Your readings appear in this table with a live preview graph." }
     ]
   },
   "sources": ["WAEC Physics practical syllabus — simple pendulum (verify before demo)"]

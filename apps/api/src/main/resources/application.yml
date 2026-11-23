@@ -1,10 +1,12 @@
 spring:
   application:
     name: vixir-api
+  config:
+    import: optional:file:../../.env[.properties]
   datasource:
     url: ${VIXIR_DB_URL:jdbc:postgresql://localhost:5432/vixir}
-    username: ${VIXIR_DB_USER:vixir}
-    password: ${VIXIR_DB_PASSWORD:vixir}
+    username: ${VIXIR_DB_USER}
+    password: ${VIXIR_DB_PASSWORD}
   jpa:
     open-in-view: false
     hibernate:
@@ -14,16 +16,24 @@ spring:
   threads:
     virtual:
       enabled: true
+  jackson:
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
 
 server:
   port: ${PORT:8080}
   shutdown: graceful
+  # Behind a proxy (Render, nginx), Tomcat takes the client IP from X-Forwarded-For only when the request
+  # comes from a private-range proxy address. The auth rate limiter relies on this; never parse the header in code.
+  forward-headers-strategy: ${VIXIR_FORWARD_HEADERS_STRATEGY:native}
 
 vixir:
-  jwt-secret: ${VIXIR_JWT_SECRET:local-dev-secret-local-dev-secret-0123}
-  service-secret: ${VIXIR_SERVICE_SECRET:local-service-secret-local-service-0123}
+  jwt-secret: ${VIXIR_JWT_SECRET}
+  service-secret: ${VIXIR_SERVICE_SECRET}
   web-origins: ${VIXIR_WEB_ORIGINS:http://localhost:5173}
   experiments-dir: ${VIXIR_EXPERIMENTS_DIR:../../packages/experiments}
+  auth-rate-limit-per-minute: ${VIXIR_AUTH_RATE_LIMIT_PER_MINUTE:10}
 
 management:
   endpoints:
@@ -34,9 +44,14 @@ management:
     health:
       probes:
         enabled: true
+      show-details: always
 
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+logging:
+  pattern:
+    console: '{"time":"%d{yyyy-MM-dd''T''HH:mm:ss.SSSZ}","level":"%level","requestId":"%X{requestId}","logger":"%logger{36}","message":"%msg"}%n'
