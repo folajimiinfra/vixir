@@ -95,15 +95,19 @@ export interface ExperimentSummary {
 export interface AttemptEventInput {
   clientEventId: string;
   seq: number;
-  tsMs: number;
-  kind: string;
+  type: string;
+  simTimeMs?: number;
+  clientTs?: string;
   payload: Record<string, unknown>;
 }
 
 export interface AttemptEventItem {
+  clientEventId?: string;
   seq: number;
-  tsMs: number;
-  kind: string;
+  type: string;
+  simTimeMs?: number;
+  clientTs?: string;
+  serverTs?: string;
   payload: Record<string, unknown>;
 }
 

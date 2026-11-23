@@ -16,12 +16,14 @@ interface PendulumReading {
   periodSquared: number;
 }
 
-const INITIAL_READINGS: PendulumReading[] = [];
-
 export function PendulumLab() {
   const navigate = useNavigate();
+  const pendulumRows = useLabSessionStore((s) => s.pendulumRows);
   const recordPendulumTrial = useLabSessionStore((s) => s.recordPendulumTrial);
+  const removePendulumRow = useLabSessionStore((s) => s.removePendulumRow);
   const clearPendulumRows = useLabSessionStore((s) => s.clearPendulumRows);
+  const hydrateFromBackend = useLabSessionStore((s) => s.hydrateFromBackend);
+  const apiSyncStatus = useLabSessionStore((s) => s.apiSyncStatus);
   const seed = useLabSessionStore((s) => s.seed);
   const [lengthCm, setLengthCm] = useState(40.0);
   const [releaseAngle, setReleaseAngle] = useState(8);
@@ -37,8 +39,21 @@ export function PendulumLab() {
   const [notebookText, setNotebookText] = useState(
     'Length measured from bottom of split cork to centre of brass bob. Timing started as bob passes equilibrium marker.'
   );
-  const [readings, setReadings] = useState<PendulumReading[]>(INITIAL_READINGS);
   const [logMsg, setLogMsg] = useState('log > Bench ready. Pendulum released at θ₀ = 8°.');
+
+  // Hydrate persisted readings from PostgreSQL (:8081) and local draft when entering/returning to the lab
+  useEffect(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
+
+  const readings: PendulumReading[] = pendulumRows.map((row) => ({
+    id: row.sn,
+    lengthCm: Number((row.lengthM * 100).toFixed(1)),
+    timeS: Number(row.tMean),
+    oscillations: row.oscillations,
+    periodS: Number(row.periodT),
+    periodSquared: Number(row.periodT2),
+  }));
 
   const swingStartRef = useRef<number>(performance.now());
   const swStartRef = useRef<number>(0);
@@ -129,20 +144,9 @@ export function PendulumLab() {
     const recordedL = Number((syncedRow.lengthM * 100).toFixed(1));
     const measuredTime = Number(syncedRow.tMean);
     const T = Number(syncedRow.periodT);
-    const T2 = Number(syncedRow.periodT2);
 
-    const nextReading: PendulumReading = {
-      id: readings.length + 1,
-      lengthCm: recordedL,
-      timeS: measuredTime,
-      oscillations: n,
-      periodS: T,
-      periodSquared: T2,
-    };
-
-    setReadings((prev) => [...prev, nextReading]);
     setLogMsg(
-      `log > [Seed #${seed}] Recorded L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${n} osc), T = ${T.toFixed(3)} s.`
+      `log > [Seed #${seed}] Saved L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${n} osc), T = ${T.toFixed(3)} s to DB.`
     );
   };
 
@@ -384,25 +388,33 @@ export function PendulumLab() {
           {activeTab === 'readings' && (
             <>
               <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-[#E6EBF5]">
-                  Readings ({readings.length})
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#E6EBF5]">
+                    Readings ({readings.length})
+                  </span>
+                  <span className="text-[10px] font-mono text-[#4ADE80]">
+                    {apiSyncStatus === 'syncing'
+                      ? 'Saving...'
+                      : apiSyncStatus === 'offline-queued'
+                        ? 'Saved locally'
+                        : 'Saved to DB'}
+                  </span>
+                </div>
                 {readings.length > 0 && (
                   <button
                     type="button"
                     onClick={() => {
-                      setReadings([]);
                       clearPendulumRows();
-                      setLogMsg('log > Cleared readings table.');
+                      setLogMsg('log > Cleared all readings from table.');
                     }}
                     className="text-[11px] text-[#93A0B8] hover:text-[#FCA5A5] cursor-pointer"
                   >
-                    Clear table
+                    Clear all
                   </button>
                 )}
               </div>
 
-              {/* Readings Table */}
+              {/* Readings Table with per-row delete (×) */}
               <div className="bg-[#121A2B] border border-[#22304A] rounded-xl overflow-hidden">
                 {readings.length === 0 ? (
                   <div className="p-4 text-center text-xs text-[#93A0B8] leading-relaxed">
@@ -414,11 +426,12 @@ export function PendulumLab() {
                   <table className="w-full text-xs font-mono">
                     <thead>
                       <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
-                        <th className="py-2 px-2.5 text-left">L/cm</th>
-                        <th className="py-2 px-2 text-right">t/s</th>
-                        <th className="py-2 px-1.5 text-right">n</th>
-                        <th className="py-2 px-2 text-right">T/s</th>
-                        <th className="py-2 px-2.5 text-right">T²/s²</th>
+                        <th className="py-2 px-2 text-left">L/cm</th>
+                        <th className="py-2 px-1.5 text-right">t/s</th>
+                        <th className="py-2 px-1 text-right">n</th>
+                        <th className="py-2 px-1.5 text-right">T/s</th>
+                        <th className="py-2 px-1.5 text-right">T²/s²</th>
+                        <th className="py-2 px-1.5 text-right" aria-label="Remove reading" />
                       </tr>
                     </thead>
                     <tbody>
@@ -427,14 +440,30 @@ export function PendulumLab() {
                           key={r.id}
                           className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
                         >
-                          <td className="py-1.5 px-2.5">{r.lengthCm.toFixed(1)}</td>
-                          <td className="py-1.5 px-2 text-right">{r.timeS.toFixed(2)}</td>
-                          <td className="py-1.5 px-1.5 text-right text-[#93A0B8]">
+                          <td className="py-1.5 px-2">{r.lengthCm.toFixed(1)}</td>
+                          <td className="py-1.5 px-1.5 text-right">{r.timeS.toFixed(2)}</td>
+                          <td className="py-1.5 px-1 text-right text-[#93A0B8]">
                             {r.oscillations}
                           </td>
-                          <td className="py-1.5 px-2 text-right">{r.periodS.toFixed(3)}</td>
-                          <td className="py-1.5 px-2.5 text-right text-[#FDBA74]">
+                          <td className="py-1.5 px-1.5 text-right">{r.periodS.toFixed(3)}</td>
+                          <td className="py-1.5 px-1.5 text-right text-[#FDBA74]">
                             {r.periodSquared.toFixed(3)}
+                          </td>
+                          <td className="py-1.5 px-1.5 text-right">
+                            <button
+                              type="button"
+                              aria-label={`Remove reading at ${r.lengthCm.toFixed(1)} cm`}
+                              title="Remove this reading"
+                              onClick={() => {
+                                removePendulumRow(r.id);
+                                setLogMsg(
+                                  `log > Removed reading row #${r.id} (L = ${r.lengthCm.toFixed(1)} cm).`
+                                );
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[#93A0B8] hover:text-[#FCA5A5] hover:bg-[#3B1219] transition-colors cursor-pointer"
+                            >
+                              ×
+                            </button>
                           </td>
                         </tr>
                       ))}

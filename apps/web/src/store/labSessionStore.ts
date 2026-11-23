@@ -7,7 +7,12 @@ import {
   pendulumPeriod,
   type LinearFit,
 } from '../../../../packages/sim-core/src/index';
-import { getStoredAccessToken, vixirApi } from '../lib/api';
+import {
+  getStoredAccessToken,
+  getStoredUser,
+  vixirApi,
+  type AttemptEventItem,
+} from '../lib/api';
 
 export interface PendulumResultRow {
   sn: number;
@@ -57,29 +62,140 @@ export interface AutoMarkSummary {
   warningsCount: number;
 }
 
-const DEFAULT_PENDULUM_ROWS: PendulumResultRow[] = [
-  { sn: 1, lengthM: 0.4, t1: 25.44, t2: 25.52, tMean: '25.48', periodT: '1.274', periodT2: '1.623', oscillations: 20 },
-  { sn: 2, lengthM: 0.5, t1: 28.28, t2: 28.34, tMean: '28.31', periodT: '1.416', periodT2: '2.005', oscillations: 20 },
-  { sn: 3, lengthM: 0.6, t1: 31.24, t2: 31.3, tMean: '31.27', periodT: '1.564', periodT2: '2.45', oscillations: 20 },
-  { sn: 4, lengthM: 0.7, t1: 33.6, t2: 33.66, tMean: '33.63', periodT: '1.682', periodT2: '2.829', oscillations: 20 },
-  { sn: 5, lengthM: 0.8, t1: 35.88, t2: 35.92, tMean: '35.90', periodT: '1.795', periodT2: '3.222', oscillations: 20 },
-  { sn: 6, lengthM: 0.9, t1: 38.04, t2: 38.1, tMean: '38.07', periodT: '1.904', periodT2: '3.625', oscillations: 20 },
-];
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-const DEFAULT_REPLAY_EVENTS: BenchReplayEvent[] = [
-  { time: '00:00', label: 'Entered setup', lengthCm: 40, stopwatchS: '0.00 s', angleDeg: 0 },
-  { time: '01:42', label: 'Set-up complete (7 items)', lengthCm: 40, stopwatchS: '0.00 s', angleDeg: 0 },
-  { time: '03:05', label: 'Released bob at θ₀ = 8°', lengthCm: 40, stopwatchS: '0.00 s', angleDeg: 8 },
-  { time: '03:21', label: 'Stopwatch start', lengthCm: 40, stopwatchS: '0.00 s', angleDeg: 7 },
-  { time: '03:47', label: 'Stopwatch stop — 25.48 s, 20 osc.', lengthCm: 40, stopwatchS: '25.48 s', angleDeg: 5 },
-  { time: '04:02', label: 'Recorded L = 40.0 cm', lengthCm: 40, stopwatchS: '25.48 s', angleDeg: 4 },
-  { time: '06:30', label: 'Changed length → 50 cm', lengthCm: 50, stopwatchS: '0.00 s', angleDeg: 5 },
-  { time: '07:18', label: 'Stopwatch stop — 27.02 s, 19 osc.', lengthCm: 50, stopwatchS: '27.02 s', angleDeg: 6, flagged: true },
-  { time: '07:40', label: 'Reading discarded, repeated', lengthCm: 50, stopwatchS: '0.00 s', angleDeg: 8 },
-  { time: '08:24', label: 'Recorded L = 50.0 cm, 28.31 s', lengthCm: 50, stopwatchS: '28.31 s', angleDeg: 4 },
-  { time: '12:55', label: 'Eye above scale while reading 60 cm', lengthCm: 60, stopwatchS: '0.00 s', angleDeg: 3, flagged: true },
-  { time: '13:10', label: 'Recorded L = 60.4 cm (parallax)', lengthCm: 60.4, stopwatchS: '31.27 s', angleDeg: 2 },
-];
+function makeClientEventUuid(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+function getDraftStorageKey(): string {
+  const user = getStoredUser();
+  return `vixir_pendulum_draft_${user?.id || 'guest'}`;
+}
+
+function persistLocalDraft(data: {
+  attemptId: string;
+  seed: string;
+  lastEventSeq: number;
+  pendulumRows: PendulumResultRow[];
+  replayEvents: BenchReplayEvent[];
+  precautions: PrecautionsState;
+  gValue: string;
+}) {
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(getDraftStorageKey(), JSON.stringify(data));
+    }
+  } catch {
+    // ignore quota errors
+  }
+}
+
+function loadLocalDraft(): Partial<{
+  attemptId: string;
+  seed: string;
+  lastEventSeq: number;
+  pendulumRows: PendulumResultRow[];
+  replayEvents: BenchReplayEvent[];
+  precautions: PrecautionsState;
+  gValue: string;
+}> | null {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return null;
+    const raw = window.localStorage.getItem(getDraftStorageKey());
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
+
+/** Reconstruct rows & replay log from persisted PostgreSQL AttemptEvents in ascending seq order. */
+function reconstructRowsFromEvents(events: AttemptEventItem[]): {
+  rows: PendulumResultRow[];
+  replayEvents: BenchReplayEvent[];
+  maxSeq: number;
+} {
+  let rows: PendulumResultRow[] = [];
+  const replayEvents: BenchReplayEvent[] = [];
+  let maxSeq = 0;
+
+  for (const ev of events) {
+    if (ev.seq > maxSeq) maxSeq = ev.seq;
+    const payload = (ev.payload || {}) as Record<string, unknown>;
+
+    if (ev.type === 'READINGS_CLEARED') {
+      rows = [];
+      replayEvents.push({
+        time: String(payload.time || '00:00'),
+        label: 'Cleared readings table',
+        lengthCm: 40,
+        stopwatchS: '0.00 s',
+        angleDeg: 0,
+      });
+    } else if (ev.type === 'READING_DELETED') {
+      const targetLen = Number(payload.lengthM);
+      const targetSn = Number(payload.sn);
+      if (Number.isFinite(targetLen)) {
+        rows = rows.filter((r) => Math.abs(r.lengthM - targetLen) > 0.005);
+      } else if (Number.isFinite(targetSn)) {
+        rows = rows.filter((r) => r.sn !== targetSn);
+      }
+      rows = rows.map((r, i) => ({ ...r, sn: i + 1 }));
+    } else if (ev.type === 'READING_RECORDED') {
+      const rowData = payload.row as Partial<PendulumResultRow> | undefined;
+      if (rowData && Number.isFinite(Number(rowData.lengthM))) {
+        const lengthM = Number(rowData.lengthM);
+        const t1 = Number(rowData.t1 ?? 0);
+        const t2 = Number(rowData.t2 ?? t1);
+        const tMean = String(rowData.tMean ?? ((t1 + t2) / 2).toFixed(2));
+        const oscillations = Number(rowData.oscillations ?? 20);
+        const periodT = String(
+          rowData.periodT ?? (Number(tMean) / Math.max(1, oscillations)).toFixed(3)
+        );
+        const periodT2 = String(
+          rowData.periodT2 ?? (Number(periodT) * Number(periodT)).toFixed(3)
+        );
+
+        const existingIdx = rows.findIndex((r) => Math.abs(r.lengthM - lengthM) < 0.015);
+        const built: PendulumResultRow = {
+          sn: existingIdx >= 0 ? rows[existingIdx]!.sn : rows.length + 1,
+          lengthM,
+          t1,
+          t2,
+          tMean,
+          periodT,
+          periodT2,
+          oscillations,
+        };
+        if (existingIdx >= 0) {
+          rows = rows.map((r, i) => (i === existingIdx ? built : r));
+        } else {
+          rows = [...rows, built];
+        }
+
+        replayEvents.push({
+          time: String(payload.time || `${String(ev.seq).padStart(2, '0')}:00`),
+          label: `Recorded L = ${(lengthM * 100).toFixed(1)} cm, t̄ = ${tMean} s`,
+          lengthCm: Number((lengthM * 100).toFixed(1)),
+          stopwatchS: `${tMean} s`,
+          angleDeg: Number(payload.angleDeg ?? 8),
+          flagged: Array.isArray(payload.flags) && payload.flags.length > 0,
+        });
+      }
+    }
+  }
+
+  return { rows, replayEvents, maxSeq };
+}
 
 export function computeRegressionForRows(rows: PendulumResultRow[]): LinearFit {
   const validPoints = rows
@@ -107,7 +223,6 @@ export function computeAutoMark(
       ? Number(((4 * Math.PI * Math.PI) / fit.slope).toFixed(2))
       : 0;
 
-  // 1. Readings & repeats (6 marks)
   const readingCount = rows.length;
   const readingsAwarded = Math.min(6, readingCount);
   const readingsReason =
@@ -117,7 +232,6 @@ export function computeAutoMark(
         ? 'No readings recorded yet. Record at least 6 distinct lengths on the bench.'
         : `${readingCount} of 6 expected lengths recorded. Take at least 6 distinct lengths from 40 cm to 90 cm.`;
 
-  // 2. Table & significant figures (3 marks)
   const badDpRows = rows.filter((r) => (r.periodT2.split('.')[1] || '').length !== 3);
   const sigFigAwarded =
     readingCount === 0 ? 0 : badDpRows.length === 0 ? 3 : badDpRows.length === 1 ? 2 : 1;
@@ -128,7 +242,6 @@ export function computeAutoMark(
         ? 'All derived T and T² values recorded consistently to 3 decimal places.'
         : `Row ${badDpRows[0]!.sn}: T² written as ${badDpRows[0]!.periodT2}. Keep 3 decimal places to match the rest of the column (${Number(badDpRows[0]!.periodT2).toFixed(3)}).`;
 
-  // 3. Graph (5 marks)
   const graphAwarded =
     readingCount >= 5 ? 5 : readingCount >= 3 ? 3 : readingCount >= 2 ? 2 : 0;
   const graphReason =
@@ -138,7 +251,6 @@ export function computeAutoMark(
         ? `${readingCount} points plotted on T² vs L axes. Record at least 5–6 points for full graph marks.`
         : 'At least 2 data points are required to plot a line of best fit.';
 
-  // 4. Slope & value of g (4 marks)
   const userG = Number(gValueStr);
   const hasValidG = readingCount >= 2 && Number.isFinite(userG) && userG > 0;
   const gDiff = hasValidG ? Math.abs(userG - 9.81) : 99;
@@ -149,7 +261,6 @@ export function computeAutoMark(
         2
       )} m s⁻², consistent with your data.`;
 
-  // 5. Precautions (2 marks)
   const statedCount =
     (precautions.parallax ? 1 : 0) +
     (precautions.smallAngle ? 1 : 0) +
@@ -188,8 +299,8 @@ export function computeAutoMark(
       awarded: graphAwarded,
       max: 5,
       score: `${graphAwarded}/5`,
-      pct: 100,
-      color: 'bg-[#0F7B45]',
+      pct: Math.round((graphAwarded / 5) * 100),
+      color: graphAwarded >= 5 ? 'bg-[#0F7B45]' : 'bg-[#B54708]',
       reason: graphReason,
     },
     {
@@ -231,9 +342,13 @@ export function computeAutoMark(
   };
 }
 
+// Serialized promise chain so sequential PostgreSQL event ingestion never races on `seq`
+let dbSyncQueue: Promise<void> = Promise.resolve();
+
 interface LabSessionState {
   attemptId: string;
   seed: string;
+  lastEventSeq: number;
   callCount: number;
   pendulumRows: PendulumResultRow[];
   replayEvents: BenchReplayEvent[];
@@ -242,7 +357,8 @@ interface LabSessionState {
   submissionId: string;
   submittedAt: string | null;
   apiSyncStatus: 'synced' | 'offline-queued' | 'syncing';
-  /** Sample a deterministic pendulum trial using @vixir/sim-core seeded RNG */
+  hydratedForUserId: string | null;
+  hydrateFromBackend: () => Promise<void>;
   measureDeterministicTrial: (opts: {
     lengthCm: number;
     theta0Deg: number;
@@ -264,6 +380,7 @@ interface LabSessionState {
     eyeLevel: boolean;
     rawStopwatchS?: number;
   }) => PendulumResultRow;
+  removePendulumRow: (sn: number) => void;
   updateResultCell: (sn: number, field: 'tMean' | 'periodT' | 'periodT2', val: string) => void;
   fixAllDecimalPlaces: () => void;
   setPrecautions: (updater: (prev: PrecautionsState) => PrecautionsState) => void;
@@ -273,266 +390,435 @@ interface LabSessionState {
   submitAttemptToApi: () => Promise<void>;
 }
 
-export const useLabSessionStore = create<LabSessionState>((set, get) => ({
-  attemptId: 'demo',
-  seed: 'A7F3-0142',
-  callCount: 0,
-  pendulumRows: [],
-  replayEvents: [],
-  precautions: {
-    parallax: false,
-    smallAngle: false,
-    centreSwing: false,
-    extra: '',
-  },
-  gValue: '',
-  submissionId: 'VX-7KQ2-0142-A1',
-  submittedAt: null,
-  apiSyncStatus: 'synced',
-
-  clearPendulumRows: () =>
-    set({
-      pendulumRows: [],
-      replayEvents: [],
-      gValue: '',
-      submittedAt: null,
-    }),
-
-  measureDeterministicTrial: ({
-    lengthCm,
-    theta0Deg,
-    oscillations,
-    eyeLevel,
-    rawStopwatchS,
-  }) => {
-    const state = get();
-    const nextCall = state.callCount + 1;
-    set({ callCount: nextCall });
-
-    const rootRng = createRng(`${state.seed}/trial-${nextCall}`);
-    const scaleRng = rootRng.fork('metre-rule');
-    const swRng = rootRng.fork('stopwatch');
-
-    const measuredLengthCm = readScale(
-      lengthCm,
-      { resolution: 0.1, parallaxBound: 0.4 },
-      scaleRng,
-      { eyeLevel, zeroed: true }
-    );
-
-    const truePeriod = pendulumPeriod(lengthCm / 100, 9.81, theta0Deg);
-    const trueElapsed = oscillations * truePeriod;
-
-    const t1 =
-      rawStopwatchS && rawStopwatchS >= 2
-        ? Number(rawStopwatchS.toFixed(2))
-        : readStopwatch(trueElapsed, { resolution: 0.01, reactionSigma: 0.08 }, swRng);
-    const t2 = readStopwatch(
-      trueElapsed,
-      { resolution: 0.01, reactionSigma: 0.08 },
-      swRng.fork('repeat-2')
-    );
-
-    const tMean = Number(((t1 + t2) / 2).toFixed(2));
-    const periodT = Number((tMean / oscillations).toFixed(3));
-    const periodT2 = Number((periodT * periodT).toFixed(3));
-
-    return {
-      measuredLengthCm,
-      t1,
-      t2,
-      tMean,
-      periodT,
-      periodT2,
-    };
-  },
-
-  recordPendulumTrial: (opts) => {
-    const measured = get().measureDeterministicTrial(opts);
-    const lengthM = Number((measured.measuredLengthCm / 100).toFixed(3));
-    const existingRows = get().pendulumRows;
-
-    // Check if there's already a row at this lengthM (within 0.01m), or append
-    const existingIdx = existingRows.findIndex(
-      (r) => Math.abs(r.lengthM - lengthM) < 0.015
-    );
-
-    let updatedRows: PendulumResultRow[];
-    let targetRow: PendulumResultRow;
-
-    if (existingIdx >= 0) {
-      targetRow = {
-        ...existingRows[existingIdx]!,
-        lengthM,
-        t1: measured.t1,
-        t2: measured.t2,
-        tMean: measured.tMean.toFixed(2),
-        periodT: measured.periodT.toFixed(3),
-        periodT2: measured.periodT2.toFixed(3),
-        oscillations: opts.oscillations,
-      };
-      updatedRows = existingRows.map((r, i) => (i === existingIdx ? targetRow : r));
-    } else {
-      targetRow = {
-        sn: existingRows.length + 1,
-        lengthM,
-        t1: measured.t1,
-        t2: measured.t2,
-        tMean: measured.tMean.toFixed(2),
-        periodT: measured.periodT.toFixed(3),
-        periodT2: measured.periodT2.toFixed(3),
-        oscillations: opts.oscillations,
-      };
-      updatedRows = [...existingRows, targetRow];
-    }
-
-    const fit = computeRegressionForRows(updatedRows);
-    const nextG = ((4 * Math.PI * Math.PI) / Math.max(0.5, fit.slope)).toFixed(2);
-
-    const nowMin = 14 + get().replayEvents.length;
-    const newReplay: BenchReplayEvent = {
-      time: `${String(nowMin).padStart(2, '0')}:15`,
-      label: `Recorded L = ${measured.measuredLengthCm.toFixed(1)} cm, t̄ = ${measured.tMean.toFixed(2)} s${
-        !opts.eyeLevel ? ' (parallax)' : ''
-      }`,
-      lengthCm: measured.measuredLengthCm,
-      stopwatchS: `${measured.tMean.toFixed(2)} s`,
-      angleDeg: opts.theta0Deg,
-      flagged: !opts.eyeLevel || opts.theta0Deg > 10,
-    };
-
-    set({
-      pendulumRows: updatedRows,
-      gValue: nextG,
-      replayEvents: [...get().replayEvents, newReplay],
+export const useLabSessionStore = create<LabSessionState>((set, get) => {
+  const saveSnapshot = () => {
+    const s = get();
+    persistLocalDraft({
+      attemptId: s.attemptId,
+      seed: s.seed,
+      lastEventSeq: s.lastEventSeq,
+      pendulumRows: s.pendulumRows,
+      replayEvents: s.replayEvents,
+      precautions: s.precautions,
+      gValue: s.gValue,
     });
+  };
 
-    return targetRow;
-  },
-
-  updateResultCell: (sn, field, val) => {
-    set((state) => ({
-      pendulumRows: state.pendulumRows.map((r) =>
-        r.sn === sn ? { ...r, [field]: val } : r
-      ),
-    }));
-  },
-
-  fixAllDecimalPlaces: () => {
-    set((state) => ({
-      pendulumRows: state.pendulumRows.map((r) => ({
-        ...r,
-        tMean: Number(r.tMean).toFixed(2),
-        periodT: Number(r.periodT).toFixed(3),
-        periodT2: Number(r.periodT2).toFixed(3),
-      })),
-    }));
-  },
-
-  setPrecautions: (updater) => {
-    set((state) => ({
-      precautions: updater(state.precautions),
-    }));
-  },
-
-  setGValue: (val) => set({ gValue: val }),
-
-  appendReplayEvent: (ev) => {
-    set((state) => {
-      const idx = state.replayEvents.length + 14;
-      const time = ev.time ?? `${String(idx).padStart(2, '0')}:00`;
-      return {
-        replayEvents: [
-          ...state.replayEvents,
-          {
-            time,
-            label: ev.label,
-            lengthCm: ev.lengthCm,
-            stopwatchS: ev.stopwatchS,
-            angleDeg: ev.angleDeg,
-            flagged: ev.flagged,
-          },
-        ],
-      };
-    });
-  },
-
-  submitAttemptToApi: async () => {
+  /** Ensure an IN_PROGRESS attempt exists in PostgreSQL and ingest one sequential event. */
+  const enqueueBackendEvent = (
+    type: 'READING_RECORDED' | 'READING_DELETED' | 'READINGS_CLEARED',
+    payload: Record<string, unknown>
+  ) => {
+    if (!getStoredAccessToken()) return;
     set({ apiSyncStatus: 'syncing' });
-    const state = get();
-    const submittedAt = new Date().toISOString();
-    const resultsPayload = {
-      seed: state.seed,
-      rows: state.pendulumRows,
-      precautions: state.precautions,
-      gValue: Number(state.gValue) || 9.82,
-    };
 
-    try {
-      let targetAttemptId = state.attemptId;
-      const isUuid =
-        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-          targetAttemptId
-        );
-      if (!isUuid) {
-        const bootstrap = getStoredAccessToken()
-          ? await vixirApi.startAttempt({ experimentId: 'phy.pendulum.g' })
-          : await vixirApi.startAnonymousAttempt('phy.pendulum.g');
-        targetAttemptId = bootstrap.attemptId;
-        set({ attemptId: targetAttemptId });
+    dbSyncQueue = dbSyncQueue.then(async () => {
+      try {
+        let targetAttemptId = get().attemptId;
+        let currentSeq = get().lastEventSeq;
+
+        if (!UUID_REGEX.test(targetAttemptId)) {
+          // Check for an existing IN_PROGRESS pendulum attempt first so we resume instead of duplicating
+          const attempts = await vixirApi.listMyAttempts().catch(() => []);
+          const existing = attempts.find(
+            (a) => a.experimentId === 'phy.pendulum.g' && a.state === 'IN_PROGRESS'
+          );
+          if (existing) {
+            targetAttemptId = existing.id;
+            currentSeq = existing.lastEventSeq;
+            set({ attemptId: targetAttemptId, lastEventSeq: currentSeq });
+          } else {
+            const bootstrap = await vixirApi.startAttempt({
+              experimentId: 'phy.pendulum.g',
+            });
+            targetAttemptId = bootstrap.attemptId;
+            currentSeq = bootstrap.resume?.lastEventSeq ?? 0;
+            set({
+              attemptId: targetAttemptId,
+              seed: bootstrap.seed,
+              lastEventSeq: currentSeq,
+            });
+          }
+        }
+
+        const nextSeq = currentSeq + 1;
+        await vixirApi.ingestAttemptEvents(targetAttemptId, [
+          {
+            clientEventId: makeClientEventUuid(),
+            seq: nextSeq,
+            type,
+            simTimeMs: nextSeq * 1500,
+            clientTs: new Date().toISOString(),
+            payload,
+          },
+        ]);
+        set({ lastEventSeq: nextSeq, apiSyncStatus: 'synced' });
+        saveSnapshot();
+      } catch {
+        set({ apiSyncStatus: 'offline-queued' });
       }
-
-      // Batch upload replay events (idempotent by clientEventId)
-      const eventsBatch = state.replayEvents.slice(0, 200).map((ev, idx) => ({
-        clientEventId: `${targetAttemptId}-ev-${idx + 1}`,
-        seq: idx + 1,
-        tsMs: (idx + 1) * 1500,
-        kind: ev.flagged ? 'WARNING' : 'READING_RECORDED',
-        payload: {
-          time: ev.time,
-          label: ev.label,
-          lengthCm: ev.lengthCm,
-          stopwatchS: ev.stopwatchS,
-          angleDeg: ev.angleDeg,
-        },
-      }));
-      if (eventsBatch.length > 0 && getStoredAccessToken()) {
-        await vixirApi.ingestAttemptEvents(targetAttemptId, eventsBatch).catch(() => {});
-      }
-
-      const data = await vixirApi.submitAttempt(
-        targetAttemptId,
-        {
-          results: resultsPayload,
-          declarationAccepted: true,
-          clientSubmittedAt: submittedAt,
-        },
-        `idem-${targetAttemptId}`
-      );
-      set({
-        apiSyncStatus: 'synced',
-        submittedAt,
-        submissionId: data.submissionId ?? state.submissionId,
-      });
-      return;
-    } catch {
-      // Offline / dev fallback: persist in localStorage queue
-    }
-
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(
-          `vixir_submission_${state.attemptId}`,
-          JSON.stringify({ ...resultsPayload, submittedAt })
-        );
-      }
-    } catch {
-      // Ignore storage quota errors
-    }
-
-    set({
-      apiSyncStatus: 'offline-queued',
-      submittedAt,
     });
-  },
-}));
+  };
+
+  return {
+    attemptId: 'demo',
+    seed: 'A7F3-0142',
+    lastEventSeq: 0,
+    callCount: 0,
+    pendulumRows: [],
+    replayEvents: [],
+    precautions: {
+      parallax: false,
+      smallAngle: false,
+      centreSwing: false,
+      extra: '',
+    },
+    gValue: '',
+    submissionId: 'VX-7KQ2-0142-A1',
+    submittedAt: null,
+    apiSyncStatus: 'synced',
+    hydratedForUserId: null,
+
+    hydrateFromBackend: async () => {
+      const user = getStoredUser();
+      const userKey = user?.id || 'guest';
+
+      // 1. Immediately hydrate from user-scoped localStorage so navigation never flickers empty
+      const local = loadLocalDraft();
+      if (local && Array.isArray(local.pendulumRows) && get().pendulumRows.length === 0) {
+        set({
+          attemptId: local.attemptId || get().attemptId,
+          seed: local.seed || get().seed,
+          lastEventSeq: local.lastEventSeq ?? get().lastEventSeq,
+          pendulumRows: local.pendulumRows,
+          replayEvents: local.replayEvents || [],
+          precautions: local.precautions || get().precautions,
+          gValue: local.gValue ?? get().gValue,
+          hydratedForUserId: userKey,
+        });
+      }
+
+      if (!getStoredAccessToken()) return;
+
+      // 2. Reconcile with PostgreSQL `attempt` + `attempt_event` rows on :8081
+      try {
+        set({ apiSyncStatus: 'syncing' });
+        const attempts = await vixirApi.listMyAttempts();
+        const activeAttempt = attempts.find(
+          (a) => a.experimentId === 'phy.pendulum.g' && a.state === 'IN_PROGRESS'
+        );
+        if (!activeAttempt) {
+          set({ apiSyncStatus: 'synced', hydratedForUserId: userKey });
+          return;
+        }
+
+        const events = await vixirApi.getAttemptEvents(activeAttempt.id);
+        const { rows, replayEvents, maxSeq } = reconstructRowsFromEvents(events);
+        const fit = computeRegressionForRows(rows);
+        const computedG =
+          rows.length >= 2 && fit.slope > 0.1
+            ? ((4 * Math.PI * Math.PI) / fit.slope).toFixed(2)
+            : '';
+
+        set({
+          attemptId: activeAttempt.id,
+          lastEventSeq: Math.max(activeAttempt.lastEventSeq, maxSeq),
+          pendulumRows: rows,
+          replayEvents,
+          gValue: computedG || get().gValue,
+          apiSyncStatus: 'synced',
+          hydratedForUserId: userKey,
+        });
+        saveSnapshot();
+      } catch {
+        set({ apiSyncStatus: 'offline-queued' });
+      }
+    },
+
+    clearPendulumRows: () => {
+      set({
+        pendulumRows: [],
+        replayEvents: [],
+        gValue: '',
+        submittedAt: null,
+      });
+      saveSnapshot();
+      enqueueBackendEvent('READINGS_CLEARED', {
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      });
+    },
+
+    removePendulumRow: (sn) => {
+      const existing = get().pendulumRows;
+      const removed = existing.find((r) => r.sn === sn);
+      const updated = existing
+        .filter((r) => r.sn !== sn)
+        .map((r, idx) => ({ ...r, sn: idx + 1 }));
+
+      const fit = computeRegressionForRows(updated);
+      const nextG =
+        updated.length >= 2 && fit.slope > 0.1
+          ? ((4 * Math.PI * Math.PI) / fit.slope).toFixed(2)
+          : '';
+
+      set({
+        pendulumRows: updated,
+        gValue: nextG,
+      });
+      saveSnapshot();
+
+      if (removed) {
+        enqueueBackendEvent('READING_DELETED', {
+          sn,
+          lengthM: removed.lengthM,
+        });
+      }
+    },
+
+    measureDeterministicTrial: ({
+      lengthCm,
+      theta0Deg,
+      oscillations,
+      eyeLevel,
+      rawStopwatchS,
+    }) => {
+      const state = get();
+      const nextCall = state.callCount + 1;
+      set({ callCount: nextCall });
+
+      const rootRng = createRng(`${state.seed}/trial-${nextCall}`);
+      const scaleRng = rootRng.fork('metre-rule');
+      const swRng = rootRng.fork('stopwatch');
+
+      const measuredLengthCm = readScale(
+        lengthCm,
+        { resolution: 0.1, parallaxBound: 0.4 },
+        scaleRng,
+        { eyeLevel, zeroed: true }
+      );
+
+      const truePeriod = pendulumPeriod(lengthCm / 100, 9.81, theta0Deg);
+      const trueElapsed = oscillations * truePeriod;
+
+      const t1 =
+        rawStopwatchS && rawStopwatchS >= 2
+          ? Number(rawStopwatchS.toFixed(2))
+          : readStopwatch(trueElapsed, { resolution: 0.01, reactionSigma: 0.08 }, swRng);
+      const t2 = readStopwatch(
+        trueElapsed,
+        { resolution: 0.01, reactionSigma: 0.08 },
+        swRng.fork('repeat-2')
+      );
+
+      const tMean = Number(((t1 + t2) / 2).toFixed(2));
+      const periodT = Number((tMean / oscillations).toFixed(3));
+      const periodT2 = Number((periodT * periodT).toFixed(3));
+
+      return {
+        measuredLengthCm,
+        t1,
+        t2,
+        tMean,
+        periodT,
+        periodT2,
+      };
+    },
+
+    recordPendulumTrial: (opts) => {
+      const measured = get().measureDeterministicTrial(opts);
+      const lengthM = Number((measured.measuredLengthCm / 100).toFixed(3));
+      const existingRows = get().pendulumRows;
+
+      const existingIdx = existingRows.findIndex(
+        (r) => Math.abs(r.lengthM - lengthM) < 0.015
+      );
+
+      let updatedRows: PendulumResultRow[];
+      let targetRow: PendulumResultRow;
+
+      if (existingIdx >= 0) {
+        targetRow = {
+          ...existingRows[existingIdx]!,
+          lengthM,
+          t1: measured.t1,
+          t2: measured.t2,
+          tMean: measured.tMean.toFixed(2),
+          periodT: measured.periodT.toFixed(3),
+          periodT2: measured.periodT2.toFixed(3),
+          oscillations: opts.oscillations,
+        };
+        updatedRows = existingRows.map((r, i) => (i === existingIdx ? targetRow : r));
+      } else {
+        targetRow = {
+          sn: existingRows.length + 1,
+          lengthM,
+          t1: measured.t1,
+          t2: measured.t2,
+          tMean: measured.tMean.toFixed(2),
+          periodT: measured.periodT.toFixed(3),
+          periodT2: measured.periodT2.toFixed(3),
+          oscillations: opts.oscillations,
+        };
+        updatedRows = [...existingRows, targetRow];
+      }
+
+      const fit = computeRegressionForRows(updatedRows);
+      const nextG =
+        updatedRows.length >= 2 && fit.slope > 0.1
+          ? ((4 * Math.PI * Math.PI) / fit.slope).toFixed(2)
+          : get().gValue;
+
+      const timeStr = new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+      const flags: string[] = [];
+      if (!opts.eyeLevel) flags.push('PARALLAX');
+      if (opts.theta0Deg > 10) flags.push('ANGLE_OVER_10');
+
+      const newReplay: BenchReplayEvent = {
+        time: timeStr,
+        label: `Recorded L = ${measured.measuredLengthCm.toFixed(1)} cm, t̄ = ${measured.tMean.toFixed(2)} s${
+          !opts.eyeLevel ? ' (parallax)' : ''
+        }`,
+        lengthCm: measured.measuredLengthCm,
+        stopwatchS: `${measured.tMean.toFixed(2)} s`,
+        angleDeg: opts.theta0Deg,
+        flagged: flags.length > 0,
+      };
+
+      set({
+        pendulumRows: updatedRows,
+        gValue: nextG,
+        replayEvents: [...get().replayEvents, newReplay],
+      });
+      saveSnapshot();
+
+      // Persist immediately to PostgreSQL `attempt_event` & `reading` tables on :8081!
+      enqueueBackendEvent('READING_RECORDED', {
+        rowIndex: targetRow.sn - 1,
+        row: targetRow,
+        flags,
+        angleDeg: opts.theta0Deg,
+        time: timeStr,
+      });
+
+      return targetRow;
+    },
+
+    updateResultCell: (sn, field, val) => {
+      set((state) => ({
+        pendulumRows: state.pendulumRows.map((r) =>
+          r.sn === sn ? { ...r, [field]: val } : r
+        ),
+      }));
+      saveSnapshot();
+    },
+
+    fixAllDecimalPlaces: () => {
+      set((state) => ({
+        pendulumRows: state.pendulumRows.map((r) => ({
+          ...r,
+          tMean: Number(r.tMean).toFixed(2),
+          periodT: Number(r.periodT).toFixed(3),
+          periodT2: Number(r.periodT2).toFixed(3),
+        })),
+      }));
+      saveSnapshot();
+    },
+
+    setPrecautions: (updater) => {
+      set((state) => ({
+        precautions: updater(state.precautions),
+      }));
+      saveSnapshot();
+    },
+
+    setGValue: (val) => {
+      set({ gValue: val });
+      saveSnapshot();
+    },
+
+    appendReplayEvent: (ev) => {
+      set((state) => {
+        const idx = state.replayEvents.length + 1;
+        const time = ev.time ?? `${String(idx).padStart(2, '0')}:00`;
+        return {
+          replayEvents: [
+            ...state.replayEvents,
+            {
+              time,
+              label: ev.label,
+              lengthCm: ev.lengthCm,
+              stopwatchS: ev.stopwatchS,
+              angleDeg: ev.angleDeg,
+              flagged: ev.flagged,
+            },
+          ],
+        };
+      });
+      saveSnapshot();
+    },
+
+    submitAttemptToApi: async () => {
+      set({ apiSyncStatus: 'syncing' });
+      // Wait for any pending READING_RECORDED events to finish flushing first
+      await dbSyncQueue.catch(() => {});
+
+      const state = get();
+      const submittedAt = new Date().toISOString();
+      const resultsPayload = {
+        seed: state.seed,
+        rows: state.pendulumRows,
+        precautions: state.precautions,
+        gValue: Number(state.gValue) || 9.82,
+      };
+
+      try {
+        let targetAttemptId = state.attemptId;
+        if (!UUID_REGEX.test(targetAttemptId)) {
+          const bootstrap = getStoredAccessToken()
+            ? await vixirApi.startAttempt({ experimentId: 'phy.pendulum.g' })
+            : await vixirApi.startAnonymousAttempt('phy.pendulum.g');
+          targetAttemptId = bootstrap.attemptId;
+          set({ attemptId: targetAttemptId });
+        }
+
+        const data = await vixirApi.submitAttempt(
+          targetAttemptId,
+          {
+            results: resultsPayload,
+            declarationAccepted: true,
+            clientSubmittedAt: submittedAt,
+          },
+          `idem-${targetAttemptId}`
+        );
+        set({
+          apiSyncStatus: 'synced',
+          submittedAt,
+          submissionId: data.submissionId ?? state.submissionId,
+        });
+        saveSnapshot();
+        return;
+      } catch {
+        // Offline / dev fallback
+      }
+
+      try {
+        if (typeof window !== 'undefined' && window.localStorage) {
+          window.localStorage.setItem(
+            `vixir_submission_${state.attemptId}`,
+            JSON.stringify({ ...resultsPayload, submittedAt })
+          );
+        }
+      } catch {
+        // Ignore storage quota errors
+      }
+
+      set({
+        apiSyncStatus: 'offline-queued',
+        submittedAt,
+      });
+    },
+  };
+});

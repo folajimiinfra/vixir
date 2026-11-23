@@ -13,6 +13,8 @@ import { vixirApi, type MarkReportResponse } from '../lib/api';
 export function ResultsGraphScreen() {
   const navigate = useNavigate();
   const rows = useLabSessionStore((s) => s.pendulumRows);
+  const hydrateFromBackend = useLabSessionStore((s) => s.hydrateFromBackend);
+  const removePendulumRow = useLabSessionStore((s) => s.removePendulumRow);
   const updateResultCell = useLabSessionStore((s) => s.updateResultCell);
   const fixAllDecimalPlaces = useLabSessionStore((s) => s.fixAllDecimalPlaces);
   const gValue = useLabSessionStore((s) => s.gValue);
@@ -21,6 +23,10 @@ export function ResultsGraphScreen() {
   const setPrecautions = useLabSessionStore((s) => s.setPrecautions);
 
   const [showBestFit, setShowBestFit] = useState(true);
+
+  useEffect(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   const fit = computeRegressionForRows(rows);
   const slopeDisplay = fit.slope.toFixed(2);
@@ -122,6 +128,7 @@ export function ResultsGraphScreen() {
                     <th className="py-2.5 px-3 text-left">T = t̄/20 / s</th>
                     <th className="py-2.5 px-3 text-left">T² / s²</th>
                     <th className="py-2.5 px-3 text-left">Check</th>
+                    <th className="py-2.5 px-2 text-right" aria-label="Remove row" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#E3E8EF] font-mono">
@@ -173,6 +180,17 @@ export function ResultsGraphScreen() {
                               ! {decimals} d.p.
                             </span>
                           )}
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <button
+                            type="button"
+                            aria-label={`Remove row ${r.sn}`}
+                            title="Remove this reading"
+                            onClick={() => removePendulumRow(r.sn)}
+                            className="px-2 py-0.5 rounded text-[#6B778C] hover:text-[#C4321C] hover:bg-[#FEF2F2] cursor-pointer"
+                          >
+                            ×
+                          </button>
                         </td>
                       </tr>
                     );

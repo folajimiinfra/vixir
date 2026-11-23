@@ -121,8 +121,28 @@ export function OhmsLawLab() {
   const [wireTemp, setWireTemp] = useState(27.0);
   const [dashOffset, setDashOffset] = useState(0);
 
-  // Readings & Interactive Graph State
-  const [readings, setReadings] = useState<OhmsReading[]>(INITIAL_READINGS);
+  // Readings & Interactive Graph State (persisted across navigation in localStorage)
+  const [readings, setReadings] = useState<OhmsReading[]>(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const raw = window.localStorage.getItem('vixir_ohms_readings');
+        if (raw) return JSON.parse(raw) as OhmsReading[];
+      }
+    } catch {
+      // ignore
+    }
+    return INITIAL_READINGS;
+  });
+
+  useEffect(() => {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        window.localStorage.setItem('vixir_ohms_readings', JSON.stringify(readings));
+      }
+    } catch {
+      // ignore
+    }
+  }, [readings]);
   const [showBestFit, setShowBestFit] = useState(true);
   const [graphAxisMode, setGraphAxisMode] = useState<'V-I' | 'I-V'>('V-I');
   const [manualI, setManualI] = useState('');
