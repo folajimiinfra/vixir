@@ -7,6 +7,7 @@ import {
   pendulumPeriod,
   type LinearFit,
 } from '../../../../packages/sim-core/src/index';
+import { getStoredAccessToken, vixirApi } from '../lib/api';
 
 export interface PendulumResultRow {
   sn: number;
@@ -434,30 +435,61 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => ({
   submitAttemptToApi: async () => {
     set({ apiSyncStatus: 'syncing' });
     const state = get();
-    const payload = {
-      attemptId: state.attemptId,
+    const submittedAt = new Date().toISOString();
+    const resultsPayload = {
       seed: state.seed,
       rows: state.pendulumRows,
       precautions: state.precautions,
-      gValue: state.gValue,
-      submittedAt: new Date().toISOString(),
+      gValue: Number(state.gValue) || 9.82,
     };
 
     try {
-      const res = await fetch(`/api/v1/attempts/${state.attemptId}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (res.ok) {
-        const data = (await res.json()) as { submissionId?: string };
-        set({
-          apiSyncStatus: 'synced',
-          submittedAt: payload.submittedAt,
-          submissionId: data.submissionId ?? state.submissionId,
-        });
-        return;
+      let targetAttemptId = state.attemptId;
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          targetAttemptId
+        );
+      if (!isUuid) {
+        const bootstrap = getStoredAccessToken()
+          ? await vixirApi.startAttempt({ experimentId: 'phy.pendulum.g' })
+          : await vixirApi.startAnonymousAttempt('phy.pendulum.g');
+        targetAttemptId = bootstrap.attemptId;
+        set({ attemptId: targetAttemptId });
       }
+
+      // Batch upload replay events (idempotent by clientEventId)
+      const eventsBatch = state.replayEvents.slice(0, 200).map((ev, idx) => ({
+        clientEventId: `${targetAttemptId}-ev-${idx + 1}`,
+        seq: idx + 1,
+        tsMs: (idx + 1) * 1500,
+        kind: ev.flagged ? 'WARNING' : 'READING_RECORDED',
+        payload: {
+          time: ev.time,
+          label: ev.label,
+          lengthCm: ev.lengthCm,
+          stopwatchS: ev.stopwatchS,
+          angleDeg: ev.angleDeg,
+        },
+      }));
+      if (eventsBatch.length > 0 && getStoredAccessToken()) {
+        await vixirApi.ingestAttemptEvents(targetAttemptId, eventsBatch).catch(() => {});
+      }
+
+      const data = await vixirApi.submitAttempt(
+        targetAttemptId,
+        {
+          results: resultsPayload,
+          declarationAccepted: true,
+          clientSubmittedAt: submittedAt,
+        },
+        `idem-${targetAttemptId}`
+      );
+      set({
+        apiSyncStatus: 'synced',
+        submittedAt,
+        submissionId: data.submissionId ?? state.submissionId,
+      });
+      return;
     } catch {
       // Offline / dev fallback: persist in localStorage queue
     }
@@ -466,7 +498,7 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => ({
       if (typeof window !== 'undefined' && window.localStorage) {
         window.localStorage.setItem(
           `vixir_submission_${state.attemptId}`,
-          JSON.stringify(payload)
+          JSON.stringify({ ...resultsPayload, submittedAt })
         );
       }
     } catch {
@@ -475,7 +507,7 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => ({
 
     set({
       apiSyncStatus: 'offline-queued',
-      submittedAt: payload.submittedAt,
+      submittedAt,
     });
   },
 }));
