@@ -142,6 +142,10 @@ public class AttemptService {
         return attempt;
     }
 
+    public List<Attempt> listForUser(UUID userId) {
+        return attemptRepo.findByUserIdOrderByStartedAtDesc(userId);
+    }
+
     // ---- helpers ----
 
     private Attempt newAttempt(UUID userId, Assignment assignment, int attemptNo) {

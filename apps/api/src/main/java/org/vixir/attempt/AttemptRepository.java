@@ -21,4 +21,6 @@ public interface AttemptRepository extends JpaRepository<Attempt, UUID> {
     List<Attempt> findSubmittedWithoutMark();
 
     List<Attempt> findByAssignmentId(UUID assignmentId);
+
+    List<Attempt> findByUserIdOrderByStartedAtDesc(UUID userId);
 }

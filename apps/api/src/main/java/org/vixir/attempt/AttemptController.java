@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
@@ -71,6 +72,14 @@ public class AttemptController {
         String tokenHash = sha256(anonToken);
         var bootstrap = attemptService.startAnonymous(experimentId, tokenHash);
         return ResponseEntity.status(HttpStatus.CREATED).body(bootstrap);
+    }
+
+    @Operation(summary = "List the authenticated student's own attempts", description = "Returns all attempts (IN_PROGRESS and SUBMITTED) for the current student, newest first.")
+    @GetMapping("/me")
+    ResponseEntity<List<AttemptResponse>> listMine(@AuthenticationPrincipal Jwt jwt) {
+        UUID userId = UUID.fromString(jwt.getSubject());
+        return ResponseEntity.ok(
+                attemptService.listForUser(userId).stream().map(AttemptResponse::from).toList());
     }
 
     @Operation(summary = "Get an attempt", description = "Own attempts only.")
