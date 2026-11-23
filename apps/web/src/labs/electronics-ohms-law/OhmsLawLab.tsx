@@ -214,8 +214,11 @@ export function OhmsLawLab() {
   };
 
   // Convert pointer event to exact SVG coordinates using native CTM inverse (works at any zoom/aspect ratio)
+  // Zoom is anchored around the canvas center (320, 200) so scaling materials NEVER shifts the circuit off-center!
   const viewWidth = 640 / zoom;
   const viewHeight = 400 / zoom;
+  const viewMinX = Math.round(320 - viewWidth / 2 + pan.x);
+  const viewMinY = Math.round(200 - viewHeight / 2 + pan.y);
 
   const toSvgCoords = (clientX: number, clientY: number) => {
     const svg = svgRef.current;
@@ -237,8 +240,8 @@ export function OhmsLawLab() {
     const scaleX = viewWidth / Math.max(1, rect.width);
     const scaleY = viewHeight / Math.max(1, rect.height);
     return {
-      x: Math.round((pan.x + (clientX - rect.left) * scaleX) / 5) * 5,
-      y: Math.round((pan.y + (clientY - rect.top) * scaleY) / 5) * 5,
+      x: Math.round((viewMinX + (clientX - rect.left) * scaleX) / 5) * 5,
+      y: Math.round((viewMinY + (clientY - rect.top) * scaleY) / 5) * 5,
     };
   };
 
@@ -354,6 +357,8 @@ export function OhmsLawLab() {
   };
 
   const handleSvgWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    // Only zoom on Ctrl/Cmd + wheel (or pinch) so normal trackpad/mouse scrolling doesn't unexpectedly move the canvas
+    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.12 : 0.89;
     setZoom((z) => Math.max(0.45, Math.min(2.4, Number((z * factor).toFixed(2)))));
@@ -478,8 +483,46 @@ export function OhmsLawLab() {
     setPendingTerm(null);
     setKeyClosed(true);
     updateRheostat(8);
+    setPan({ x: 0, y: 0 });
+    setZoom(1);
     setLogMsg("log > Restored standard Verifying Ohm's Law circuit diagram.");
   };
+
+  // Listen for Vix Co-Builder (`buildSetup` RPC) to draw/wire circuits requested by the student
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onVixBuild = (ev: Event) => {
+      const detail = (ev as CustomEvent<Record<string, unknown>>).detail;
+      if (!detail) return;
+
+      if (Array.isArray(detail.nodes) && detail.nodes.length > 0) {
+        setNodes(detail.nodes as CircuitNode[]);
+        if (Array.isArray(detail.wires)) {
+          setWires(detail.wires as CircuitWire[]);
+        }
+        setPan({ x: 0, y: 0 });
+        setZoom(1);
+        setPendingTerm(null);
+        setKeyClosed(true);
+        setLogMsg(
+          `log > Vix drew circuit setup: ${String(detail.summary || 'Custom schematic layout')}.`
+        );
+        return;
+      }
+
+      if (detail.action === 'reset') {
+        handleResetStandardCircuit();
+        return;
+      }
+
+      if (typeof detail.addKind === 'string') {
+        handleAddComponent(detail.addKind as ComponentKind, { x: 320, y: 210 });
+      }
+    };
+
+    window.addEventListener('vix:build-setup', onVixBuild);
+    return () => window.removeEventListener('vix:build-setup', onVixBuild);
+  });
 
   const handleToggleKey = () => {
     const next = !keyClosed;
@@ -1566,7 +1609,7 @@ export function OhmsLawLab() {
         {viewMode === 'schematic' ? (
           <svg
             ref={svgRef}
-            viewBox={`${pan.x} ${pan.y} ${viewWidth} ${viewHeight}`}
+            viewBox={`${viewMinX} ${viewMinY} ${viewWidth} ${viewHeight}`}
             onPointerDown={handleSvgPointerDown}
             onPointerMove={handleSvgPointerMove}
             onPointerUp={handleSvgPointerUp}
@@ -1604,6 +1647,7 @@ export function OhmsLawLab() {
               return (
                 <g
                   key={w.id}
+                  data-vix-element={`Circuit Jumper Wire (${w.fromNode}:${w.fromTerm} → ${w.toNode}:${w.toTerm})`}
                   onClick={() => {
                     if (activeTool === 'wire') {
                       setWires((prev) => prev.filter((item) => item.id !== w.id));
@@ -1673,11 +1717,25 @@ export function OhmsLawLab() {
               const isSelected = selectedNodeId === node.id;
               const termA = getTerminalPos(node, 'a');
               const termB = getTerminalPos(node, 'b');
+              const kindLabelMap: Record<ComponentKind, string> = {
+                battery: `DC Battery Cell Supply ${node.label} (EMF = ${emfV.toFixed(1)} V, internal resistance r = 0.6 Ω)`,
+                rheostat: `Sliding Rheostat Variable Resistor ${node.label} (currently set to ${rheostatOhm.toFixed(1)} Ω out of 20 Ω)`,
+                ammeter: `Series Ammeter ${node.label} (0–1 A range, measuring current I = ${displayedCurrentA.toFixed(3)} A)`,
+                voltmeter: `Parallel Voltmeter ${node.label} (0–3 V range, measuring potential difference V = ${displayedVoltageV.toFixed(2)} V)`,
+                wireX: `Test Resistance Wire ${node.label} (${wireMaterial}, length L = ${wireLengthCm} cm, temperature ${wireTemp.toFixed(1)} °C)`,
+                key: `Plug Switch Key ${node.label} (currently ${keyClosed ? 'CLOSED — current flowing' : 'OPEN — circuit broken'})`,
+                resistor: `Fixed Standard Resistor ${node.label} (${node.value} Ω)`,
+                diode: `Silicon Junction Diode ${node.label} (forward voltage drop ≈ ${node.value} V)`,
+                led: `Light-Emitting Diode ${node.label} (forward threshold ${node.value} V)`,
+                capacitor: `Electrolytic Capacitor ${node.label} (${node.value} µF)`,
+              };
+              const fullNodeDesc = kindLabelMap[node.kind] || `${node.label} (${node.value} ${node.unit})`;
 
               return (
-                <g key={node.id}>
+                <g key={node.id} data-vix-element={fullNodeDesc}>
                   {/* Component Body Group */}
                   <g
+                    data-vix-element={fullNodeDesc}
                     transform={`translate(${node.x}, ${node.y}) rotate(${
                       node.kind === 'battery' ||
                       node.kind === 'wireX' ||
@@ -2082,6 +2140,7 @@ export function OhmsLawLab() {
                     return (
                       <g
                         key={termKey}
+                        data-vix-element={`Terminal Pin ${termKey.toUpperCase()} on ${fullNodeDesc}`}
                         onPointerDown={(e) => {
                           if (e.button === 2) return;
                           handleTerminalInteraction(node.id, termKey, e);

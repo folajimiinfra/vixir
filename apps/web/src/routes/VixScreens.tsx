@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Mic, X } from 'lucide-react';
+import { playVixNeuralAudio, stopVixNeuralAudio } from '../lab-shell/VixInLabOverlay';
 
 // E1 — Vix Connect Screen
 export function VixConnectScreen() {
@@ -555,12 +556,7 @@ export function VixTourScreen() {
           <button
             type="button"
             onClick={() => {
-              if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-                window.speechSynthesis.cancel();
-                window.speechSynthesis.speak(
-                  new SpeechSynthesisUtterance(currentStep.caption)
-                );
-              }
+              void playVixNeuralAudio(currentStep.caption, 'ada', lang);
             }}
             className="py-2 rounded-xl bg-[#121A2B] hover:bg-[#192338] border border-[#22304A] text-xs font-semibold text-white cursor-pointer"
           >
@@ -617,7 +613,10 @@ export function VixTourScreen() {
           <button
             type="button"
             aria-label="End Vix call"
-            onClick={() => navigate('/lab/physics/pendulum')}
+            onClick={() => {
+              stopVixNeuralAudio();
+              navigate('/lab/physics/pendulum');
+            }}
             className="w-9 h-9 rounded-full bg-[#7F1D1D] hover:bg-[#991B1B] flex items-center justify-center text-white shrink-0 cursor-pointer"
           >
             <X className="w-4 h-4" />
