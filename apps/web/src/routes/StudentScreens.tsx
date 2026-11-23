@@ -7,10 +7,13 @@ import {
 import { useAuth } from '../context/AuthContext';
 import {
   getStoredAccessToken,
+  getStoredAttempt,
   vixirApi,
   type AssignmentSummary,
   type ClassSummary,
+  type MarkReportResponse,
 } from '../lib/api';
+import { useLabSessionStore, computeAutoMark } from '../store/labSessionStore';
 
 type StudentNavKey =
   | 'dashboard'
@@ -22,7 +25,15 @@ type StudentNavKey =
   | 'grades'
   | 'settings';
 
-function StudentSidebar({ active }: { active: StudentNavKey }) {
+function StudentSidebar({
+  active,
+  syncStatus = 'synced',
+  onRetrySync,
+}: {
+  active: StudentNavKey;
+  syncStatus?: 'loading' | 'synced' | 'error';
+  onRetrySync?: () => void;
+}) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const navItems: { id: StudentNavKey; label: string; to: string }[] = [
@@ -83,61 +94,165 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
             </button>
           </div>
         )}
-        <div className="px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
-          <span>All results synced · 2 min ago</span>
-        </div>
+        {syncStatus === 'loading' ? (
+          <div className="px-3 py-2.5 rounded-xl bg-[#EAEFFE] text-[#1D4ED8] text-[11px] font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#2448D8] animate-ping shrink-0" />
+            <span>Syncing with Vixir API...</span>
+          </div>
+        ) : syncStatus === 'error' ? (
+          <div className="px-3 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[#C4321C] text-[11px] font-medium flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#C4321C] shrink-0" />
+              <span>API offline</span>
+            </div>
+            {onRetrySync && (
+              <button
+                type="button"
+                onClick={onRetrySync}
+                className="font-bold underline cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
+            <span>Connected to Vixir API</span>
+          </div>
+        )}
       </div>
     </aside>
   );
 }
 
-// B1 — Student Dashboard
+const EXPERIMENT_META_BY_ID: Record<
+  string,
+  { title: string; subject: string; badgeClass: string; route: string }
+> = {
+  'phy.pendulum.g': {
+    title: 'Simple pendulum — determination of g',
+    subject: 'PHYSICS',
+    badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+    route: '/lab/physics/pendulum',
+  },
+  'chem.titration': {
+    title: 'Acid–base titration: HCl vs Na₂CO₃',
+    subject: 'CHEMISTRY',
+    badgeClass: 'bg-[#FEF0E6] text-[#B45309]',
+    route: '/lab/chemistry/titration/safety',
+  },
+  'elec.ohms-law': {
+    title: 'Verifying Ohm’s law',
+    subject: 'ELECTRONICS',
+    badgeClass: 'bg-[#E0F8F5] text-[#0F766E]',
+    route: '/lab/electronics/ohms-law',
+  },
+};
+
+// B1 — Student Dashboard (with explicit Loading, Error/Offline, Empty, and Success states)
 export function StudentDashboardScreen() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const { user, refreshProfile } = useAuth();
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(getStoredAccessToken()));
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [apiAssignments, setApiAssignments] = useState<AssignmentSummary[]>([]);
   const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
+  const [latestReport, setLatestReport] = useState<MarkReportResponse | null>(null);
+
   const [joinCodeInput, setJoinCodeInput] = useState('');
-  const [joinFeedback, setJoinFeedback] = useState<string | null>(null);
+  const [isJoiningClass, setIsJoiningClass] = useState(false);
+  const [joinFeedback, setJoinFeedback] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [startingAssignmentId, setStartingAssignmentId] = useState<string | null>(null);
+
+  const submittedAt = useLabSessionStore((s) => s.submittedAt);
+  const rows = useLabSessionStore((s) => s.pendulumRows);
+  const precautions = useLabSessionStore((s) => s.precautions);
+  const gValue = useLabSessionStore((s) => s.gValue);
+
+  const loadDashboardData = async () => {
+    if (!getStoredAccessToken()) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      await refreshProfile();
+      const [assignmentsList, classesList] = await Promise.all([
+        vixirApi.listMyAssignments(),
+        vixirApi.listClasses(),
+      ]);
+      setApiAssignments(assignmentsList);
+      setApiClasses(classesList);
+
+      const activeAttempt = getStoredAttempt();
+      if (activeAttempt?.attemptId) {
+        const rep = await vixirApi.getMarkReport(activeAttempt.attemptId).catch(() => null);
+        if (rep) setLatestReport(rep);
+      }
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      setFetchError(
+        (err as Error).message ||
+          'Could not load your classes and assignments from Vixir API (:8081). Check your network connection.'
+      );
+    }
+  };
 
   useEffect(() => {
-    if (!getStoredAccessToken()) return;
-    let cancelled = false;
-    void refreshProfile();
-    vixirApi
-      .listMyAssignments()
-      .then((list) => {
-        if (!cancelled) setApiAssignments(list);
-      })
-      .catch(() => {});
-    vixirApi
-      .listClasses()
-      .then((list) => {
-        if (!cancelled) setApiClasses(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    void loadDashboardData();
   }, []);
 
   const handleJoinClassCode = async (e: React.FormEvent) => {
     e.preventDefault();
     const code = joinCodeInput.trim();
     if (!code) return;
+    setIsJoiningClass(true);
+    setJoinFeedback(null);
     try {
       const cls = await vixirApi.joinClass(code);
-      setJoinFeedback(`Joined ${cls.name} (${cls.joinCode}) ✓`);
+      setJoinFeedback({
+        tone: 'success',
+        text: `Joined ${cls.name} (${cls.joinCode})! Loading your class assignments...`,
+      });
       setJoinCodeInput('');
-      const [updatedAsgns, updatedCls] = await Promise.all([
-        vixirApi.listMyAssignments().catch(() => []),
-        vixirApi.listClasses().catch(() => []),
-      ]);
-      setApiAssignments(updatedAsgns);
-      setApiClasses(updatedCls);
+      await loadDashboardData();
     } catch (err) {
-      setJoinFeedback((err as Error).message || `Could not join class with code ${code}`);
+      setJoinFeedback({
+        tone: 'error',
+        text: (err as Error).message || `Could not join class with code "${code}".`,
+      });
+    } finally {
+      setIsJoiningClass(false);
+    }
+  };
+
+  const handleStartAssignedPractical = async (assignment: AssignmentSummary) => {
+    setStartingAssignmentId(assignment.id);
+    const meta = EXPERIMENT_META_BY_ID[assignment.experimentId] ?? {
+      title: assignment.title || assignment.experimentId,
+      subject: 'PHYSICS',
+      badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+      route: '/lab/physics/pendulum',
+    };
+    try {
+      const bootstrap = await vixirApi.startAttempt({ assignmentId: assignment.id });
+      useLabSessionStore.setState({
+        attemptId: bootstrap.attemptId,
+        seed: bootstrap.seed,
+      });
+    } catch {
+      // Proceed to lab bench even if attempt already active
+    } finally {
+      setStartingAssignmentId(null);
+      navigate(meta.route);
     }
   };
 
@@ -150,19 +265,41 @@ export function StudentDashboardScreen() {
   const classSubtitle =
     apiClasses.length > 0
       ? apiClasses.map((c) => `${c.name} (${c.joinCode})`).join(' · ')
-      : user?.email || 'Science Laboratory Workspace';
+      : user?.email || 'Not enrolled in a class yet';
+
+  const q = search.trim().toLowerCase();
+  const filteredAssignments = apiAssignments.filter((a) => {
+    if (!q) return true;
+    const meta = EXPERIMENT_META_BY_ID[a.experimentId];
+    const title = (a.title || meta?.title || a.experimentId).toLowerCase();
+    return title.includes(q) || a.experimentId.toLowerCase().includes(q);
+  });
+
+  // Check if the student has any real submitted attempt in this session or from the API
+  const hasSubmittedAttempt = Boolean(submittedAt || latestReport);
+  const localAutoMark = computeAutoMark(rows, precautions, gValue);
+
+  const syncStatus: 'loading' | 'synced' | 'error' = isLoading
+    ? 'loading'
+    : fetchError
+      ? 'error'
+      : 'synced';
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
-      <StudentSidebar active="dashboard" />
+      <StudentSidebar
+        active="dashboard"
+        syncStatus={syncStatus}
+        onRetrySync={() => {
+          void loadDashboardData();
+        }}
+      />
 
       <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
           <div>
-            <div className="text-xs text-[#475467] mb-0.5">
-              {classSubtitle}
-            </div>
+            <div className="text-xs text-[#475467] mb-0.5">{classSubtitle}</div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
               Good evening, {displayName}
             </h1>
@@ -176,24 +313,23 @@ export function StudentDashboardScreen() {
                 value={joinCodeInput}
                 onChange={(e) => setJoinCodeInput(e.target.value)}
                 placeholder="Join class code (e.g. PHY-SS3-DEMO)"
-                className="w-48 px-3 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs font-mono text-[#0E1726] placeholder:text-[#6B778C]"
+                className="w-52 px-3 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs font-mono text-[#0E1726] placeholder:text-[#6B778C]"
               />
-              {joinCodeInput.trim() && (
-                <button
-                  type="submit"
-                  className="px-3 py-2 rounded-xl bg-[#2448D8] text-white text-xs font-semibold cursor-pointer"
-                >
-                  Join
-                </button>
-              )}
+              <button
+                type="submit"
+                disabled={isJoiningClass || !joinCodeInput.trim()}
+                className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+              >
+                {isJoiningClass ? 'Joining...' : 'Join class'}
+              </button>
             </form>
             <input
               type="search"
               aria-label="Search experiments"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search experiments..."
-              className="w-56 sm:w-64 px-3.5 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+              placeholder="Search assignments..."
+              className="w-52 sm:w-60 px-3.5 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
             />
             <div className="w-9 h-9 rounded-full bg-[#FDECE3] text-[#9A3412] text-xs font-bold flex items-center justify-center shrink-0">
               {initials}
@@ -201,116 +337,188 @@ export function StudentDashboardScreen() {
           </div>
         </div>
 
+        {/* Join Class Feedback Banner */}
         {joinFeedback && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-[#E6F6EE] border border-[#A7F3D0] text-xs font-semibold text-[#0F7B45]">
-            {joinFeedback}
-          </div>
-        )}
-        {apiAssignments.length > 0 && (
-          <div className="mb-4 px-4 py-2.5 rounded-xl bg-[#EAEFFE] border border-[#BFDBFE] text-xs font-semibold text-[#1D4ED8]">
-            {apiAssignments.length} published class assignment(s) synced from Vixir API (:8081)
+          <div
+            role="status"
+            className={`mb-5 px-4 py-3 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+              joinFeedback.tone === 'success'
+                ? 'bg-[#E6F6EE] border-[#A7F3D0] text-[#0F7B45]'
+                : 'bg-[#FEF2F2] border-[#FECACA] text-[#C4321C]'
+            }`}
+          >
+            <span>{joinFeedback.text}</span>
+            <button
+              type="button"
+              onClick={() => setJoinFeedback(null)}
+              className="text-xs underline ml-3 cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
         )}
 
-        {/* Due this week */}
+        {/* Network / API Error State Banner */}
+        {fetchError && (
+          <div
+            role="alert"
+            className="mb-6 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div>
+              <div className="font-display text-sm font-bold text-[#991B1B] mb-0.5">
+                Could not sync with Vixir API
+              </div>
+              <p className="text-xs text-[#C4321C]">{fetchError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadDashboardData();
+              }}
+              className="px-4 py-2 rounded-xl bg-[#C4321C] hover:bg-[#991B1B] text-white text-xs font-semibold shrink-0 cursor-pointer"
+            >
+              Retry connection
+            </button>
+          </div>
+        )}
+
+        {/* Section 1: Assigned Practicals (Due this week) — 4 Explicit States: Loading, Error, Empty, Success */}
         <section className="mb-7">
-          <h2 className="font-display text-base font-bold text-[#0E1726] mb-3.5">
-            Due this week
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Card 1: Physics */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#EAEFFE] text-[#1D4ED8] uppercase">
-                    PHYSICS
-                  </span>
-                  <span className="text-[#B54708]">Due Wed, 18 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Simple pendulum — determination of g
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mr. Bello · 6 trials · WAEC-style report
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3">
-                  <div className="h-full w-1/2 bg-[#2448D8] rounded-full" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">3 of 6 readings taken</span>
-                <Link
-                  to="/lab/physics/pendulum"
-                  className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors"
-                >
-                  Continue
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 2: Chemistry */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#FEF0E6] text-[#B45309] uppercase">
-                    CHEMISTRY
-                  </span>
-                  <span className="text-[#475467]">Due Fri, 20 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Acid–base titration: HCl vs NaOH
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mrs. Adeyemi · 3 concordant titres
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3" />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">Not started</span>
-                <Link
-                  to="/lab/chemistry/titration/safety"
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold transition-colors"
-                >
-                  Open briefing
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 3: Electronics */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#E0F8F5] text-[#0F766E] uppercase">
-                    ELECTRONICS
-                  </span>
-                  <span className="text-[#475467]">Due Mon, 23 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Verifying Ohm’s law
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mr. Bello · 8 readings · I–V graph
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3" />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">Not started</span>
-                <Link
-                  to="/experiments/simple-pendulum"
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold transition-colors"
-                >
-                  Open briefing
-                </Link>
-              </div>
-            </div>
+          <div className="flex items-center justify-between mb-3.5">
+            <h2 className="font-display text-base font-bold text-[#0E1726]">
+              Due this week
+            </h2>
+            {!isLoading && (
+              <span className="text-xs text-[#6B778C]">
+                {apiClasses.length} enrolled class{apiClasses.length === 1 ? '' : 'es'} ·{' '}
+                {apiAssignments.length} active assignment{apiAssignments.length === 1 ? '' : 's'}
+              </span>
+            )}
           </div>
+
+          {isLoading ? (
+            /* 1. LOADING STATE */
+            <div
+              aria-label="Loading assignments"
+              className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+            >
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  className="bg-white rounded-2xl border border-[#E3E8EF] p-5 space-y-3 animate-pulse"
+                >
+                  <div className="flex justify-between">
+                    <div className="h-4 w-20 bg-[#E3E8EF] rounded-full" />
+                    <div className="h-4 w-24 bg-[#E3E8EF] rounded" />
+                  </div>
+                  <div className="h-5 w-3/4 bg-[#E3E8EF] rounded" />
+                  <div className="h-3 w-1/2 bg-[#E3E8EF] rounded" />
+                  <div className="h-2 w-full bg-[#E3E8EF] rounded-full" />
+                  <div className="flex justify-between pt-2">
+                    <div className="h-4 w-24 bg-[#E3E8EF] rounded" />
+                    <div className="h-8 w-24 bg-[#E3E8EF] rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredAssignments.length === 0 ? (
+            /* 2. EMPTY STATE (No fake hardcoded assignments for newly registered students!) */
+            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-7 text-center max-w-2xl mx-auto my-2 space-y-3">
+              <div className="font-display text-lg font-bold text-[#0E1726]">
+                {apiClasses.length === 0
+                  ? 'You have not joined a class yet'
+                  : 'No assignments due this week'}
+              </div>
+              <p className="text-xs text-[#475467] leading-relaxed max-w-lg mx-auto">
+                {apiClasses.length === 0
+                  ? 'Enter the class join code your teacher shared with you (for example PHY-SS3-DEMO for the demo SS3A Physics class) to load your assigned practicals, or explore the 5 virtual laboratories in open practice mode.'
+                  : 'Your teacher has not published any active assignments for your enrolled class yet. You can run open practice experiments in the Laboratories hub while you wait.'}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                {apiClasses.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setJoinCodeInput('PHY-SS3-DEMO');
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#EAEFFE] hover:bg-[#DBEAFE] text-[#1D4ED8] text-xs font-semibold cursor-pointer"
+                  >
+                    Fill demo code (PHY-SS3-DEMO)
+                  </button>
+                )}
+                <Link
+                  to="/labs"
+                  className="px-4 py-2.5 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors"
+                >
+                  Explore 5 Virtual Laboratories →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            /* 3. SUCCESS STATE (Real assignments fetched from PostgreSQL on :8081) */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {filteredAssignments.map((asgn) => {
+                const meta = EXPERIMENT_META_BY_ID[asgn.experimentId] ?? {
+                  title: asgn.title || asgn.experimentId,
+                  subject: 'PHYSICS',
+                  badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+                  route: '/lab/physics/pendulum',
+                };
+                const dueDateStr = asgn.dueAt
+                  ? new Date(asgn.dueAt).toLocaleDateString('en-GB', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })
+                  : 'Upcoming';
+
+                return (
+                  <div
+                    key={asgn.id}
+                    className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full uppercase ${meta.badgeClass}`}
+                        >
+                          {meta.subject} · {asgn.mode}
+                        </span>
+                        <span className="text-[#B54708]">Due {dueDateStr}</span>
+                      </div>
+                      <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
+                        {asgn.title || meta.title}
+                      </h3>
+                      <p className="text-xs text-[#475467] mb-4">
+                        {asgn.attemptsAllowed} attempts allowed · {asgn.noiseLevel.toLowerCase()} noise
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-[#F1F4F9]">
+                      <span className="text-xs text-[#475467] font-mono">
+                        {asgn.status}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={startingAssignmentId === asgn.id}
+                        onClick={() => {
+                          void handleStartAssignedPractical(asgn);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        {startingAssignmentId === asgn.id
+                          ? 'Starting...'
+                          : 'Start practical →'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Bottom Grid: Recent results + Practical skills */}
+        {/* Bottom Grid: Recent results + Practical skills (Dynamic with Loading & Empty States) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Recent results */}
           <section className="lg:col-span-8 bg-white rounded-2xl border border-[#E3E8EF] p-6">
@@ -318,64 +526,73 @@ export function StudentDashboardScreen() {
               <h2 className="font-display text-base font-bold text-[#0E1726]">
                 Recent results
               </h2>
-              <Link
-                to="/attempt/demo/report"
-                className="text-xs font-semibold text-[#2448D8] hover:underline"
-              >
-                View all
-              </Link>
+              {hasSubmittedAttempt && (
+                <Link
+                  to="/attempt/demo/report"
+                  className="text-xs font-semibold text-[#2448D8] hover:underline"
+                >
+                  View marked report →
+                </Link>
+              )}
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
-                    <th className="py-2.5 text-left">EXPERIMENT</th>
-                    <th className="py-2.5 text-left">SUBMITTED</th>
-                    <th className="py-2.5 text-left">RESULT</th>
-                    <th className="py-2.5 text-right">SCORE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E3E8EF]">
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Refraction through a glass block
-                    </td>
-                    <td className="py-3.5 text-[#475467]">11 Nov</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">n = 1.49</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold">
-                        17 / 20
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Principle of moments (metre rule)
-                    </td>
-                    <td className="py-3.5 text-[#475467]">4 Nov</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">m = 48.6 g</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#FEF0E6] text-[#B54708] font-mono font-bold">
-                        12 / 20
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Rates of reaction (Na₂S₂O₃ + HCl)
-                    </td>
-                    <td className="py-3.5 text-[#475467]">28 Oct</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">1/t ∝ [S₂O₃²⁻]</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold">
-                        18 / 20
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2].map((r) => (
+                  <div key={r} className="h-10 bg-[#F1F4F9] rounded-xl" />
+                ))}
+              </div>
+            ) : !hasSubmittedAttempt ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-6 text-center space-y-2">
+                <div className="font-display text-sm font-bold text-[#0E1726]">
+                  No graded submissions yet
+                </div>
+                <p className="text-xs text-[#475467] max-w-md mx-auto leading-relaxed">
+                  Complete and submit a practical attempt from your assignments or the
+                  laboratories hub to see your marked report and score history here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
+                      <th className="py-2.5 text-left">EXPERIMENT</th>
+                      <th className="py-2.5 text-left">SUBMITTED</th>
+                      <th className="py-2.5 text-left">RESULT</th>
+                      <th className="py-2.5 text-right">SCORE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E3E8EF]">
+                    <tr>
+                      <td className="py-3.5 font-semibold text-[#0E1726]">
+                        Simple pendulum — determination of g
+                      </td>
+                      <td className="py-3.5 text-[#475467]">
+                        {submittedAt
+                          ? new Date(submittedAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Today'}
+                      </td>
+                      <td className="py-3.5 font-mono text-[#0E1726]">
+                        g = {gValue} m s⁻²
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <Link
+                          to="/attempt/demo/report"
+                          className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold"
+                        >
+                          {latestReport ? latestReport.mark.total : localAutoMark.total} /{' '}
+                          {latestReport ? latestReport.mark.maxTotal : localAutoMark.maxTotal}
+                        </Link>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {/* Practical skills */}
@@ -384,32 +601,58 @@ export function StudentDashboardScreen() {
               Practical skills
             </h2>
 
-            <div className="space-y-3 text-xs">
-              {[
-                { label: 'Taking readings', pct: 86, color: 'bg-[#2448D8]' },
-                { label: 'Significant figures', pct: 71, color: 'bg-[#2448D8]' },
-                { label: 'Graph plotting', pct: 64, color: 'bg-[#2448D8]' },
-                { label: 'Stating precautions', pct: 42, color: 'bg-[#B54708]' },
-              ].map((skill) => (
-                <div key={skill.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#0E1726] font-medium">{skill.label}</span>
-                    <span className="font-mono font-bold text-[#0E1726]">{skill.pct}%</span>
-                  </div>
-                  <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${skill.color}`}
-                      style={{ width: `${skill.pct}%` }}
-                    />
-                  </div>
+            {isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2, 3, 4].map((s) => (
+                  <div key={s} className="h-6 bg-[#F1F4F9] rounded" />
+                ))}
+              </div>
+            ) : !hasSubmittedAttempt ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-5 text-center space-y-1.5">
+                <div className="text-xs font-bold text-[#0E1726]">
+                  No skill profile recorded yet
                 </div>
-              ))}
-            </div>
+                <p className="text-[11px] text-[#475467] leading-relaxed">
+                  Your WAEC/NECO practical skill breakdown (Taking readings, Significant
+                  figures, Graph plotting, and Precautions) unlocks after your first
+                  submitted practical.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 text-xs">
+                  {localAutoMark.criteria.slice(0, 4).map((c) => {
+                    const pct = Math.round((c.awarded / Math.max(1, c.max)) * 100);
+                    return (
+                      <div key={c.key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[#0E1726] font-medium truncate pr-2">
+                            {c.name}
+                          </span>
+                          <span className="font-mono font-bold text-[#0E1726]">
+                            {pct}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              pct >= 70 ? 'bg-[#2448D8]' : 'bg-[#B54708]'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="bg-[#FEF5EE] rounded-xl p-3.5 text-xs text-[#9A3412] leading-relaxed">
-              <strong>Tip from your lab assistant:</strong> you often skip parallax and
-              zero-error precautions. Try the 5-minute “Precautions” drill.
-            </div>
+                <div className="bg-[#FEF5EE] rounded-xl p-3.5 text-xs text-[#9A3412] leading-relaxed">
+                  <strong>Tip from Vix:</strong> Always state at least three physical
+                  precautions (eye-level reading, small swing angle &lt; 10°, and timing
+                  from the equilibrium fiducial mark).
+                </div>
+              </>
+            )}
           </section>
         </div>
       </main>

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getStoredAccessToken,
   vixirApi,
+  type AssignmentSummary,
   type ClassSummary,
   type PracticalMode,
 } from '../lib/api';
@@ -80,21 +81,76 @@ function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignm
 export function TeacherDashboardScreen() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const hasToken = Boolean(getStoredAccessToken());
+
+  const [isLoading, setIsLoading] = useState<boolean>(hasToken);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
+  const [apiAssignments, setApiAssignments] = useState<
+    Array<AssignmentSummary & { className: string }>
+  >([]);
+
+  // Create class inline form state
+  const [newClassName, setNewClassName] = useState('');
+  const [newClassSubject, setNewClassSubject] = useState('PHYSICS');
+  const [newClassLevel, setNewClassLevel] = useState('SS3');
+  const [isCreatingClass, setIsCreatingClass] = useState(false);
+
+  const loadTeacherData = async () => {
+    if (!getStoredAccessToken()) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const classesList = await vixirApi.listClasses();
+      setApiClasses(classesList);
+
+      const allAsgnArrays = await Promise.all(
+        classesList.map(async (cls) => {
+          const list = await vixirApi.listClassAssignments(cls.id).catch(() => []);
+          return list.map((a) => ({ ...a, className: cls.name }));
+        })
+      );
+      setApiAssignments(allAsgnArrays.flat());
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      setFetchError(
+        (err as Error).message ||
+          'Could not load your classes and assignments from Vixir API (:8081).'
+      );
+    }
+  };
 
   useEffect(() => {
-    if (!getStoredAccessToken()) return;
-    let cancelled = false;
-    vixirApi
-      .listClasses()
-      .then((list) => {
-        if (!cancelled && list.length > 0) setApiClasses(list);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
+    void loadTeacherData();
   }, []);
+
+  const handleCreateClass = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClassName.trim()) return;
+    setIsCreatingClass(true);
+    try {
+      await vixirApi.createClass({
+        name: newClassName.trim(),
+        subject: newClassSubject,
+        level: newClassLevel,
+      });
+      setNewClassName('');
+      await loadTeacherData();
+    } catch (err) {
+      setFetchError((err as Error).message || 'Could not create class.');
+    } finally {
+      setIsCreatingClass(false);
+    }
+  };
+
+  const totalStudentsCount = apiClasses.reduce(
+    (acc, c) => acc + (c.studentCount ?? 0),
+    0
+  );
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
@@ -120,36 +176,71 @@ export function TeacherDashboardScreen() {
           </button>
         </div>
 
+        {/* Network / API Error Banner */}
+        {fetchError && (
+          <div
+            role="alert"
+            className="bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div>
+              <div className="font-display text-sm font-bold text-[#991B1B] mb-0.5">
+                Could not sync teacher data
+              </div>
+              <p className="text-xs text-[#C4321C]">{fetchError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadTeacherData();
+              }}
+              className="px-4 py-2 rounded-xl bg-[#C4321C] hover:bg-[#991B1B] text-white text-xs font-semibold shrink-0 cursor-pointer"
+            >
+              Retry connection
+            </button>
+          </div>
+        )}
+
         {/* 4 KPI Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5">
             <div className="text-xs text-[#475467] mb-1">Active assignments</div>
-            <div className="font-display text-3xl font-bold text-[#0E1726] mb-1">4</div>
-            <div className="text-xs text-[#6B778C]">across 3 classes</div>
+            <div className="font-display text-3xl font-bold text-[#0E1726] mb-1">
+              {hasToken ? apiAssignments.length : 4}
+            </div>
+            <div className="text-xs text-[#6B778C]">
+              across {hasToken ? apiClasses.length : 3} classes
+            </div>
           </div>
 
           <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5">
-            <div className="text-xs text-[#475467] mb-1">Awaiting your review</div>
-            <div className="font-display text-3xl font-bold text-[#B54708] mb-1">12</div>
-            <div className="text-xs text-[#6B778C]">flagged by auto-marker</div>
+            <div className="text-xs text-[#475467] mb-1">Enrolled students</div>
+            <div className="font-display text-3xl font-bold text-[#2448D8] mb-1">
+              {hasToken ? totalStudentsCount : 132}
+            </div>
+            <div className="text-xs text-[#6B778C]">in your active classes</div>
           </div>
 
           <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5">
             <div className="text-xs text-[#475467] mb-1">Average score</div>
             <div className="font-display text-3xl font-bold text-[#0E1726] mb-1">
-              15.2<span className="text-base font-normal text-[#6B778C]">/20</span>
+              {hasToken && apiAssignments.length === 0 ? '—' : '15.2'}
+              {(!hasToken || apiAssignments.length > 0) && (
+                <span className="text-base font-normal text-[#6B778C]">/20</span>
+              )}
             </div>
-            <div className="text-xs text-[#6B778C]">simple pendulum, SS3A</div>
+            <div className="text-xs text-[#6B778C]">auto-marked rubric</div>
           </div>
 
           <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5">
             <div className="text-xs text-[#475467] mb-1">Completion</div>
-            <div className="font-display text-3xl font-bold text-[#0E1726] mb-1">78%</div>
+            <div className="font-display text-3xl font-bold text-[#0E1726] mb-1">
+              {hasToken && apiAssignments.length === 0 ? '0%' : '78%'}
+            </div>
             <div className="text-xs text-[#6B778C]">of assigned practicals</div>
           </div>
         </div>
 
-        {/* Active assignments table */}
+        {/* Active assignments table (Loading / Empty / Success) */}
         <section className="bg-white rounded-2xl border border-[#E3E8EF] p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-display text-base font-bold text-[#0E1726]">
@@ -163,120 +254,198 @@ export function TeacherDashboardScreen() {
             </Link>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
-                  <th className="py-2.5 text-left">EXPERIMENT</th>
-                  <th className="py-2.5 text-left">CLASS</th>
-                  <th className="py-2.5 text-left">DUE</th>
-                  <th className="py-2.5 text-left">SUBMITTED</th>
-                  <th className="py-2.5 text-left">AVG</th>
-                  <th className="py-2.5 text-right" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3E8EF]">
-                <tr>
-                  <td className="py-3.5 font-semibold text-[#0E1726]">
-                    Simple pendulum — determination of g
-                  </td>
-                  <td className="py-3.5 text-[#475467]">SS3A Physics</td>
-                  <td className="py-3.5 text-[#B54708] font-medium">Wed 18 Nov</td>
-                  <td className="py-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-28 h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
-                        <div className="h-full w-4/5 bg-[#2448D8] rounded-full" />
-                      </div>
-                      <span className="font-mono text-[#475467]">34/42</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 font-mono font-semibold text-[#0E1726]">15.2 / 20</td>
-                  <td className="py-3.5 text-right">
-                    <Link
-                      to="/teacher/assignments/demo/results"
-                      className="font-semibold text-[#2448D8] underline"
-                    >
-                      Results
-                    </Link>
-                  </td>
-                </tr>
-                <tr>
-                  <td className="py-3.5 font-semibold text-[#0E1726]">
-                    Verifying Ohm’s law
-                  </td>
-                  <td className="py-3.5 text-[#475467]">SS3B Physics</td>
-                  <td className="py-3.5 text-[#475467]">Mon 23 Nov</td>
-                  <td className="py-3.5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-28 h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
-                        <div className="h-full w-2/5 bg-[#2448D8] rounded-full" />
-                      </div>
-                      <span className="font-mono text-[#475467]">16/39</span>
-                    </div>
-                  </td>
-                  <td className="py-3.5 font-mono font-semibold text-[#0E1726]">16.4 / 20</td>
-                  <td className="py-3.5 text-right">
-                    <Link
-                      to="/teacher/assignments/demo/results"
-                      className="font-semibold text-[#2448D8] underline"
-                    >
-                      Results
-                    </Link>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {isLoading ? (
+            <div className="space-y-3 animate-pulse">
+              {[1, 2].map((n) => (
+                <div key={n} className="h-10 bg-[#F1F4F9] rounded-xl" />
+              ))}
+            </div>
+          ) : hasToken && apiAssignments.length === 0 ? (
+            <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-6 text-center space-y-2">
+              <div className="font-display text-sm font-bold text-[#0E1726]">
+                No assignments created yet
+              </div>
+              <p className="text-xs text-[#475467] max-w-md mx-auto">
+                Create a class below and click &ldquo;+ Assign an experiment&rdquo; to publish
+                your first laboratory practical.
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
+                    <th className="py-2.5 text-left">EXPERIMENT</th>
+                    <th className="py-2.5 text-left">CLASS</th>
+                    <th className="py-2.5 text-left">DUE</th>
+                    <th className="py-2.5 text-left">STATUS</th>
+                    <th className="py-2.5 text-right" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E8EF]">
+                  {(hasToken
+                    ? apiAssignments.map((a) => ({
+                        id: a.id,
+                        title:
+                          a.experimentId === 'phy.pendulum.g'
+                            ? 'Simple pendulum — determination of g'
+                            : a.experimentId,
+                        className: a.className,
+                        due: new Date(a.dueAt).toLocaleDateString('en-GB', {
+                          weekday: 'short',
+                          day: 'numeric',
+                          month: 'short',
+                        }),
+                        status: a.status,
+                      }))
+                    : [
+                        {
+                          id: 'demo',
+                          title: 'Simple pendulum — determination of g',
+                          className: 'SS3A Physics',
+                          due: 'Wed 18 Nov',
+                          status: 'PUBLISHED',
+                        },
+                      ]
+                  ).map((row) => (
+                    <tr key={row.id}>
+                      <td className="py-3.5 font-semibold text-[#0E1726]">
+                        {row.title}
+                      </td>
+                      <td className="py-3.5 text-[#475467]">{row.className}</td>
+                      <td className="py-3.5 text-[#B54708] font-medium">{row.due}</td>
+                      <td className="py-3.5 font-mono text-[#0F7B45] font-bold">
+                        {row.status}
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <Link
+                          to={`/teacher/assignments/${row.id}/results`}
+                          className="font-semibold text-[#2448D8] underline"
+                        >
+                          Results
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
-        {/* Bottom 2-Col Grid: Common Mistakes + My Classes */}
+        {/* Bottom 2-Col Grid: Common Mistakes + My Classes (with Create Class form) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           <section className="lg:col-span-6 bg-white rounded-2xl border border-[#E3E8EF] p-6 space-y-3">
             <h2 className="font-display text-base font-bold text-[#0E1726]">
               Most common mistakes this week
             </h2>
 
-            <div className="space-y-2.5 text-xs">
-              <div className="px-4 py-3 rounded-xl bg-[#FEF5EE] text-[#9A3412] flex items-center justify-between font-medium">
-                <span>Timing not started at equilibrium position</span>
-                <span className="font-mono font-bold">61%</span>
+            {hasToken && apiAssignments.length === 0 ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-5 text-center text-xs text-[#475467]">
+                Common mistake analytics appear once students begin submitting practical
+                attempts.
               </div>
-              <div className="px-4 py-3 rounded-xl bg-[#F5F7FA] text-[#0E1726] flex items-center justify-between font-medium">
-                <span>Inconsistent decimal places in T²</span>
-                <span className="font-mono font-bold">38%</span>
-              </div>
-              <div className="px-4 py-3 rounded-xl bg-[#F5F7FA] text-[#0E1726] flex items-center justify-between font-medium">
-                <span>Small triangle used for slope</span>
-                <span className="font-mono font-bold">27%</span>
-              </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2.5 text-xs">
+                  <div className="px-4 py-3 rounded-xl bg-[#FEF5EE] text-[#9A3412] flex items-center justify-between font-medium">
+                    <span>Timing not started at equilibrium position</span>
+                    <span className="font-mono font-bold">61%</span>
+                  </div>
+                  <div className="px-4 py-3 rounded-xl bg-[#F5F7FA] text-[#0E1726] flex items-center justify-between font-medium">
+                    <span>Inconsistent decimal places in T²</span>
+                    <span className="font-mono font-bold">38%</span>
+                  </div>
+                  <div className="px-4 py-3 rounded-xl bg-[#F5F7FA] text-[#0E1726] flex items-center justify-between font-medium">
+                    <span>Small triangle used for slope</span>
+                    <span className="font-mono font-bold">27%</span>
+                  </div>
+                </div>
 
-            <div className="pt-1">
-              <Link
-                to="/teacher/assignments/demo/results"
-                className="text-xs font-semibold text-[#2448D8] underline"
-              >
-                See full analysis →
-              </Link>
-            </div>
+                <div className="pt-1">
+                  <Link
+                    to="/teacher/assignments/demo/results"
+                    className="text-xs font-semibold text-[#2448D8] underline"
+                  >
+                    See full analysis →
+                  </Link>
+                </div>
+              </>
+            )}
           </section>
 
-          <section className="lg:col-span-6 bg-white rounded-2xl border border-[#E3E8EF] p-6 space-y-3">
+          <section className="lg:col-span-6 bg-white rounded-2xl border border-[#E3E8EF] p-6 space-y-3.5">
             <h2 className="font-display text-base font-bold text-[#0E1726]">My classes</h2>
 
-            <div className="space-y-2.5">
-              {(apiClasses.length > 0
-                ? apiClasses.map((c) => ({
-                    name: c.name,
-                    students: c.studentCount ?? 24,
-                    code: c.joinCode,
-                  }))
-                : [
-                    { name: 'SS3A Physics', students: 42, code: 'PHY-SS3-7KQ2' },
-                    { name: 'SS3B Physics', students: 39, code: 'PHY-SS3-2MV8' },
-                    { name: 'SS2 Science', students: 51, code: 'SCI-SS2-9TR4' },
-                  ]
-              ).map((cls) => (
+            {/* Inline Create Class Form */}
+            <form
+              onSubmit={handleCreateClass}
+              className="flex flex-wrap items-center gap-2 bg-[#F5F7FA] p-2.5 rounded-xl border border-[#E3E8EF]"
+            >
+              <input
+                type="text"
+                value={newClassName}
+                onChange={(e) => setNewClassName(e.target.value)}
+                placeholder="New class name (e.g. SS3B Physics)"
+                className="flex-1 min-w-[140px] px-3 py-1.5 rounded-lg bg-white border border-[#D0D7E2] text-xs"
+              />
+              <select
+                value={newClassSubject}
+                onChange={(e) => setNewClassSubject(e.target.value)}
+                aria-label="Class subject"
+                className="px-2.5 py-1.5 rounded-lg bg-white border border-[#D0D7E2] text-xs"
+              >
+                <option value="PHYSICS">Physics</option>
+                <option value="CHEMISTRY">Chemistry</option>
+                <option value="BIOLOGY">Biology</option>
+                <option value="ELECTRONICS">Electronics</option>
+                <option value="ENGINEERING">Engineering</option>
+              </select>
+              <select
+                value={newClassLevel}
+                onChange={(e) => setNewClassLevel(e.target.value)}
+                aria-label="Class level"
+                className="px-2.5 py-1.5 rounded-lg bg-white border border-[#D0D7E2] text-xs"
+              >
+                <option value="SS3">SS3</option>
+                <option value="SS2">SS2</option>
+                <option value="SS1">SS1</option>
+                <option value="100L">100L</option>
+              </select>
+              <button
+                type="submit"
+                disabled={isCreatingClass || !newClassName.trim()}
+                className="px-3 py-1.5 rounded-lg bg-[#2448D8] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+              >
+                {isCreatingClass ? 'Creating...' : '+ Add'}
+              </button>
+            </form>
+
+            {isLoading ? (
+              <div className="space-y-2 animate-pulse">
+                {[1, 2].map((n) => (
+                  <div key={n} className="h-14 bg-[#F1F4F9] rounded-xl" />
+                ))}
+              </div>
+            ) : hasToken && apiClasses.length === 0 ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-5 text-center text-xs text-[#475467]">
+                You have not created any classes yet. Use the form above to create your
+                first class and generate a student join code.
+              </div>
+            ) : (
+              <div className="space-y-2.5">
+                {(hasToken
+                  ? apiClasses.map((c) => ({
+                      name: c.name,
+                      students: c.studentCount ?? 0,
+                      code: c.joinCode,
+                    }))
+                  : [
+                      { name: 'SS3A Physics', students: 42, code: 'PHY-SS3-7KQ2' },
+                      { name: 'SS3B Physics', students: 39, code: 'PHY-SS3-2MV8' },
+                      { name: 'SS2 Science', students: 51, code: 'SCI-SS2-9TR4' },
+                    ]
+                ).map((cls) => (
                 <div
                   key={cls.code}
                   className="rounded-xl border border-[#E3E8EF] p-3.5 flex items-center justify-between"
@@ -296,7 +465,8 @@ export function TeacherDashboardScreen() {
                   </Link>
                 </div>
               ))}
-            </div>
+              </div>
+            )}
           </section>
         </div>
       </main>
