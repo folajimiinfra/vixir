@@ -37,6 +37,7 @@ Intent = Literal[
     "safety",
     "tour_nav",
     "build_setup",
+    "worked_example",
     "off_topic",
     "forbidden",
 ]

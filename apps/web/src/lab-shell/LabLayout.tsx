@@ -164,7 +164,7 @@ export function LabLayout({
   const [vixMode, setVixMode] = useState<'closed' | 'connect' | 'tour'>('closed');
   const [vixVoice, setVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
   const [vixStepIdx, setVixStepIdx] = useState(3); // Default to Bench
-  const [dimNonActive, setDimNonActive] = useState(true);
+  const [dimNonActive, setDimNonActive] = useState(false);
 
   // Global Laboratory Right-Click Context Menu
   const [labContextMenu, setLabContextMenu] = useState<{
@@ -225,7 +225,8 @@ export function LabLayout({
     if (vixMode === 'tour') {
       setVixMode('closed');
     } else {
-      setVixMode('connect');
+      // Instant conversational Vix: opens live hands-free assistant directly over the bench without a blocking modal wall
+      setVixMode('tour');
     }
   };
 
@@ -703,6 +704,7 @@ export function LabLayout({
           activeLab={activeLab}
           experimentTitle={experimentTitle}
           voice={vixVoice}
+          onChangeVoice={(v) => setVixVoice(v)}
           stepIdx={vixStepIdx}
           onSelectStep={(idx) => setVixStepIdx(idx)}
           dimNonActive={dimNonActive}

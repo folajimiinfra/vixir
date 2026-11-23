@@ -31,6 +31,7 @@ from .nodes import (
     screen_analysis_node,
     socratic_answer_node,
     speech_synthesis_node,
+    worked_example_node,
 )
 from .state import MultiAgentState, VixState
 
@@ -45,6 +46,7 @@ def _route_by_intent(state: VixState) -> str:
         "concept": "retrieve_content",
         "safety": "safety_answer",
         "build_setup": "build_setup",
+        "worked_example": "worked_example",
         "off_topic": "redirect",
         "forbidden": "refuse_kindly",
     }
@@ -86,6 +88,7 @@ def build_vix_graph():
     workflow.add_node("socratic_answer", socratic_answer_node)
     workflow.add_node("safety_answer", safety_answer_node)
     workflow.add_node("build_setup", build_setup_node)
+    workflow.add_node("worked_example", worked_example_node)
     workflow.add_node("redirect", redirect_node)
     workflow.add_node("refuse_kindly", refuse_kindly_node)
     workflow.add_node("policy_guard", policy_guard_node)
@@ -108,6 +111,7 @@ def build_vix_graph():
             "retrieve_content": "retrieve_content",
             "safety_answer": "safety_answer",
             "build_setup": "build_setup",
+            "worked_example": "worked_example",
             "redirect": "redirect",
             "refuse_kindly": "refuse_kindly",
         },
@@ -132,6 +136,7 @@ def build_vix_graph():
         "socratic_answer",
         "safety_answer",
         "build_setup",
+        "worked_example",
         "redirect",
         "refuse_kindly",
     ):

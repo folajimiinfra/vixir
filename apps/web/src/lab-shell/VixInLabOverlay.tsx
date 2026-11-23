@@ -999,6 +999,7 @@ interface VixSpotlightFloatingCardProps {
   activeLab: SubjectLab;
   experimentTitle: string;
   voice: 'ada' | 'tunde' | 'grace';
+  onChangeVoice?: (voice: 'ada' | 'tunde' | 'grace') => void;
   stepIdx: number;
   onSelectStep: (idx: number) => void;
   dimNonActive: boolean;
@@ -1010,12 +1011,15 @@ export function VixSpotlightFloatingCard({
   activeLab,
   experimentTitle,
   voice,
+  onChangeVoice,
   stepIdx,
   onSelectStep,
   dimNonActive,
   onToggleDim,
   onEndCall,
 }: VixSpotlightFloatingCardProps) {
+  const { user } = useAuth();
+  const studentFirstName = user?.firstName || 'Student';
   const [lang, setLang] = useState<VixLanguage>('English');
   const [brain, setBrain] = useState<string>(() =>
     typeof window !== 'undefined'
@@ -1480,8 +1484,8 @@ export function VixSpotlightFloatingCard({
           if (isRecordingNow) {
             silenceFrames += 1;
             const elapsedMs = performance.now() - speechStartedAt;
-            // ~850 ms of silence after speaking (or max 14s utterance) -> send audio turn to Vix!
-            if (silenceFrames >= 14 || elapsedMs > 14000) {
+            // ~540 ms of silence after speaking (or max 14s utterance) -> send audio turn to Vix immediately!
+            if (silenceFrames >= 9 || elapsedMs > 14000) {
               silenceFrames = 0;
               try {
                 mediaRecorderRef.current?.stop();
@@ -1499,10 +1503,43 @@ export function VixSpotlightFloatingCard({
     }
   };
 
-  // Automatically start the real hardware microphone + VAD when the Vix spotlight card opens!
+  // Automatically start the real hardware microphone + VAD AND live greeting when the Vix card opens!
   useEffect(() => {
+    let cancelled = false;
     void startHardwareMicrophoneWithVAD();
+
+    const greetImmediately = async () => {
+      try {
+        const resp = await fetch(`${VIX_AGENT_URL}/vix/session/start`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            firstName: studentFirstName,
+            mode: 'PRACTICE',
+            locale: lang,
+            voice,
+            brain,
+            experimentTitle,
+          }),
+        });
+        if (!cancelled && resp.ok) {
+          const data = await resp.json();
+          if (typeof window !== 'undefined' && data.sessionId) {
+            window.sessionStorage.setItem('vix_session_id', data.sessionId);
+          }
+          if (data.greeting) {
+            setCustomReply(data.greeting);
+            await speakAndTypeSimultaneously(data.greeting, data.sentences);
+          }
+        }
+      } catch {
+        // Keep bench explanation visible if offline
+      }
+    };
+    void greetImmediately();
+
     return () => {
+      cancelled = true;
       stopHardwareMicrophone();
     };
   }, []);
@@ -1679,25 +1716,41 @@ export function VixSpotlightFloatingCard({
           </div>
         </div>
 
-        {/* Hot-Swap LLM Brain Bar */}
-        <div className="flex items-center gap-2 bg-[#121A2B] border border-[#22304A] rounded-xl px-2.5 py-1.5">
-          <Cpu className="w-3.5 h-3.5 text-[#F97316] shrink-0" />
+        {/* Hot-Swap LLM Brain + Voice Selector Row */}
+        <div className="grid grid-cols-12 gap-1.5">
+          <div className="col-span-8 flex items-center gap-1.5 bg-[#121A2B] border border-[#22304A] rounded-xl px-2.5 py-1.5">
+            <Cpu className="w-3.5 h-3.5 text-[#F97316] shrink-0" />
+            <select
+              aria-label="Active LLM brain"
+              value={brain}
+              onChange={(e) => {
+                setBrain(e.target.value);
+                if (typeof window !== 'undefined') {
+                  window.sessionStorage.setItem('vix_brain', e.target.value);
+                }
+              }}
+              className="w-full bg-transparent text-[11px] font-mono text-[#E6EBF5] focus:outline-none"
+            >
+              {VIX_BRAIN_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id} className="bg-[#0B1220]">
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <select
-            aria-label="Active LLM brain"
-            value={brain}
+            aria-label="Vix voice persona"
+            value={voice}
             onChange={(e) => {
-              setBrain(e.target.value);
-              if (typeof window !== 'undefined') {
-                window.sessionStorage.setItem('vix_brain', e.target.value);
-              }
+              const nextVoice = e.target.value as 'ada' | 'tunde' | 'grace';
+              onChangeVoice?.(nextVoice);
             }}
-            className="w-full bg-transparent text-[11px] font-mono text-[#E6EBF5] focus:outline-none"
+            className="col-span-4 bg-[#121A2B] border border-[#22304A] rounded-xl px-2 py-1.5 text-[11px] font-semibold text-[#FDBA74] focus:outline-none focus:border-[#F97316]"
           >
-            {VIX_BRAIN_OPTIONS.map((opt) => (
-              <option key={opt.id} value={opt.id} className="bg-[#0B1220]">
-                {opt.label}
-              </option>
-            ))}
+            <option value="ada" className="bg-[#0B1220]">Ada (NG)</option>
+            <option value="tunde" className="bg-[#0B1220]">Tunde (NG)</option>
+            <option value="grace" className="bg-[#0B1220]">Grace (UK)</option>
           </select>
         </div>
 
@@ -1851,10 +1904,23 @@ export function VixSpotlightFloatingCard({
           </button>
         </div>
 
-        {/* Region Spotlight Chips */}
-        <div>
-          <div className="flex items-center justify-between text-[11px] text-[#93A0B8] mb-1.5">
-            <span>Tour every region or click Point above for any tiny component/pin</span>
+        {/* Region Spotlight Chips + Worked Analogous Example Quick Action */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[11px] text-[#93A0B8]">
+              Tour a region or see a worked example
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                void handleAskQuestion(
+                  'Show me how to handle this practical step-by-step using a worked example from another lab so I can practice myself.'
+                );
+              }}
+              className="px-2.5 py-1 rounded-full bg-[#1C2A47] hover:bg-[#24375E] border border-[#3B82F6]/40 text-[10px] font-semibold text-[#93C5FD] cursor-pointer shrink-0"
+            >
+              Worked example (another lab)
+            </button>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {VIX_TOUR_STEPS.map((st, idx) => (

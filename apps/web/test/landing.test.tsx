@@ -67,7 +67,7 @@ describe('Lab Workspaces & Core Screens', () => {
     }
   });
 
-  it('opens the in-lab Vix Connect modal and transitions to the live spotlight tour over the active bench', () => {
+  it('opens the live conversational Vix floating guide immediately over the active bench on Call Vix', () => {
     render(
       <MemoryRouter>
         <LabWorkspace labCode="D1" />
@@ -77,22 +77,14 @@ describe('Lab Workspaces & Core Screens', () => {
     const callBtn = screen.getByRole('button', { name: /Call Vix/i });
     fireEvent.click(callBtn);
 
-    // E1 Connect modal appears over the bench
-    expect(
-      screen.getByRole('dialog', { name: /Connect to Vix lab guide/i })
-    ).toBeInTheDocument();
-
-    const connectBtn = screen.getByRole('button', { name: /Connect Vix to bench/i });
-    fireEvent.click(connectBtn);
-
-    const startTourBtn = screen.getByRole('button', { name: /Start live spotlight tour/i });
-    fireEvent.click(startTourBtn);
-
-    // E2 Live spotlight floating card is now active over the bench
+    // Live conversational Vix floating card opens immediately without a blocking modal wall
     expect(
       screen.getByRole('complementary', { name: /Vix live in-lab guide/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/POINTING AT · LAB BENCH/i)).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: /Worked example \(another lab\)/i })
+    ).toBeInTheDocument();
   });
 
   it('starts with an empty readings table (0/20) and reaches 20/20 as trials and precautions are recorded', () => {

@@ -50,6 +50,7 @@ VALID_INTENTS: tuple[Intent, ...] = (
     "safety",
     "tour_nav",
     "build_setup",
+    "worked_example",
     "off_topic",
     "forbidden",
 )
@@ -266,6 +267,13 @@ def _classify_intent_fast(user_text: str, screen: ScreenMap | None) -> tuple[Int
     )
     if any(re.search(pat, q) for pat in build_patterns):
         return ("build_setup", 0.98)
+
+    # 1c. Worked Analogous Example (student asks Vix to demonstrate the practical method using a DIFFERENT lab/example)
+    example_patterns = (
+        r"\b(another example|different example|worked example|similar example|show me (?:how|an example)|demonstrate with|practice myself|walk me through an example|example from another lab)\b",
+    )
+    if any(re.search(pat, q) for pat in example_patterns):
+        return ("worked_example", 0.97)
 
     # 2. If student is actively pointing at an element on screen and asks a deictic question ("what is this?", "how do I adjust this?", "why does this show...")
     if screen is not None and screen.pointerTarget is not None and any(
@@ -930,6 +938,56 @@ def build_setup_node(state: VixState) -> VixState:
     return _update_vix(
         state,
         rpc_plan=proposed_rpcs,
+        kg_facts=kg_facts or list(state.get("kg_facts") or []),
+        agent_trace=[m.to_dict() for m in trace_msgs],
+        draft=draft,
+    )
+
+
+def worked_example_node(state: VixState) -> VixState:
+    """Walk the student through how to handle the practical using an ANALOGOUS DIFFERENT LAB so they can practice themselves."""
+    screen = state.get("screen")
+    exp = state.get("experiment") or DEFAULT_PENDULUM_CONTEXT
+    user_text = state.get("user_text") or ""
+    mode = state.get("mode") or "PRACTICE"
+    brain = _get_brain(state)
+
+    # Pick a clearly different analogous laboratory so we teach the experimental skill without leaking their current lab's answer
+    exp_lower = f"{exp.id} {exp.title}".lower()
+    if "pendulum" in exp_lower or "phy." in exp_lower:
+        analogous_lab = "Hooke's Law spiral spring extension experiment (plotting load Force F against extension e to find spring constant k from the slope)"
+    elif "ohm" in exp_lower or "elec." in exp_lower:
+        analogous_lab = "Simple Pendulum experiment (varying length L, taking repeated timings, plotting T² against L, and finding the gradient from a large triangle)"
+    elif "titration" in exp_lower or "chem." in exp_lower:
+        analogous_lab = "Qualitative salt analysis & neutralization check (rinsing glassware, reading the meniscus at eye level, and taking concordant repeat runs)"
+    else:
+        analogous_lab = "Verifying Ohm's Law (varying rheostat resistance, reading meters at eye level without parallax, recording a table, and finding the slope of a straight-line graph)"
+
+    trace_msgs, kg_facts, _ = _AUTOGEN_TEAM.run_consultation(
+        intent="concept",
+        user_text=user_text,
+        screen=screen,
+        experiment=exp,
+        bm25_passages=[],
+    )
+
+    prompt = (
+        f'Student asked: "{user_text}"\n'
+        f"Student's current lab: {exp.title} (Mode: {mode})\n"
+        f"Chosen DIFFERENT analogous lab example: {analogous_lab}\n\n"
+        "Instructions:\n"
+        "1. Teach the student HOW to handle the practical technique step-by-step using the DIFFERENT analogous lab above (setting the independent variable, taking clean repeated readings, plotting the line of best fit with a large slope triangle, and stating physical precautions) so they can transfer the method and practice their own lab themselves.\n"
+        "2. Do NOT give away any readings, slopes, or answers for their current lab. Keep it warm, vivid, and concise (3 sentences max), ending with a Socratic prompt inviting them to try Step 1 on their own bench.\n"
+        "3. If Mode is GRADED, describe the analogous method conceptually without writing raw measured numbers with units."
+    )
+    draft = brain.generate_sync(
+        prompt,
+        system=_build_system_prompt(state),
+        fast=True,
+        max_tokens=240,
+    )
+    return _update_vix(
+        state,
         kg_facts=kg_facts or list(state.get("kg_facts") or []),
         agent_trace=[m.to_dict() for m in trace_msgs],
         draft=draft,
