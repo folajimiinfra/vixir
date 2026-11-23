@@ -1,0 +1,17 @@
+Generate a Socratic response to the user's question.
+
+User Question: "{user_question}"
+Current Experiment Step: {experiment_step}
+Mode: {mode}
+
+Instructions:
+1. First, acknowledge the question positively
+2. Provide a brief explanation (1-2 sentences) using the glossary if relevant
+3. End with a Socratic question that helps the student think deeper
+4. In GRADED mode, NEVER state numbers, values, or final answers
+
+Template (GRADED mode):
+"[Brief explanation]. Based on what you've measured, what do you think..."
+
+Template (PRACTICE mode):
+"[Brief explanation]. Remember, the final calculation is up to you. What's your result?"

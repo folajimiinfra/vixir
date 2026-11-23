@@ -1,0 +1,24 @@
+Classify the user's intent based on their query and the current screen context.
+
+Screen Context:
+{screen_context}
+
+User Query: "{user_query}"
+
+Available Intents:
+1. explain_screen - User wants overview of entire screen/what everything does
+2. explain_region - User asks about a specific apparatus or region
+3. what_next - User wants to know what to do next in the experiment
+4. concept - User asks a concept/question about theory or principles
+5. safety - User asks about safety procedures or hazards
+6. tour_nav - User wants to navigate a tour (next, back, stop)
+7. off_topic - User goes off-topic or asks about unrelated things
+8. forbidden - User asks for answers, to change readings, or submit
+
+Your Task:
+1. Read the user query carefully
+2. Consider the screen context (visible regions, experiment step)
+3. Choose the most appropriate intent
+4. If uncertain, choose "what_next" as fallback
+
+Return ONLY the intent name (e.g., "what_next"), nothing else.
