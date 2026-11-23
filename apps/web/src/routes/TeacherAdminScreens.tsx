@@ -312,13 +312,13 @@ export function AssignExperimentScreen() {
             classId: targetClass.id,
             experimentId: 'phy.pendulum.g',
             experimentVersion: 1,
-            title: experiment,
+            instructions,
             mode: mode.toUpperCase() as PracticalMode,
             opensAt: now.toISOString(),
             dueAt: due.toISOString(),
             noiseLevel: noiseLevel === 0 ? 'NONE' : noiseLevel === 1 ? 'LOW' : 'REALISTIC',
             attemptsAllowed: 2,
-            releasePolicy: autoRelease ? 'IMMEDIATE' : 'MANUAL',
+            releasePolicy: autoRelease ? 'AUTO' : 'MANUAL',
           });
           await vixirApi.publishAssignment(created.id).catch(() => {});
         }

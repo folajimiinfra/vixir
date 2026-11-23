@@ -1,0 +1,9 @@
+**/node_modules
+**/.venv
+**/.turbo
+**/dist
+**/build
+.git
+.kiro
+apps/web
+apps/vix-agent

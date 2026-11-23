@@ -58,29 +58,29 @@ export interface AssignmentSummary {
   classId: string;
   experimentId: string;
   experimentVersion: number;
-  title: string;
+  title?: string;
   mode: PracticalMode;
   opensAt: string;
   dueAt: string;
-  timeLimitMinutes: number | null;
+  timeLimitMinutes?: number | null;
   noiseLevel: string;
   attemptsAllowed: number;
   releasePolicy: string;
   status: string;
+  createdAt?: string;
 }
 
 export interface CreateAssignmentPayload {
   classId: string;
   experimentId: string;
-  experimentVersion?: number;
-  title: string;
+  experimentVersion: number;
   mode: PracticalMode;
+  instructions?: string;
   opensAt: string;
   dueAt: string;
-  timeLimitMinutes?: number | null;
   noiseLevel?: 'NONE' | 'LOW' | 'REALISTIC';
   attemptsAllowed?: number;
-  releasePolicy?: 'IMMEDIATE' | 'ON_DUE_DATE' | 'MANUAL';
+  releasePolicy?: 'AUTO' | 'MANUAL';
 }
 
 export interface ExperimentSummary {
