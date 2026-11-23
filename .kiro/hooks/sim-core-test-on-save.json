@@ -1,0 +1,14 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run sim-core property tests on save",
+      "trigger": "PostFileSave",
+      "filePattern": "packages/sim-core/**",
+      "action": {
+        "type": "command",
+        "command": "cd /home/imfolajimi/Desktop/projects/sandbox/vixir && pnpm --filter @vixir/sim-core test"
+      }
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+Rewrite the response to avoid violating the policy.
+
+Original Response: "{original_response}"
+Policy Violation: {violation_reason}
+Mode: {mode}
+
+Instructions:
+1. Identify what part of the response violates the policy
+2. Rewrite to avoid the violation while keeping helpful intent
+3. In GRADED mode: never state numbers, values, or final answers
+4. Use Socratic questioning instead of direct statements
+5. Keep it brief (1-2 sentences)
+
+Return ONLY the rewritten response, nothing else.

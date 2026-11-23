@@ -18,7 +18,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 
 ## Requirements
 
-### Requirement 1 — Registration and sign-in (P0)
+### Requirement 1: Registration and sign-in (P0)
 **User Story:** As a student, teacher or admin, I want to create an account and sign in, so that my work is saved and I see the right tools.
 
 #### Acceptance Criteria
@@ -34,7 +34,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 10. IF a user is DISABLED THEN THE API SHALL refuse sign-in with 403 `USER_DISABLED`.
 11. THE API SHALL rate-limit `/auth/*` to 10 requests per minute per IP and per email.
 
-### Requirement 2 — Authorization (P0)
+### Requirement 2: Authorization (P0)
 **User Story:** As a school, I want each person to see only what they should, so that student data stays private.
 
 #### Acceptance Criteria
@@ -45,7 +45,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. IF a principal requests a resource outside these rules THEN THE API SHALL return 404 (not 403) so resource existence is not revealed.
 6. THE API SHALL enforce these rules in the service layer with method security, and SHALL have an integration test per rule.
 
-### Requirement 3 — Institutions, users and settings (P0 minimal, P1 full)
+### Requirement 3: Institutions, users and settings (P0 minimal, P1 full)
 **User Story:** As an institution admin, I want to set up my school and its people, so that teachers and students can start quickly.
 
 #### Acceptance Criteria
@@ -55,7 +55,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 4. (P1) THE API SHALL let an admin read and update institution settings, and SHALL apply `vix_enabled` to all new Vix sessions immediately.
 5. (P2) WHEN an admin requests a data export for a user THE API SHALL produce a JSON archive of that user's data within 24 hours.
 
-### Requirement 4 — Classes and enrolment (P0)
+### Requirement 4: Classes and enrolment (P0)
 **User Story:** As a teacher, I want to create classes and let students join with a code, so that I can assign practicals to groups.
 
 #### Acceptance Criteria
@@ -66,7 +66,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. THE API SHALL let an owner teacher list enrolled students and remove a student from the class.
 6. THE API SHALL let a teacher list their classes with student counts, and a student list their classes.
 
-### Requirement 5 — Experiment catalogue (P0)
+### Requirement 5: Experiment catalogue (P0)
 **User Story:** As a student or teacher, I want to browse experiments by subject, level and curriculum, so that I can find the right practical.
 
 #### Acceptance Criteria
@@ -76,7 +76,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 4. THE API SHALL return a specific experiment version's full config, procedure, precautions and rubric summary.
 5. THE API SHALL never change a PUBLISHED version in place; edits create a new version.
 
-### Requirement 6 — Assignments (P0)
+### Requirement 6: Assignments (P0)
 **User Story:** As a teacher, I want to assign an experiment to my classes with a due date and mode, so that every student practises.
 
 #### Acceptance Criteria
@@ -87,7 +87,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. WHEN the due time passes THE API SHALL refuse new attempts and submissions for that assignment with 409 `DUE_DATE_PASSED`, except offline submissions under Requirement 9.4.
 6. THE API SHALL let a teacher close an assignment early.
 
-### Requirement 7 — Attempts (P0)
+### Requirement 7: Attempts (P0)
 **User Story:** As a student, I want to start, leave and resume a practical without losing my bench.
 
 #### Acceptance Criteria
@@ -98,7 +98,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. (P0) THE API SHALL allow anonymous practice attempts from the landing page, without a user, limited to 20 per IP per hour, deleted after 24 hours.
 6. THE API SHALL never return the experiment's hidden values; only the seed and config (the web derives them).
 
-### Requirement 8 — Event log ingest (P0)
+### Requirement 8: Event log ingest (P0)
 **User Story:** As a teacher, I want every bench action stored reliably, even from patchy connections, so that I can review how work was done.
 
 #### Acceptance Criteria
@@ -110,7 +110,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 6. THE API SHALL return events after a given seq for resume and for bench replay.
 7. THE API SHALL accept event payloads up to 8 KB each and reject larger ones with 413.
 
-### Requirement 9 — Submission (P0)
+### Requirement 9: Submission (P0)
 **User Story:** As a student, I want to submit my results and know they were received, so that I can be marked.
 
 #### Acceptance Criteria
@@ -121,7 +121,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. WHEN a submission is stored THE API SHALL enqueue marking and return 202 within 500 ms.
 6. THE API SHALL make submit idempotent by `Idempotency-Key`.
 
-### Requirement 10 — Authoritative marking (P0)
+### Requirement 10: Authoritative marking (P0)
 **User Story:** As a teacher, I want each student marked step by step against their own data, so that marking is fair and fast.
 
 #### Acceptance Criteria
@@ -136,7 +136,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 9. WHEN marking completes and release_policy is AUTO THE API SHALL set the attempt to RELEASED; WHEN MANUAL THE API SHALL set it to MARKED.
 10. THE Marker SHALL have no Spring or database dependencies inside the evaluator so it can be property-tested with jqwik.
 
-### Requirement 11 — Review flags (P0 basic, P1 full)
+### Requirement 11: Review flags (P0 basic, P1 full)
 **User Story:** As a teacher, I want suspicious or unusual work highlighted, so that I review only what needs me.
 
 #### Acceptance Criteria
@@ -144,7 +144,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 2. WHEN a student's Implied value is more than 3 robust standard deviations (median absolute deviation) from the class median THE API SHALL raise OUTLIER_RESULT.
 3. THE API SHALL let an owner teacher list open flags for an assignment and resolve them with a note recorded in audit_log.
 
-### Requirement 12 — Teacher results, analytics and release (P0)
+### Requirement 12: Teacher results, analytics and release (P0)
 **User Story:** As a teacher, I want class-wide results and common mistakes, so that I can teach what the class got wrong.
 
 #### Acceptance Criteria
@@ -155,7 +155,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 5. WHEN a teacher releases marks for an assignment THE API SHALL set released_at on every MARKED submission and move attempts to RELEASED.
 6. THE API SHALL let a student read their report only when the attempt is RELEASED.
 
-### Requirement 13 — Vix session bootstrap (P0)
+### Requirement 13: Vix session bootstrap (P0)
 **User Story:** As a student, I want to call Vix safely, so that I get help without breaking exam rules.
 
 #### Acceptance Criteria
@@ -167,14 +167,14 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 6. WHERE transcript retention is enabled THE API SHALL store VIX_MESSAGE rows sent by the agent; otherwise it SHALL store only the turn count.
 7. THE API SHALL serve scripted tours per screen code from experiment configs and `tours/*.json`, publicly cacheable.
 
-### Requirement 14 — Admin overview (P1)
+### Requirement 14: Admin overview (P1)
 **User Story:** As an admin, I want to see usage, so that I can report to my principal or accreditation team.
 
 #### Acceptance Criteria
 1. THE API SHALL return per institution: active students, teachers, classes, practicals completed this term by subject, and Vix sessions this term.
 2. THE API SHALL return the audit log filtered by actor, action and date.
 
-### Requirement 15 — Operability (P0)
+### Requirement 15: Operability (P0)
 **User Story:** As the team, I want the API easy to run, test and debug, so that we ship on time.
 
 #### Acceptance Criteria
@@ -186,7 +186,7 @@ Priorities: P0 = needed for the Kiroween demo (Dec 4, 2026). P1 = after P0 is gr
 6. THE API SHALL apply all schema changes through Flyway, and `./gradlew test` SHALL run them against Testcontainers Postgres.
 7. THE API SHALL respond within 300 ms p95 for reads and 500 ms p95 for writes at 100 concurrent users on one 1 vCPU / 1 GB container.
 
-### Requirement 16 — Demo seed (P0)
+### Requirement 16: Demo seed (P0)
 **User Story:** As a judge, I want to log in and see a realistic class immediately.
 
 #### Acceptance Criteria

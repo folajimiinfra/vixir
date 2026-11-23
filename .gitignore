@@ -1,4 +1,4 @@
-# Do NOT ignore .kiro — Kiroween requires it in the repo.
+
 node_modules/
 dist/
 build/

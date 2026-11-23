@@ -1,20 +1,56 @@
 @import "tailwindcss";
 
 @theme {
-  --color-primary: #2448D8;
-  --color-primary-strong: #1A36A8;
-  --color-primary-soft: #EAEFFE;
-  --color-ink: #0E1726;
-  --color-muted: #5B6576;
-  --color-line: #E3E8EF;
-  --color-page: #F5F7FA;
-  --color-lab-bg: #0B1220;
-  --color-lab-panel: #121A2B;
-  --color-lab-line: #22304A;
-  --font-heading: "Space Grotesk", system-ui, sans-serif;
-  --font-sans: Inter, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-body { @apply bg-page text-ink font-sans; }
-@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    color: #0E1726;
+    background-color: #F5F7FA;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+.lab-grid-bg {
+  background-color: #0D1526;
+  background-image:
+    linear-gradient(to right, rgba(34, 48, 74, 0.35) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(34, 48, 74, 0.35) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.lab-dot-bg {
+  background-color: #0D1526;
+  background-image: radial-gradient(rgba(85, 104, 140, 0.45) 1.25px, transparent 1.25px);
+  background-size: 20px 20px;
+}
+
+@keyframes pendulum-bob-swing {
+  0% {
+    transform: rotate(-16deg);
+  }
+  100% {
+    transform: rotate(16deg);
+  }
+}
+
+.pendulum-pivot-swing {
+  transform-origin: 135px 52px;
+  animation: pendulum-bob-swing 1.25s ease-in-out infinite alternate;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pendulum-pivot-swing {
+    animation: none;
+    transform: rotate(16deg);
+  }
+}

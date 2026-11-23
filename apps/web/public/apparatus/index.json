@@ -1,0 +1,27 @@
+{
+  "screen": "B5",
+  "note": "Isometric apparatus drawings for the B5 Apparatus encyclopedia (spec: apparatus-encyclopedia). Labels are baked into each SVG.",
+  "items": [
+    { "id": "compound-microscope", "name": "Compound light microscope", "labs": ["biology"], "file": "/apparatus/compound-microscope.svg", "practiseIn": "D4" },
+    { "id": "dissecting-kit", "name": "Dissecting kit & wax tray", "labs": ["biology"], "file": "/apparatus/dissecting-kit.svg", "practiseIn": "D4" },
+    { "id": "potometer", "name": "Bubble potometer (transpiration)", "labs": ["biology"], "file": "/apparatus/potometer.svg", "practiseIn": "D3" },
+    { "id": "petri-slides", "name": "Petri dish, slides & cover slips", "labs": ["biology"], "file": "/apparatus/petri-slides.svg", "practiseIn": "D3" },
+    { "id": "retort-stand", "name": "Retort stand, boss & clamp", "labs": ["physics", "chemistry", "biology", "electronics", "engineering"], "file": "/apparatus/retort-stand.svg", "practiseIn": "D1" },
+    { "id": "burette", "name": "Burette (50 cm³)", "labs": ["chemistry"], "file": "/apparatus/burette.svg", "practiseIn": "D2" },
+    { "id": "conical-flask", "name": "Conical flask (250 cm³)", "labs": ["chemistry"], "file": "/apparatus/conical-flask.svg", "practiseIn": "D2" },
+    { "id": "volumetric-pipette", "name": "Volumetric pipette (25.0 cm³)", "labs": ["chemistry"], "file": "/apparatus/volumetric-pipette.svg", "practiseIn": "D2" },
+    { "id": "beaker", "name": "Beaker (250 cm³)", "labs": ["chemistry", "physics", "biology"], "file": "/apparatus/beaker.svg", "practiseIn": "D2" },
+    { "id": "bunsen-burner", "name": "Bunsen burner, tripod & wire gauze", "labs": ["chemistry", "biology"], "file": "/apparatus/bunsen-burner.svg", "practiseIn": "D2" },
+    { "id": "test-tube-rack", "name": "Test-tube rack, test tubes & boiling tube", "labs": ["chemistry", "biology"], "file": "/apparatus/test-tube-rack.svg", "practiseIn": "D3" },
+    { "id": "metre-rule", "name": "Metre rule (100 cm)", "labs": ["physics", "engineering"], "file": "/apparatus/metre-rule.svg", "practiseIn": "D1" },
+    { "id": "micrometer", "name": "Micrometer screw gauge (0.01 mm)", "labs": ["physics", "engineering"], "file": "/apparatus/micrometer.svg", "practiseIn": "D6" },
+    { "id": "vernier-caliper", "name": "Vernier caliper (0.1 mm / 0.02 mm)", "labs": ["engineering", "physics"], "file": "/apparatus/vernier-caliper.svg", "practiseIn": "D7" },
+    { "id": "glass-block", "name": "Rectangular glass block & optical pins", "labs": ["physics"], "file": "/apparatus/glass-block.svg", "practiseIn": "D1" },
+    { "id": "calorimeter", "name": "Copper calorimeter & thermometer", "labs": ["physics", "chemistry"], "file": "/apparatus/calorimeter.svg", "practiseIn": "D1" },
+    { "id": "voltmeter", "name": "Analogue voltmeter & ammeter", "labs": ["electronics", "physics"], "file": "/apparatus/voltmeter.svg", "practiseIn": "D6" },
+    { "id": "rheostat", "name": "Sliding rheostat (variable resistor)", "labs": ["electronics", "physics"], "file": "/apparatus/rheostat.svg", "practiseIn": "D6" },
+    { "id": "breadboard-dmm", "name": "Solderless breadboard & digital multimeter", "labs": ["electronics"], "file": "/apparatus/breadboard-dmm.svg", "practiseIn": "D6" },
+    { "id": "dial-gauge", "name": "Dial gauge on magnetic stand", "labs": ["engineering"], "file": "/apparatus/dial-gauge.svg", "practiseIn": "D7" },
+    { "id": "venturi-manometer", "name": "Venturi tube & multi-tube manometer", "labs": ["engineering", "physics"], "file": "/apparatus/venturi-manometer.svg", "practiseIn": "D7" }
+  ]
+}

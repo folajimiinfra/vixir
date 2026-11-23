@@ -1,0 +1,40 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Test-tube rack, test tubes and boiling tube" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+  <!-- Wooden Test-Tube Rack Base & Top Shelf -->
+  <path d="M66 232 L256 232 L280 212 L90 212 Z" fill="#B45309" stroke="#451A03" stroke-width="0.9"/>
+  <rect x="66" y="232" width="190" height="10" fill="#78350F" stroke="#451A03" stroke-width="0.9"/>
+  <rect x="74" y="138" width="10" height="94" fill="#92400E" stroke="#451A03" stroke-width="0.9"/>
+  <rect x="244" y="138" width="10" height="94" fill="#92400E" stroke="#451A03" stroke-width="0.9"/>
+  <path d="M66 138 L256 138 L280 120 L90 120 Z" fill="#D97706" stroke="#451A03" stroke-width="0.9"/>
+
+  <!-- 3 Test Tubes & 1 Wide Boiling Tube -->
+  <!-- Tube 1: Blue Cu²⁺ solution -->
+  <path d="M104 92 L104 214 A9 9 0 0 0 122 214 L122 92 Z" fill="rgba(186,230,253,0.35)" stroke="#0284C7" stroke-width="1"/>
+  <path d="M105 170 L105 214 A8 8 0 0 0 121 214 L121 170 Z" fill="rgba(37,99,235,0.65)"/>
+
+  <!-- Tube 2: Fe³⁺ reddish-brown precipitate -->
+  <path d="M144 92 L144 214 A9 9 0 0 0 162 214 L162 92 Z" fill="rgba(186,230,253,0.35)" stroke="#0284C7" stroke-width="1"/>
+  <path d="M145 176 L145 214 A8 8 0 0 0 161 214 L161 176 Z" fill="rgba(180,83,9,0.78)"/>
+
+  <!-- Tube 3: AgCl white precipitate -->
+  <path d="M184 92 L184 214 A9 9 0 0 0 202 214 L202 92 Z" fill="rgba(186,230,253,0.35)" stroke="#0284C7" stroke-width="1"/>
+  <path d="M185 184 L185 214 A8 8 0 0 0 201 214 L201 184 Z" fill="rgba(241,245,249,0.9)"/>
+
+  <!-- Wide Boiling Tube for heating -->
+  <path d="M218 82 L218 214 A13 13 0 0 0 244 214 L244 82 Z" fill="rgba(186,230,253,0.35)" stroke="#0284C7" stroke-width="1.1"/>
+
+  <!-- Callouts -->
+  <line x1="113" y1="92" x2="88" y2="56" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="113" cy="92" r="2" fill="#2448D8"/>
+  <rect x="18" y="42" width="114" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="23" y="52" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Test tubes (qualitative tests)</text>
+
+  <line x1="232" y1="84" x2="256" y2="54" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="232" cy="84" r="2" fill="#2448D8"/>
+  <rect x="220" y="40" width="122" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="225" y="50" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Wide boiling tube (for heating)</text>
+
+  <line x1="153" y1="196" x2="112" y2="266" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="153" cy="196" r="2" fill="#2448D8"/>
+  <rect x="44" y="266" width="128" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="49" y="276" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Precipitate &amp; colour observation</text>
+</svg>

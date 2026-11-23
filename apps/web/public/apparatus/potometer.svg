@@ -1,0 +1,53 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Bubble Potometer for transpiration rate" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+  <!-- Wooden base board -->
+  <path d="M40 246 L285 246 L315 224 L70 224 Z" fill="#94A3B8" stroke="#0F172A" stroke-width="0.8"/>
+  <rect x="40" y="246" width="245" height="8" fill="#475569" stroke="#0F172A" stroke-width="0.8"/>
+
+  <!-- Wide glass tube & rubber bung holding leafy shoot -->
+  <rect x="78" y="116" width="26" height="114" rx="4" fill="rgba(147,197,253,0.45)" stroke="#3B82F6" stroke-width="1"/>
+  <rect x="76" y="102" width="30" height="16" rx="3" fill="#334155" stroke="#0F172A" stroke-width="0.9"/>
+
+  <!-- Leafy shoot sealed in bung with petroleum jelly -->
+  <path d="M91 130 L91 38" stroke="#15803D" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M91 82 C 65 75, 58 55, 78 52 C 88 52, 91 68, 91 82 Z" fill="#22C55E" stroke="#166534" stroke-width="0.8"/>
+  <path d="M91 66 C 118 58, 125 38, 105 36 C 95 36, 91 52, 91 66 Z" fill="#4ADE80" stroke="#166534" stroke-width="0.8"/>
+  <path d="M91 50 C 72 40, 68 24, 84 22 C 92 22, 91 38, 91 50 Z" fill="#22C55E" stroke="#166534" stroke-width="0.8"/>
+
+  <!-- Reservoir funnel & stopcock tap (to reset air bubble) -->
+  <rect x="136" y="96" width="20" height="72" rx="3" fill="rgba(147,197,253,0.45)" stroke="#3B82F6" stroke-width="1"/>
+  <rect x="132" y="170" width="28" height="7" rx="2" fill="#F97316" stroke="#9A3412" stroke-width="0.8"/>
+  <rect x="142" y="168" width="8" height="32" fill="rgba(147,197,253,0.45)" stroke="#3B82F6" stroke-width="0.9"/>
+
+  <!-- Horizontal graduated capillary tube with mm scale -->
+  <rect x="104" y="196" width="176" height="9" fill="rgba(147,197,253,0.5)" stroke="#2563EB" stroke-width="1"/>
+  <!-- Air bubble inside capillary tube -->
+  <rect x="208" y="197.5" width="9" height="6" rx="3" fill="#FFFFFF" stroke="#1D4ED8" stroke-width="1"/>
+  <!-- Millimetre scale backing -->
+  <rect x="156" y="182" width="110" height="12" fill="#FEF9C3" stroke="#CA8A04" stroke-width="0.8"/>
+  <line x1="166" y1="182" x2="166" y2="189" stroke="#713F12" stroke-width="0.8"/>
+  <line x1="186" y1="182" x2="186" y2="189" stroke="#713F12" stroke-width="0.8"/>
+  <line x1="206" y1="182" x2="206" y2="189" stroke="#713F12" stroke-width="0.8"/>
+  <line x1="226" y1="182" x2="226" y2="189" stroke="#713F12" stroke-width="0.8"/>
+  <line x1="246" y1="182" x2="246" y2="189" stroke="#713F12" stroke-width="0.8"/>
+
+  <!-- Vertical bent end dipping into beaker of water -->
+  <rect x="272" y="196" width="8" height="38" fill="rgba(147,197,253,0.5)" stroke="#2563EB" stroke-width="1"/>
+  <rect x="256" y="206" width="40" height="38" rx="3" fill="rgba(186,230,253,0.3)" stroke="#3B82F6" stroke-width="1"/>
+  <rect x="258" y="218" width="36" height="24" fill="rgba(96,165,250,0.45)"/>
+
+  <!-- Callouts -->
+  <line x1="108" y1="48" x2="152" y2="34" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="108" cy="48" r="2" fill="#2448D8"/>
+  <rect x="152" y="27" width="106" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="157" y="37" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Leafy shoot (cut under water)</text>
+
+  <line x1="146" y1="112" x2="198" y2="96" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="146" cy="112" r="2" fill="#2448D8"/>
+  <rect x="198" y="89" width="114" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="203" y="99" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Reservoir &amp; zero-reset tap</text>
+
+  <line x1="212" y1="201" x2="232" y2="146" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="212" cy="201" r="2" fill="#2448D8"/>
+  <rect x="210" y="132" width="118" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="215" y="142" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Air bubble &amp; mm capillary scale</text>
+</svg>

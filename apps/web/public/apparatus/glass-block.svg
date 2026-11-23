@@ -1,0 +1,40 @@
+<svg viewBox="0 0 360 300" role="img" aria-label="Isometric drawing of a Rectangular glass block and optical pins" xmlns="http://www.w3.org/2000/svg" width="720" height="600">
+  <!-- White paper sheet on drawing board -->
+  <path d="M40 162 L196 244 L320 176 L164 94 Z" fill="#F8FAFC" stroke="#94A3B8" stroke-width="1"/>
+  <!-- Normal dashed line -->
+  <line x1="126" y1="126" x2="226" y2="196" stroke="#64748B" stroke-width="0.9" stroke-dasharray="3 3"/>
+
+  <!-- Isometric Crown Glass Block -->
+  <path d="M114 150 L204 198 L254 170 L164 122 Z" fill="rgba(186,230,253,0.52)" stroke="#0284C7" stroke-width="1.1" stroke-linejoin="round"/>
+  <path d="M114 150 L204 198 L204 218 L114 170 Z" fill="rgba(125,211,252,0.45)" stroke="#0284C7" stroke-width="1.1" stroke-linejoin="round"/>
+  <path d="M204 198 L254 170 L254 190 L204 218 Z" fill="rgba(56,189,248,0.4)" stroke="#0284C7" stroke-width="1.1" stroke-linejoin="round"/>
+
+  <!-- Refracted light ray path through block -->
+  <path d="M84 186 L154 170 L214 148 L280 132" fill="none" stroke="#EF4444" stroke-width="1.6"/>
+
+  <!-- Optical Pins P1, P2, P3, P4 -->
+  <line x1="100" y1="182" x2="100" y2="156" stroke="#334155" stroke-width="1.5"/>
+  <circle cx="100" cy="154" r="3" fill="#EF4444"/>
+  <line x1="130" y1="175" x2="130" y2="149" stroke="#334155" stroke-width="1.5"/>
+  <circle cx="130" cy="147" r="3" fill="#EF4444"/>
+  <line x1="238" y1="142" x2="238" y2="116" stroke="#334155" stroke-width="1.5"/>
+  <circle cx="238" cy="114" r="3" fill="#2563EB"/>
+  <line x1="268" y1="135" x2="268" y2="109" stroke="#334155" stroke-width="1.5"/>
+  <circle cx="268" cy="107" r="3" fill="#2563EB"/>
+
+  <!-- Callouts -->
+  <line x1="184" y1="158" x2="146" y2="74" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="184" cy="158" r="2" fill="#2448D8"/>
+  <rect x="48" y="60" width="124" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="53" y="70" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Rectangular glass block (n≈1.5)</text>
+
+  <line x1="100" y1="154" x2="72" y2="232" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="100" cy="154" r="2" fill="#2448D8"/>
+  <rect x="18" y="232" width="110" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="23" y="242" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Incident pins P₁ &amp; P₂ (≥5 cm)</text>
+
+  <line x1="268" y1="107" x2="268" y2="68" stroke="#2448D8" stroke-width="0.8"/>
+  <circle cx="268" cy="107" r="2" fill="#2448D8"/>
+  <rect x="210" y="54" width="122" height="14" rx="3" fill="#FFFFFF" stroke="#2448D8" stroke-width="0.8"/>
+  <text x="215" y="64" fill="#1A36A8" font-size="8" font-family="Inter" font-weight="600">Search pins P₃ &amp; P₄ (aligned)</text>
+</svg>

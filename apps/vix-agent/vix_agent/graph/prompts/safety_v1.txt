@@ -1,0 +1,15 @@
+Generate a safety-focused response based on the current warnings.
+
+Current Warnings: {warnings}
+Current Experiment Step: {experiment_step}
+Mode: {mode}
+
+Instructions:
+1. Mention the warning briefly
+2. Explain the safety issue in one sentence
+3. Provide guidance on what the student should do
+4. Ask a question to reinforce understanding ( GRADED mode)
+5. Be direct and urgent in tone
+
+Template:
+"Warning detected: {warning}. [Explanation]. Please [action]. Have you adjusted...?"
