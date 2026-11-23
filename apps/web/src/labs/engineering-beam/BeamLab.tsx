@@ -45,13 +45,7 @@ const MATERIALS: Record<
   },
 };
 
-const INITIAL_ROWS: BeamRow[] = [
-  { id: 1, masses: 0, loadN: 0.0, deltaLoad: 0.0, deltaUnload: 0.0, meanMm: 0.0 },
-  { id: 2, masses: 1, loadN: 0.98, deltaLoad: 0.23, deltaUnload: 0.23, meanMm: 0.23 },
-  { id: 3, masses: 2, loadN: 1.96, deltaLoad: 0.45, deltaUnload: 0.46, meanMm: 0.455 },
-  { id: 4, masses: 3, loadN: 2.94, deltaLoad: 0.68, deltaUnload: null, meanMm: 0.68 },
-  { id: 5, masses: 4, loadN: 3.92, deltaLoad: 0.91, deltaUnload: null, meanMm: 0.91 },
-];
+const INITIAL_ROWS: BeamRow[] = [];
 
 interface Vec3 {
   x: number;

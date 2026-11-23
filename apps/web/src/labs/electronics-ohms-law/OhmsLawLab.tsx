@@ -64,11 +64,7 @@ const DEFAULT_WIRES: CircuitWire[] = [
   { id: 'w7', fromNode: 'vm1', fromTerm: 'b', toNode: 'wx1', toTerm: 'b', parallel: true },
 ];
 
-const INITIAL_READINGS: OhmsReading[] = [
-  { id: 1, rhOhm: 16, currentA: 0.14, voltageV: 0.66, ratioR: 4.71 },
-  { id: 2, rhOhm: 12, currentA: 0.17, voltageV: 0.8, ratioR: 4.71 },
-  { id: 3, rhOhm: 8, currentA: 0.22, voltageV: 1.04, ratioR: 4.73 },
-];
+const INITIAL_READINGS: OhmsReading[] = [];
 
 export function OhmsLawLab() {
   const navigate = useNavigate();

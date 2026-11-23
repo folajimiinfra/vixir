@@ -287,22 +287,7 @@ export function QualitativeAnalysisLab() {
   const [sampleId, setSampleId] = useState<SaltId>('C');
   const [activeReagent, setActiveReagent] = useState<ReagentId>('nh3_excess');
   const [litmusPlaced, setLitmusPlaced] = useState(true);
-  const [records, setRecords] = useState<RecordedObservation[]>([
-    {
-      id: 1,
-      sampleId: 'C',
-      test: 'C(aq) + NaOH(aq) in drops, then excess',
-      observation: 'Light blue gelatinous ppt, insoluble in excess',
-      inference: 'Cu²⁺ present',
-    },
-    {
-      id: 2,
-      sampleId: 'C',
-      test: 'C(aq) + BaCl₂(aq) + dil. HCl',
-      observation: 'White ppt insoluble in dilute HCl',
-      inference: 'SO₄²⁻ confirmed',
-    },
-  ]);
+  const [records, setRecords] = useState<RecordedObservation[]>([]);
   const [logMsg, setLogMsg] = useState(
     'log > Added excess NH₃(aq) to Sample C portion — pale blue ppt dissolved to form a deep royal-blue solution.'
   );

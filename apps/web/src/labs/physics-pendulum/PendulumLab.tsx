@@ -16,17 +16,14 @@ interface PendulumReading {
   periodSquared: number;
 }
 
-const INITIAL_READINGS: PendulumReading[] = [
-  { id: 1, lengthCm: 40.0, timeS: 25.48, oscillations: 20, periodS: 1.274, periodSquared: 1.623 },
-  { id: 2, lengthCm: 50.0, timeS: 28.31, oscillations: 20, periodS: 1.416, periodSquared: 2.004 },
-  { id: 3, lengthCm: 60.0, timeS: 31.27, oscillations: 20, periodS: 1.564, periodSquared: 2.445 },
-];
+const INITIAL_READINGS: PendulumReading[] = [];
 
 export function PendulumLab() {
   const navigate = useNavigate();
   const recordPendulumTrial = useLabSessionStore((s) => s.recordPendulumTrial);
+  const clearPendulumRows = useLabSessionStore((s) => s.clearPendulumRows);
   const seed = useLabSessionStore((s) => s.seed);
-  const [lengthCm, setLengthCm] = useState(70.0);
+  const [lengthCm, setLengthCm] = useState(40.0);
   const [releaseAngle, setReleaseAngle] = useState(8);
   const [isSwinging, setIsSwinging] = useState(true);
   const [currentAngle, setCurrentAngle] = useState(7.9);
@@ -386,42 +383,74 @@ export function PendulumLab() {
 
           {activeTab === 'readings' && (
             <>
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-[#E6EBF5]">
+                  Readings ({readings.length})
+                </span>
+                {readings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReadings([]);
+                      clearPendulumRows();
+                      setLogMsg('log > Cleared readings table.');
+                    }}
+                    className="text-[11px] text-[#93A0B8] hover:text-[#FCA5A5] cursor-pointer"
+                  >
+                    Clear table
+                  </button>
+                )}
+              </div>
+
               {/* Readings Table */}
               <div className="bg-[#121A2B] border border-[#22304A] rounded-xl overflow-hidden">
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
-                      <th className="py-2 px-2.5 text-left">L/cm</th>
-                      <th className="py-2 px-2 text-right">t/s</th>
-                      <th className="py-2 px-1.5 text-right">n</th>
-                      <th className="py-2 px-2 text-right">T/s</th>
-                      <th className="py-2 px-2.5 text-right">T²/s²</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {readings.map((r) => (
-                      <tr
-                        key={r.id}
-                        className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
-                      >
-                        <td className="py-1.5 px-2.5">{r.lengthCm.toFixed(1)}</td>
-                        <td className="py-1.5 px-2 text-right">{r.timeS.toFixed(2)}</td>
-                        <td className="py-1.5 px-1.5 text-right text-[#93A0B8]">
-                          {r.oscillations}
-                        </td>
-                        <td className="py-1.5 px-2 text-right">{r.periodS.toFixed(3)}</td>
-                        <td className="py-1.5 px-2.5 text-right text-[#FDBA74]">
-                          {r.periodSquared.toFixed(3)}
-                        </td>
+                {readings.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-[#93A0B8] leading-relaxed">
+                    No readings recorded yet. Adjust clamp height <strong className="text-white">L</strong>,
+                    time the swing with the stopwatch, and click{' '}
+                    <strong className="text-[#60A5FA]">Record reading</strong> below.
+                  </div>
+                ) : (
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
+                        <th className="py-2 px-2.5 text-left">L/cm</th>
+                        <th className="py-2 px-2 text-right">t/s</th>
+                        <th className="py-2 px-1.5 text-right">n</th>
+                        <th className="py-2 px-2 text-right">T/s</th>
+                        <th className="py-2 px-2.5 text-right">T²/s²</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {readings.map((r) => (
+                        <tr
+                          key={r.id}
+                          className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
+                        >
+                          <td className="py-1.5 px-2.5">{r.lengthCm.toFixed(1)}</td>
+                          <td className="py-1.5 px-2 text-right">{r.timeS.toFixed(2)}</td>
+                          <td className="py-1.5 px-1.5 text-right text-[#93A0B8]">
+                            {r.oscillations}
+                          </td>
+                          <td className="py-1.5 px-2 text-right">{r.periodS.toFixed(3)}</td>
+                          <td className="py-1.5 px-2.5 text-right text-[#FDBA74]">
+                            {r.periodSquared.toFixed(3)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               {/* Live preview chart */}
               <div className="bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5">
-                <div className="text-xs text-[#93A0B8] mb-2">Live preview · T² against L</div>
+                <div className="flex items-center justify-between text-xs text-[#93A0B8] mb-2">
+                  <span>Live preview · T² against L</span>
+                  <span className="font-mono text-[11px] text-[#7DD3FC]">
+                    {readings.length} pt{readings.length === 1 ? '' : 's'} plotted
+                  </span>
+                </div>
                 <svg viewBox="0 0 260 155" className="w-full h-auto">
                   {/* Axes */}
                   <line x1="32" y1="15" x2="32" y2="125" stroke="#3A4A68" strokeWidth="1" />
@@ -447,6 +476,29 @@ export function PendulumLab() {
                   >
                     T² / s²
                   </text>
+
+                  {/* Dynamic best-fit line when 2+ points are recorded */}
+                  {readings.length >= 2 &&
+                    (() => {
+                      const sorted = [...readings].sort((a, b) => a.lengthCm - b.lengthCm);
+                      const first = sorted[0]!;
+                      const last = sorted[sorted.length - 1]!;
+                      const x1 = 32 + ((first.lengthCm / 100 - 0.3) / 0.7) * 205;
+                      const y1 = 125 - (Math.min(first.periodSquared, 4.0) / 4.0) * 100;
+                      const x2 = 32 + ((last.lengthCm / 100 - 0.3) / 0.7) * 205;
+                      const y2 = 125 - (Math.min(last.periodSquared, 4.0) / 4.0) * 100;
+                      return (
+                        <line
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke="#38BDF8"
+                          strokeWidth="1.5"
+                          strokeDasharray="3 3"
+                        />
+                      );
+                    })()}
 
                   {/* Plot points */}
                   {readings.map((r) => {

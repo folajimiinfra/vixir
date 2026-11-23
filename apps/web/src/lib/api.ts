@@ -107,6 +107,19 @@ export interface AttemptEventItem {
   payload: Record<string, unknown>;
 }
 
+export interface AttemptSummary {
+  id: string;
+  assignmentId: string | null;
+  experimentId: string;
+  experimentVersion: number;
+  mode: PracticalMode;
+  attemptNo: number;
+  state: 'IN_PROGRESS' | 'SUBMITTED' | 'ABANDONED';
+  lastEventSeq: number;
+  startedAt: string;
+  submittedAt: string | null;
+}
+
 export interface AttemptBootstrap {
   attemptId: string;
   mode: PracticalMode;
@@ -435,6 +448,10 @@ export const vixirApi = {
   },
 
   // 4. Attempts, Events & Submissions
+  async listMyAttempts(): Promise<AttemptSummary[]> {
+    return apiRequest<AttemptSummary[]>('/api/v1/attempts/me');
+  },
+
   async startAttempt(body: {
     assignmentId?: string;
     experimentId?: string;

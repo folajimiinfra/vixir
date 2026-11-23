@@ -10,6 +10,7 @@ import {
   getStoredAttempt,
   vixirApi,
   type AssignmentSummary,
+  type AttemptSummary,
   type ClassSummary,
   type MarkReportResponse,
 } from '../lib/api';
@@ -118,7 +119,7 @@ function StudentSidebar({
         ) : (
           <div className="px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
-            <span>Connected to Vixir API</span>
+            <span>Connected   </span>
           </div>
         )}
       </div>
@@ -160,6 +161,7 @@ export function StudentDashboardScreen() {
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [apiAssignments, setApiAssignments] = useState<AssignmentSummary[]>([]);
   const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
+  const [apiAttempts, setApiAttempts] = useState<AttemptSummary[]>([]);
   const [latestReport, setLatestReport] = useState<MarkReportResponse | null>(null);
 
   const [joinCodeInput, setJoinCodeInput] = useState('');
@@ -184,16 +186,20 @@ export function StudentDashboardScreen() {
     setFetchError(null);
     try {
       await refreshProfile();
-      const [assignmentsList, classesList] = await Promise.all([
+      const [assignmentsList, classesList, attemptsList] = await Promise.all([
         vixirApi.listMyAssignments(),
         vixirApi.listClasses(),
+        vixirApi.listMyAttempts().catch(() => []),
       ]);
       setApiAssignments(assignmentsList);
       setApiClasses(classesList);
+      setApiAttempts(attemptsList);
 
-      const activeAttempt = getStoredAttempt();
-      if (activeAttempt?.attemptId) {
-        const rep = await vixirApi.getMarkReport(activeAttempt.attemptId).catch(() => null);
+      const submittedAttempt =
+        attemptsList.find((a) => a.state === 'SUBMITTED') ||
+        (getStoredAttempt() ? { id: getStoredAttempt()!.attemptId } : null);
+      if (submittedAttempt?.id) {
+        const rep = await vixirApi.getMarkReport(submittedAttempt.id).catch(() => null);
         if (rep) setLatestReport(rep);
       }
       setIsLoading(false);
@@ -275,8 +281,11 @@ export function StudentDashboardScreen() {
     return title.includes(q) || a.experimentId.toLowerCase().includes(q);
   });
 
-  // Check if the student has any real submitted attempt in this session or from the API
-  const hasSubmittedAttempt = Boolean(submittedAt || latestReport);
+  // Check if the student has any real submitted attempt in PostgreSQL or in this session
+  const submittedAttempts = apiAttempts.filter((a) => a.state === 'SUBMITTED');
+  const hasSubmittedAttempt = Boolean(
+    submittedAttempts.length > 0 || submittedAt || latestReport
+  );
   const localAutoMark = computeAutoMark(rows, precautions, gValue);
 
   const syncStatus: 'loading' | 'synced' | 'error' = isLoading
@@ -660,9 +669,68 @@ export function StudentDashboardScreen() {
   );
 }
 
-// B2 — Laboratories Hub (/labs)
+// B2 — Laboratories Hub (/labs) — Dynamic Attempt Statuses + Loading/Error/Empty States
 export function LabsHubScreen() {
   const navigate = useNavigate();
+  const hasToken = Boolean(getStoredAccessToken());
+  const [isLoading, setIsLoading] = useState<boolean>(hasToken);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [myAttempts, setMyAttempts] = useState<AttemptSummary[]>([]);
+  const [myAssignments, setMyAssignments] = useState<AssignmentSummary[]>([]);
+
+  const loadLabsState = async () => {
+    if (!getStoredAccessToken()) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const [attemptsList, assignmentsList] = await Promise.all([
+        vixirApi.listMyAttempts(),
+        vixirApi.listMyAssignments(),
+      ]);
+      setMyAttempts(attemptsList);
+      setMyAssignments(assignmentsList);
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      setFetchError(
+        (err as Error).message ||
+          'Could not load your practical attempt status from Vixir API (:8081).'
+      );
+    }
+  };
+
+  useEffect(() => {
+    void loadLabsState();
+  }, []);
+
+  const getPracticalStatusBadge = (
+    experimentId: string
+  ): { badge: string; badgeClass: string } => {
+    const isDone = myAttempts.some(
+      (a) => a.experimentId === experimentId && a.state === 'SUBMITTED'
+    );
+    if (isDone) {
+      return { badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' };
+    }
+    const isInProgress = myAttempts.some(
+      (a) => a.experimentId === experimentId && a.state === 'IN_PROGRESS'
+    );
+    if (isInProgress) {
+      return { badge: 'In progress', badgeClass: 'bg-[#FEF3C7] text-[#B45309]' };
+    }
+    const isAssigned = myAssignments.some((a) => a.experimentId === experimentId);
+    if (isAssigned) {
+      return { badge: 'Assigned', badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]' };
+    }
+    return { badge: 'Not started', badgeClass: 'bg-[#EDF1F7] text-[#475467]' };
+  };
+
+  const inProgressAttempts = myAttempts.filter((a) => a.state === 'IN_PROGRESS');
+  const completedAttempts = myAttempts.filter((a) => a.state === 'SUBMITTED');
+  const latestInProgress = inProgressAttempts[0] ?? null;
 
   const labCards = [
     {
@@ -674,10 +742,10 @@ export function LabsHubScreen() {
       to: '/lab/physics/pendulum',
       buttonLabel: 'Open Physics lab',
       items: [
-        { title: 'Simple pendulum', to: '/lab/physics/pendulum', badge: 'Assigned', badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]' },
-        { title: 'Refraction through a glass block', to: '/lab/physics/refraction', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Principle of moments', to: '/lab/physics/moments', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Specific heat capacity', to: '/lab/physics/pendulum', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Simple pendulum', to: '/lab/physics/pendulum', expId: 'phy.pendulum.g' },
+        { title: 'Refraction through a glass block', to: '/lab/physics/refraction', expId: 'phy.refraction' },
+        { title: 'Principle of moments', to: '/lab/physics/moments', expId: 'phy.moments' },
+        { title: 'Specific heat capacity', to: '/lab/physics/pendulum', expId: 'phy.specific-heat' },
       ],
     },
     {
@@ -689,10 +757,10 @@ export function LabsHubScreen() {
       to: '/lab/chemistry/titration',
       buttonLabel: 'Open Chemistry lab',
       items: [
-        { title: 'Acid–base titration', to: '/lab/chemistry/titration', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Qualitative analysis of salts', to: '/lab/chemistry/qualitative-analysis', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Rates of reaction', to: '/lab/chemistry/titration', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Heat of neutralisation', to: '/lab/chemistry/titration', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Acid–base titration', to: '/lab/chemistry/titration', expId: 'chem.titration' },
+        { title: 'Qualitative analysis of salts', to: '/lab/chemistry/qualitative-analysis', expId: 'chem.qualitative' },
+        { title: 'Rates of reaction', to: '/lab/chemistry/titration', expId: 'chem.rates' },
+        { title: 'Heat of neutralisation', to: '/lab/chemistry/titration', expId: 'chem.neutralisation' },
       ],
     },
     {
@@ -704,10 +772,10 @@ export function LabsHubScreen() {
       to: '/lab/biology/digestion',
       buttonLabel: 'Open Biology lab',
       items: [
-        { title: 'Journey of food (digestion)', to: '/lab/biology/digestion', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Dissection of a rat', to: '/lab/biology/dissection', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Human body systems', to: '/lab/biology/body-systems', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Food tests', to: '/lab/biology/food-tests', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Journey of food (digestion)', to: '/lab/biology/digestion', expId: 'bio.digestion' },
+        { title: 'Dissection of a mammal (rabbit / rat)', to: '/lab/biology/dissection', expId: 'bio.dissection' },
+        { title: 'Human body systems (6-system atlas)', to: '/lab/biology/body-systems', expId: 'bio.body-systems' },
+        { title: 'Food tests', to: '/lab/biology/food-tests', expId: 'bio.food-tests' },
       ],
     },
     {
@@ -719,10 +787,10 @@ export function LabsHubScreen() {
       to: '/lab/electronics/ohms-law',
       buttonLabel: 'Open Electronics lab',
       items: [
-        { title: 'Verifying Ohm’s law', to: '/lab/electronics/ohms-law', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Diode I–V characteristics', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'RC charging', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Logic gates', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Verifying Ohm’s law', to: '/lab/electronics/ohms-law', expId: 'elec.ohms-law' },
+        { title: 'Diode I–V characteristics', to: '/lab/electronics/ohms-law', expId: 'elec.diode-iv' },
+        { title: 'RC charging', to: '/lab/electronics/ohms-law', expId: 'elec.rc-charging' },
+        { title: 'Logic gates', to: '/lab/electronics/ohms-law', expId: 'elec.logic-gates' },
       ],
     },
     {
@@ -734,17 +802,29 @@ export function LabsHubScreen() {
       to: '/lab/engineering/beam',
       buttonLabel: 'Open Engineering lab',
       items: [
-        { title: 'Beam deflection', to: '/lab/engineering/beam', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Tensile test', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Bernoulli’s theorem', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Gear trains', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Beam deflection', to: '/lab/engineering/beam', expId: 'eng.beam' },
+        { title: 'Tensile test', to: '/lab/engineering/beam', expId: 'eng.tensile' },
+        { title: 'Bernoulli’s theorem', to: '/lab/engineering/beam', expId: 'eng.bernoulli' },
+        { title: 'Gear trains', to: '/lab/engineering/beam', expId: 'eng.gears' },
       ],
     },
   ];
 
+  const syncStatus: 'loading' | 'synced' | 'error' = isLoading
+    ? 'loading'
+    : fetchError
+      ? 'error'
+      : 'synced';
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
-      <StudentSidebar active="labs" />
+      <StudentSidebar
+        active="labs"
+        syncStatus={syncStatus}
+        onRetrySync={() => {
+          void loadLabsState();
+        }}
+      />
 
       <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -760,7 +840,7 @@ export function LabsHubScreen() {
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="px-3.5 py-1.5 rounded-full bg-[#E6F6EE] text-[#0F7B45] text-xs font-semibold inline-flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#0F7B45]" />
-              3 practicals downloaded for offline
+              {completedAttempts.length} completed · {inProgressAttempts.length} in progress
             </span>
             <button
               type="button"
@@ -773,27 +853,86 @@ export function LabsHubScreen() {
           </div>
         </div>
 
-        {/* Resume Banner */}
-        <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-[11px] font-bold tracking-wider uppercase text-[#FDBA74] mb-1">
-              RESUME · PHYSICS LAB
-            </div>
-            <h2 className="font-display text-xl font-bold text-white mb-1">
-              Simple pendulum — 3 of 6 readings taken
-            </h2>
-            <p className="text-xs text-[#93A0B8]">
-              Bench saved 14 min ago · due Wed 18 Nov
-            </p>
-          </div>
-
-          <Link
-            to="/lab/physics/pendulum"
-            className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+        {/* Network / API Error Banner */}
+        {fetchError && (
+          <div
+            role="alert"
+            className="mb-6 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
           >
-            Back to the bench
-          </Link>
-        </div>
+            <div>
+              <div className="font-display text-sm font-bold text-[#991B1B] mb-0.5">
+                Could not load your practical progress
+              </div>
+              <p className="text-xs text-[#C4321C]">{fetchError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadLabsState();
+              }}
+              className="px-4 py-2 rounded-xl bg-[#C4321C] hover:bg-[#991B1B] text-white text-xs font-semibold shrink-0 cursor-pointer"
+            >
+              Retry connection
+            </button>
+          </div>
+        )}
+
+        {/* Top Banner: Loading vs Active Resume vs Empty State (No fake '3 of 6 readings taken' when 0 attempts exist!) */}
+        {isLoading ? (
+          <div className="bg-[#0B1220] rounded-2xl p-6 mb-7 animate-pulse h-24" />
+        ) : latestInProgress ? (
+          <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-bold tracking-wider uppercase text-[#FDBA74] mb-1">
+                RESUME · {latestInProgress.mode} ATTEMPT #{latestInProgress.attemptNo}
+              </div>
+              <h2 className="font-display text-xl font-bold text-white mb-1">
+                {EXPERIMENT_META_BY_ID[latestInProgress.experimentId]?.title ||
+                  latestInProgress.experimentId}{' '}
+                — {latestInProgress.lastEventSeq} actions logged
+              </h2>
+              <p className="text-xs text-[#93A0B8]">
+                Started{' '}
+                {new Date(latestInProgress.startedAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+
+            <Link
+              to={
+                EXPERIMENT_META_BY_ID[latestInProgress.experimentId]?.route ||
+                '/lab/physics/pendulum'
+              }
+              className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+            >
+              Back to the bench
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-bold tracking-wider uppercase text-[#7DD3FC] mb-1">
+                NO PRACTICAL IN PROGRESS YET
+              </div>
+              <h2 className="font-display text-xl font-bold text-white mb-1">
+                Start your first laboratory bench session
+              </h2>
+              <p className="text-xs text-[#93A0B8]">
+                You have not started or completed any practicals yet. Choose any of the 5
+                disciplines below to open a fresh bench.
+              </p>
+            </div>
+
+            <Link
+              to="/lab/physics/pendulum"
+              className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+            >
+              Start Simple Pendulum →
+            </Link>
+          </div>
+        )}
 
         {/* Lab Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -818,24 +957,27 @@ export function LabsHubScreen() {
                 </div>
 
                 <ul className="divide-y divide-[#E3E8EF] px-5 py-2 text-xs">
-                  {lab.items.map((item) => (
-                    <li
-                      key={item.title}
-                      className="py-2.5 flex items-center justify-between gap-2"
-                    >
-                      <Link
-                        to={item.to}
-                        className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
+                  {lab.items.map((item) => {
+                    const status = getPracticalStatusBadge(item.expId);
+                    return (
+                      <li
+                        key={item.title}
+                        className="py-2.5 flex items-center justify-between gap-2"
                       >
-                        {item.title}
-                      </Link>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${item.badgeClass}`}
-                      >
-                        {item.badge}
-                      </span>
-                    </li>
-                  ))}
+                        <Link
+                          to={item.to}
+                          className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
+                        >
+                          {item.title}
+                        </Link>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.badgeClass}`}
+                        >
+                          {status.badge}
+                        </span>
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
 
@@ -859,129 +1001,173 @@ export function LabsHubScreen() {
 const LIBRARY_EXPERIMENTS = [
   {
     slug: 'simple-pendulum',
+    expId: 'phy.pendulum.g',
     subject: 'Physics',
     formula: 'T² ∝ L',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Simple pendulum — determination of g',
     desc: 'Find g from the slope of a T² against L graph.',
-    meta: '35 min   SS2–SS3   Assigned',
+    baseMeta: '35 min   SS2–SS3',
   },
   {
     slug: 'glass-block-refraction',
+    expId: 'phy.refraction',
     subject: 'Physics',
     formula: 'n = sin i / sin r',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Refraction through a rectangular glass block',
     desc: 'Trace rays with pins and find the refractive index.',
-    meta: '40 min   SS2–SS3   Completed',
+    baseMeta: '40 min   SS2–SS3',
   },
   {
     slug: 'principle-of-moments',
+    expId: 'phy.moments',
     subject: 'Physics',
     formula: 'ΣM = 0',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Principle of moments with a metre rule',
     desc: 'Balance a metre rule and find an unknown mass.',
-    meta: '30 min   SS1–SS3   Completed',
+    baseMeta: '30 min   SS1–SS3',
   },
   {
     slug: 'acid-base-titration',
+    expId: 'chem.titration',
     subject: 'Chemistry',
     formula: 'C₁V₁ = C₂V₂',
     bannerBg: 'bg-[#FEF0E6]',
     formulaColor: 'text-[#B45309]',
     title: 'Acid–base titration: HCl vs NaOH',
     desc: 'Find the concentration of an acid from concordant titres.',
-    meta: '45 min   SS2–SS3   Assigned',
+    baseMeta: '45 min   SS2–SS3',
   },
   {
     slug: 'qualitative-analysis',
+    expId: 'chem.qualitative',
     subject: 'Chemistry',
     formula: 'Cu²⁺ · SO₄²⁻',
     bannerBg: 'bg-[#FEF0E6]',
     formulaColor: 'text-[#B45309]',
     title: 'Qualitative analysis of salts',
     desc: 'Identify cations and anions from test observations.',
-    meta: '40 min   SS3   New',
+    baseMeta: '40 min   SS3',
   },
   {
     slug: 'journey-of-food',
+    expId: 'bio.digestion',
     subject: 'Biology',
     formula: 'Amylase → Pepsin',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
     title: 'Journey of food through the human digestive tract',
     desc: 'Follow enzymatic breakdown and pH from mouth to ileum.',
-    meta: '30 min   SS1–SS3   Interactive',
+    baseMeta: '30 min   SS1–SS3',
   },
   {
     slug: 'rat-dissection',
+    expId: 'bio.dissection',
     subject: 'Biology',
-    formula: 'Rattus norvegicus',
+    formula: 'Oryctolagus · Rattus',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
-    title: 'Dissection of a mammal (rat)',
-    desc: 'Guided 5-stage virtual dissection and thoracic/abdominal anatomy.',
-    meta: '45 min   SS2–SS3   Interactive',
+    title: 'Dissection of a mammal (rabbit / rat)',
+    desc: 'Guided 5-stage virtual dissection and 18-organ visceral anatomy.',
+    baseMeta: '45 min   SS2–SS3',
   },
   {
     slug: 'food-tests',
+    expId: 'bio.food-tests',
     subject: 'Biology',
     formula: 'I₂ · Benedict · Biuret',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
     title: 'Biochemical food tests — starch, sugar, protein & lipids',
     desc: 'Test food specimens with Iodine, Benedict’s, Biuret, and Sudan III.',
-    meta: '35 min   SS1–SS3   New',
+    baseMeta: '35 min   SS1–SS3',
   },
   {
     slug: 'ohms-law',
+    expId: 'elec.ohms-law',
     subject: 'Electronics',
     formula: 'V = IR',
     bannerBg: 'bg-[#E0F8F5]',
     formulaColor: 'text-[#0F766E]',
     title: 'Verifying Ohm’s law',
     desc: 'Plot V against I and find the resistance of a wire.',
-    meta: '30 min   SS2 · 100L   Assigned',
+    baseMeta: '30 min   SS2 · 100L',
   },
   {
     slug: 'diode-iv',
+    expId: 'elec.diode-iv',
     subject: 'Electronics',
     formula: 'I = I₀(e^(V/Vt) - 1)',
     bannerBg: 'bg-[#E0F8F5]',
     formulaColor: 'text-[#0F766E]',
     title: 'Diode I–V characteristics',
     desc: 'Measure forward and reverse bias behaviour.',
-    meta: '35 min   100L · ND   New',
+    baseMeta: '35 min   100L · ND',
   },
   {
     slug: 'beam-deflection',
+    expId: 'eng.beam',
     subject: 'Engineering',
-    formula: 'δ = WL³ / 48EI',
+    formula: 'δ = FL³ / 3EI',
     bannerBg: 'bg-[#F3E8FF]',
     formulaColor: 'text-[#7E22CE]',
-    title: 'Deflection of a simply supported beam',
-    desc: 'Relate load to mid-span deflection and find E.',
-    meta: '45 min   ND · 200L   New',
+    title: 'Deflection of a cantilever / simply supported beam',
+    desc: 'Relate load to tip deflection and find Young’s Modulus E.',
+    baseMeta: '45 min   ND · 200L',
   },
   {
     slug: 'bernoulli-apparatus',
+    expId: 'eng.bernoulli',
     subject: 'Engineering',
     formula: 'p + ½ρv² = C',
     bannerBg: 'bg-[#F3E8FF]',
     formulaColor: 'text-[#7E22CE]',
     title: 'Bernoulli’s theorem apparatus',
     desc: 'Measure pressure heads along a venturi tube.',
-    meta: '40 min   ND · 200L   New',
+    baseMeta: '40 min   ND · 200L',
   },
 ];
 
 export function ExperimentLibraryScreen() {
   const [filter, setFilter] = useState('All');
   const [curriculum, setCurriculum] = useState('WAEC / NECO (SS1–SS3)');
+  const [myAttempts, setMyAttempts] = useState<AttemptSummary[]>([]);
+  const [myAssignments, setMyAssignments] = useState<AssignmentSummary[]>([]);
+
+  useEffect(() => {
+    if (!getStoredAccessToken()) return;
+    let cancelled = false;
+    Promise.all([
+      vixirApi.listMyAttempts().catch(() => []),
+      vixirApi.listMyAssignments().catch(() => []),
+    ]).then(([atts, asgns]) => {
+      if (!cancelled) {
+        setMyAttempts(atts);
+        setMyAssignments(asgns);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const getExpStatusText = (expId: string) => {
+    if (myAttempts.some((a) => a.experimentId === expId && a.state === 'SUBMITTED')) {
+      return 'Done';
+    }
+    if (myAttempts.some((a) => a.experimentId === expId && a.state === 'IN_PROGRESS')) {
+      return 'In progress';
+    }
+    if (myAssignments.some((a) => a.experimentId === expId)) {
+      return 'Assigned';
+    }
+    return 'Not started';
+  };
 
   const filtered =
     filter === 'All'
@@ -1071,7 +1257,7 @@ export function ExperimentLibraryScreen() {
               </div>
 
               <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
-                {exp.meta}
+                {`${exp.baseMeta}   ${getExpStatusText(exp.expId)}`}
               </div>
             </Link>
           ))}

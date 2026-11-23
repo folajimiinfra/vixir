@@ -86,12 +86,12 @@ export function computeRegressionForRows(rows: PendulumResultRow[]): LinearFit {
     .map((r) => ({ x: r.lengthM, y: Number(r.periodT2) }))
     .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.y > 0);
   if (validPoints.length < 2) {
-    return { slope: 4.02, intercept: 0, r2: 0.999 };
+    return { slope: 0, intercept: 0, r2: 0 };
   }
   try {
     return linearFit(validPoints);
   } catch {
-    return { slope: 4.02, intercept: 0, r2: 0.999 };
+    return { slope: 0, intercept: 0, r2: 0 };
   }
 }
 
@@ -102,7 +102,10 @@ export function computeAutoMark(
 ): AutoMarkSummary {
   const fit = computeRegressionForRows(rows);
   const slope = Number(fit.slope.toFixed(2));
-  const gFromSlope = Number(((4 * Math.PI * Math.PI) / Math.max(0.5, fit.slope)).toFixed(2));
+  const gFromSlope =
+    fit.slope > 0.1
+      ? Number(((4 * Math.PI * Math.PI) / fit.slope).toFixed(2))
+      : 0;
 
   // 1. Readings & repeats (6 marks)
   const readingCount = rows.length;
@@ -110,28 +113,41 @@ export function computeAutoMark(
   const readingsReason =
     readingCount >= 6
       ? `${readingCount} lengths, each timed twice. Repeats agree within 0.1 s — good technique.`
-      : `${readingCount} of 6 expected lengths recorded. Take at least 6 distinct lengths from 40 cm to 90 cm.`;
+      : readingCount === 0
+        ? 'No readings recorded yet. Record at least 6 distinct lengths on the bench.'
+        : `${readingCount} of 6 expected lengths recorded. Take at least 6 distinct lengths from 40 cm to 90 cm.`;
 
   // 2. Table & significant figures (3 marks)
   const badDpRows = rows.filter((r) => (r.periodT2.split('.')[1] || '').length !== 3);
-  const sigFigAwarded = badDpRows.length === 0 ? 3 : badDpRows.length === 1 ? 2 : 1;
+  const sigFigAwarded =
+    readingCount === 0 ? 0 : badDpRows.length === 0 ? 3 : badDpRows.length === 1 ? 2 : 1;
   const sigFigReason =
-    badDpRows.length === 0
-      ? 'All derived T and T² values recorded consistently to 3 decimal places.'
-      : `Row ${badDpRows[0]!.sn}: T² written as ${badDpRows[0]!.periodT2}. Keep 3 decimal places to match the rest of the column (${Number(badDpRows[0]!.periodT2).toFixed(3)}).`;
+    readingCount === 0
+      ? 'No table rows recorded yet.'
+      : badDpRows.length === 0
+        ? 'All derived T and T² values recorded consistently to 3 decimal places.'
+        : `Row ${badDpRows[0]!.sn}: T² written as ${badDpRows[0]!.periodT2}. Keep 3 decimal places to match the rest of the column (${Number(badDpRows[0]!.periodT2).toFixed(3)}).`;
 
   // 3. Graph (5 marks)
-  const graphAwarded = 5;
+  const graphAwarded =
+    readingCount >= 5 ? 5 : readingCount >= 3 ? 3 : readingCount >= 2 ? 2 : 0;
   const graphReason =
-    'Axes labelled with units, sensible scale using more than half the grid, points plotted accurately, best-fit line balanced.';
+    readingCount >= 5
+      ? 'Axes labelled with units, sensible scale using more than half the grid, points plotted accurately, best-fit line balanced.'
+      : readingCount >= 2
+        ? `${readingCount} points plotted on T² vs L axes. Record at least 5–6 points for full graph marks.`
+        : 'At least 2 data points are required to plot a line of best fit.';
 
   // 4. Slope & value of g (4 marks)
   const userG = Number(gValueStr);
-  const gDiff = Number.isFinite(userG) ? Math.abs(userG - 9.81) : 1.0;
-  const slopeAwarded = gDiff <= 0.25 ? 4 : gDiff <= 0.5 ? 3 : 2;
-  const slopeReason = `Large triangle used; slope ${slope.toFixed(2)} s² m⁻¹ gives g = ${
-    Number.isFinite(userG) ? userG.toFixed(2) : gFromSlope.toFixed(2)
-  } m s⁻², consistent with your data.`;
+  const hasValidG = readingCount >= 2 && Number.isFinite(userG) && userG > 0;
+  const gDiff = hasValidG ? Math.abs(userG - 9.81) : 99;
+  const slopeAwarded = !hasValidG ? 0 : gDiff <= 0.25 ? 4 : gDiff <= 0.5 ? 3 : 2;
+  const slopeReason = !hasValidG
+    ? 'Record at least 2 lengths and compute g = 4π² / slope from your plotted points.'
+    : `Large triangle used; slope ${slope.toFixed(2)} s² m⁻¹ gives g = ${userG.toFixed(
+        2
+      )} m s⁻², consistent with your data.`;
 
   // 5. Precautions (2 marks)
   const statedCount =
@@ -252,6 +268,7 @@ interface LabSessionState {
   fixAllDecimalPlaces: () => void;
   setPrecautions: (updater: (prev: PrecautionsState) => PrecautionsState) => void;
   setGValue: (val: string) => void;
+  clearPendulumRows: () => void;
   appendReplayEvent: (ev: Omit<BenchReplayEvent, 'time'> & { time?: string }) => void;
   submitAttemptToApi: () => Promise<void>;
 }
@@ -260,18 +277,26 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => ({
   attemptId: 'demo',
   seed: 'A7F3-0142',
   callCount: 0,
-  pendulumRows: DEFAULT_PENDULUM_ROWS,
-  replayEvents: DEFAULT_REPLAY_EVENTS,
+  pendulumRows: [],
+  replayEvents: [],
   precautions: {
-    parallax: true,
-    smallAngle: true,
+    parallax: false,
+    smallAngle: false,
     centreSwing: false,
     extra: '',
   },
-  gValue: '9.82',
+  gValue: '',
   submissionId: 'VX-7KQ2-0142-A1',
   submittedAt: null,
   apiSyncStatus: 'synced',
+
+  clearPendulumRows: () =>
+    set({
+      pendulumRows: [],
+      replayEvents: [],
+      gValue: '',
+      submittedAt: null,
+    }),
 
   measureDeterministicTrial: ({
     lengthCm,

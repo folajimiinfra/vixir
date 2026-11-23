@@ -92,76 +92,95 @@ export function ResultsGraphScreen() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#F5F7FA] border-b border-[#E3E8EF] text-[#0E1726] font-bold">
-                  <th className="py-2.5 px-3 text-left">S/N</th>
-                  <th className="py-2.5 px-3 text-left">L / m</th>
-                  <th className="py-2.5 px-3 text-left">t₁ / s</th>
-                  <th className="py-2.5 px-3 text-left">t₂ / s</th>
-                  <th className="py-2.5 px-3 text-left">t̄ / s</th>
-                  <th className="py-2.5 px-3 text-left">T = t̄/20 / s</th>
-                  <th className="py-2.5 px-3 text-left">T² / s²</th>
-                  <th className="py-2.5 px-3 text-left">Check</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3E8EF] font-mono">
-                {rows.map((r) => {
-                  const decimals = (r.periodT2.split('.')[1] || '').length;
-                  const dpOk = decimals === 3;
-                  return (
-                    <tr key={r.sn}>
-                      <td className="py-2 px-3">{r.sn}</td>
-                      <td className="py-2 px-3">{r.lengthM.toFixed(3)}</td>
-                      <td className="py-2 px-3">{r.t1.toFixed(2)}</td>
-                      <td className="py-2 px-3">{r.t2.toFixed(2)}</td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Mean time row ${r.sn}`}
-                          value={r.tMean}
-                          onChange={(e) => updateResultCell(r.sn, 'tMean', e.target.value)}
-                          className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
-                        />
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Period T row ${r.sn}`}
-                          value={r.periodT}
-                          onChange={(e) => updateResultCell(r.sn, 'periodT', e.target.value)}
-                          className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
-                        />
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Period squared row ${r.sn}`}
-                          value={r.periodT2}
-                          onChange={(e) => updateResultCell(r.sn, 'periodT2', e.target.value)}
-                          className={`w-20 px-2 py-1 rounded border text-xs font-mono ${
-                            dpOk
-                              ? 'border-[#D0D7E2] bg-white'
-                              : 'border-[#B54708] bg-[#FEF5EE] text-[#9A3412]'
-                          }`}
-                        />
-                      </td>
-                      <td className="py-2 px-3 font-sans">
-                        {dpOk ? (
-                          <span className="text-[#0F7B45] font-semibold">✓ 3 d.p.</span>
-                        ) : (
-                          <span className="text-[#B54708] font-semibold">
-                            ! {decimals} d.p.
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {rows.length === 0 ? (
+            <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-7 text-center space-y-3">
+              <div className="font-display text-base font-bold text-[#0E1726]">
+                No readings recorded on the bench yet
+              </div>
+              <p className="text-xs text-[#475467] max-w-md mx-auto leading-relaxed">
+                Return to the pendulum bench, adjust length L across at least 5–6 positions,
+                time 20 oscillations with the stopwatch, and click Record reading to populate
+                your table and plot your graph.
+              </p>
+              <Link
+                to="/lab/physics/pendulum"
+                className="inline-block px-4 py-2.5 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold"
+              >
+                ← Go to bench to record readings
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#F5F7FA] border-b border-[#E3E8EF] text-[#0E1726] font-bold">
+                    <th className="py-2.5 px-3 text-left">S/N</th>
+                    <th className="py-2.5 px-3 text-left">L / m</th>
+                    <th className="py-2.5 px-3 text-left">t₁ / s</th>
+                    <th className="py-2.5 px-3 text-left">t₂ / s</th>
+                    <th className="py-2.5 px-3 text-left">t̄ / s</th>
+                    <th className="py-2.5 px-3 text-left">T = t̄/20 / s</th>
+                    <th className="py-2.5 px-3 text-left">T² / s²</th>
+                    <th className="py-2.5 px-3 text-left">Check</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E8EF] font-mono">
+                  {rows.map((r) => {
+                    const decimals = (r.periodT2.split('.')[1] || '').length;
+                    const dpOk = decimals === 3;
+                    return (
+                      <tr key={r.sn}>
+                        <td className="py-2 px-3">{r.sn}</td>
+                        <td className="py-2 px-3">{r.lengthM.toFixed(3)}</td>
+                        <td className="py-2 px-3">{r.t1.toFixed(2)}</td>
+                        <td className="py-2 px-3">{r.t2.toFixed(2)}</td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Mean time row ${r.sn}`}
+                            value={r.tMean}
+                            onChange={(e) => updateResultCell(r.sn, 'tMean', e.target.value)}
+                            className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Period T row ${r.sn}`}
+                            value={r.periodT}
+                            onChange={(e) => updateResultCell(r.sn, 'periodT', e.target.value)}
+                            className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Period squared row ${r.sn}`}
+                            value={r.periodT2}
+                            onChange={(e) => updateResultCell(r.sn, 'periodT2', e.target.value)}
+                            className={`w-20 px-2 py-1 rounded border text-xs font-mono ${
+                              dpOk
+                                ? 'border-[#D0D7E2] bg-white'
+                                : 'border-[#B54708] bg-[#FEF5EE] text-[#9A3412]'
+                            }`}
+                          />
+                        </td>
+                        <td className="py-2 px-3 font-sans">
+                          {dpOk ? (
+                            <span className="text-[#0F7B45] font-semibold">✓ 3 d.p.</span>
+                          ) : (
+                            <span className="text-[#B54708] font-semibold">
+                              ! {decimals} d.p.
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* Bottom 2-Column Grid: Graph + Calculation & Precautions */}
@@ -284,96 +303,107 @@ export function ResultsGraphScreen() {
                 T² / s²
               </text>
 
-              {/* Best-fit Line & Large Slope Triangle */}
-              {showBestFit && (
-                <>
-                  {/* Dashed coordinate lines for A (0.275, 1.10) and B (0.850, 3.41) */}
-                  <line
-                    x1="70"
-                    y1={330 - (1.1 / 4) * 300}
-                    x2={70 + 0.275 * 520}
-                    y2={330 - (1.1 / 4) * 300}
-                    stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
-                  <line
-                    x1={70 + 0.275 * 520}
-                    y1={330 - (1.1 / 4) * 300}
-                    x2={70 + 0.275 * 520}
-                    y2="330"
-                    stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
+              {/* Dynamic Best-fit Line & Large Slope Triangle (only drawn when 2+ readings exist) */}
+              {showBestFit &&
+                rows.length >= 2 &&
+                (() => {
+                  const sorted = [...rows].sort((a, b) => a.lengthM - b.lengthM);
+                  const xA = Math.max(0.1, sorted[0]!.lengthM);
+                  const xB = Math.min(0.95, sorted[sorted.length - 1]!.lengthM);
+                  const yA = fit.slope * xA + fit.intercept;
+                  const yB = fit.slope * xB + fit.intercept;
+                  const lineX1 = 0.05;
+                  const lineY1 = Math.max(0, fit.slope * lineX1 + fit.intercept);
+                  const lineX2 = 0.95;
+                  const lineY2 = Math.min(4.0, fit.slope * lineX2 + fit.intercept);
 
-                  <line
-                    x1="70"
-                    y1={330 - (3.41 / 4) * 300}
-                    x2={70 + 0.85 * 520}
-                    y2={330 - (3.41 / 4) * 300}
-                    stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
-                  <line
-                    x1={70 + 0.85 * 520}
-                    y1={330 - (3.41 / 4) * 300}
-                    x2={70 + 0.85 * 520}
-                    y2="330"
-                    stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
+                  return (
+                    <>
+                      <line
+                        x1="70"
+                        y1={330 - (yA / 4) * 300}
+                        x2={70 + xA * 520}
+                        y2={330 - (yA / 4) * 300}
+                        stroke="#B54708"
+                        strokeWidth="1.3"
+                        strokeDasharray="4 4"
+                      />
+                      <line
+                        x1={70 + xA * 520}
+                        y1={330 - (yA / 4) * 300}
+                        x2={70 + xA * 520}
+                        y2="330"
+                        stroke="#B54708"
+                        strokeWidth="1.3"
+                        strokeDasharray="4 4"
+                      />
 
-                  {/* Blue Best-Fit Line */}
-                  <line
-                    x1={70 + 0.05 * 520}
-                    y1={330 - (0.201 / 4) * 300}
-                    x2={70 + 0.94 * 520}
-                    y2={330 - (3.78 / 4) * 300}
-                    stroke="#1D4ED8"
-                    strokeWidth="2"
-                  />
+                      <line
+                        x1="70"
+                        y1={330 - (yB / 4) * 300}
+                        x2={70 + xB * 520}
+                        y2={330 - (yB / 4) * 300}
+                        stroke="#B54708"
+                        strokeWidth="1.3"
+                        strokeDasharray="4 4"
+                      />
+                      <line
+                        x1={70 + xB * 520}
+                        y1={330 - (yB / 4) * 300}
+                        x2={70 + xB * 520}
+                        y2="330"
+                        stroke="#B54708"
+                        strokeWidth="1.3"
+                        strokeDasharray="4 4"
+                      />
 
-                  {/* Triangle vertices A and B */}
-                  <circle
-                    cx={70 + 0.275 * 520}
-                    cy={330 - (1.1 / 4) * 300}
-                    r="4.5"
-                    fill="#FFFFFF"
-                    stroke="#B54708"
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={70 + 0.275 * 520 + 8}
-                    y={330 - (1.1 / 4) * 300 - 8}
-                    fill="#B54708"
-                    fontSize="11"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    A (0.275, 1.10)
-                  </text>
+                      <line
+                        x1={70 + lineX1 * 520}
+                        y1={330 - (lineY1 / 4) * 300}
+                        x2={70 + lineX2 * 520}
+                        y2={330 - (lineY2 / 4) * 300}
+                        stroke="#1D4ED8"
+                        strokeWidth="2"
+                      />
 
-                  <circle
-                    cx={70 + 0.85 * 520}
-                    cy={330 - (3.41 / 4) * 300}
-                    r="4.5"
-                    fill="#FFFFFF"
-                    stroke="#B54708"
-                    strokeWidth="2"
-                  />
-                  <text
-                    x={70 + 0.85 * 520 - 115}
-                    y={330 - (3.41 / 4) * 300 - 8}
-                    fill="#B54708"
-                    fontSize="11"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    B (0.850, 3.41)
-                  </text>
-                </>
-              )}
+                      <circle
+                        cx={70 + xA * 520}
+                        cy={330 - (yA / 4) * 300}
+                        r="4.5"
+                        fill="#FFFFFF"
+                        stroke="#B54708"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={70 + xA * 520 + 8}
+                        y={330 - (yA / 4) * 300 - 8}
+                        fill="#B54708"
+                        fontSize="11"
+                        fontFamily="JetBrains Mono, monospace"
+                      >
+                        A ({xA.toFixed(3)}, {yA.toFixed(2)})
+                      </text>
+
+                      <circle
+                        cx={70 + xB * 520}
+                        cy={330 - (yB / 4) * 300}
+                        r="4.5"
+                        fill="#FFFFFF"
+                        stroke="#B54708"
+                        strokeWidth="2"
+                      />
+                      <text
+                        x={70 + xB * 520 - 115}
+                        y={330 - (yB / 4) * 300 - 8}
+                        fill="#B54708"
+                        fontSize="11"
+                        fontFamily="JetBrains Mono, monospace"
+                      >
+                        B ({xB.toFixed(3)}, {yB.toFixed(2)})
+                      </text>
+                    </>
+                  );
+                })()}
 
               {/* Plotted Crosses (×) */}
               {rows.map((r) => {
@@ -766,32 +796,124 @@ export function ReviewSubmitScreen() {
 export function MarkedReportScreen() {
   const navigate = useNavigate();
   const attemptId = useLabSessionStore((s) => s.attemptId);
+  const submittedAt = useLabSessionStore((s) => s.submittedAt);
   const rows = useLabSessionStore((s) => s.pendulumRows);
   const precautions = useLabSessionStore((s) => s.precautions);
   const gValue = useLabSessionStore((s) => s.gValue);
 
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
   const [apiReport, setApiReport] = useState<MarkReportResponse | null>(null);
+  const [hasApiSubmittedAttempt, setHasApiSubmittedAttempt] = useState<boolean>(false);
 
   useEffect(() => {
+    let cancelled = false;
     const isUuid =
       /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attemptId);
-    if (!isUuid) return;
-    let cancelled = false;
-    vixirApi
-      .getMarkReport(attemptId)
-      .then((res) => {
-        if (!cancelled) setApiReport(res);
-      })
-      .catch(() => {});
+
+    const checkReport = async () => {
+      setIsLoadingReport(true);
+      try {
+        if (isUuid) {
+          const rep = await vixirApi.getMarkReport(attemptId).catch(() => null);
+          if (!cancelled && rep) {
+            setApiReport(rep);
+            setHasApiSubmittedAttempt(true);
+            setIsLoadingReport(false);
+            return;
+          }
+        }
+        // Check if user has any submitted attempt on the API
+        const attempts = await vixirApi.listMyAttempts().catch(() => []);
+        const latestSubmitted = attempts.find((a) => a.state === 'SUBMITTED');
+        if (!cancelled && latestSubmitted) {
+          setHasApiSubmittedAttempt(true);
+          const rep = await vixirApi.getMarkReport(latestSubmitted.id).catch(() => null);
+          if (!cancelled && rep) setApiReport(rep);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingReport(false);
+      }
+    };
+
+    void checkReport();
     return () => {
       cancelled = true;
     };
   }, [attemptId]);
 
+  const hasAnySubmissionOrReadings = Boolean(
+    submittedAt || apiReport || hasApiSubmittedAttempt || rows.length > 0
+  );
+
+  if (isLoadingReport) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] p-8">
+        <div className="max-w-[960px] mx-auto bg-white rounded-2xl border border-[#E3E8EF] p-8 animate-pulse space-y-4">
+          <div className="h-24 bg-[#F1F4F9] rounded-xl" />
+          <div className="h-48 bg-[#F1F4F9] rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAnySubmissionOrReadings) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
+        <header className="bg-white border-b border-[#E3E8EF]">
+          <div className="max-w-[1140px] mx-auto px-6 h-14 flex items-center justify-between text-xs">
+            <div>
+              <Link to="/app" className="underline text-[#475467] hover:text-[#0E1726]">
+                Dashboard
+              </Link>{' '}
+              / <strong className="text-[#0E1726]">Lab notebook &amp; Marked Reports</strong>
+            </div>
+            <Link
+              to="/labs"
+              className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white font-semibold"
+            >
+              Open Virtual Laboratories →
+            </Link>
+          </div>
+        </header>
+
+        <main className="max-w-[780px] mx-auto px-6 py-16">
+          <div className="bg-white rounded-3xl border border-[#E3E8EF] p-10 text-center space-y-4">
+            <div className="inline-block px-3 py-1 rounded-full bg-[#EAEFFE] text-[#1D4ED8] text-[11px] font-bold uppercase tracking-wider">
+              LAB NOTEBOOK &amp; GRADES · EMPTY
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
+              No submitted practical reports yet
+            </h1>
+            <p className="text-sm text-[#475467] max-w-lg mx-auto leading-relaxed">
+              You have not recorded readings or submitted a practical attempt for marking
+              yet. Open a laboratory bench, record your experimental readings, plot your
+              graph, and submit your practical to view your auto-marked score breakdown,
+              teacher comments, and viva questions here.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                to="/lab/physics/pendulum"
+                className="px-5 py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold"
+              >
+                Start Simple Pendulum Practical →
+              </Link>
+              <Link
+                to="/app"
+                className="px-5 py-3 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   const autoMark = computeAutoMark(rows, precautions, gValue);
   const totalScore = apiReport ? apiReport.mark.total : autoMark.total;
   const maxTotalScore = apiReport ? apiReport.mark.maxTotal : autoMark.maxTotal;
-  const isReviewedByTeacher = apiReport ? Boolean(apiReport.mark.reviewed) : true;
+  const isReviewedByTeacher = apiReport ? Boolean(apiReport.mark.reviewed) : false;
   const scoreRatio = totalScore / Math.max(1, maxTotalScore);
 
   return (
@@ -1012,8 +1134,16 @@ export function BenchReplayScreen() {
   const studentDisplayName = user
     ? `${user.firstName} ${user.lastName}`.trim()
     : 'Student';
-  const [activeIndex, setActiveIndex] = useState(6); // Action 7 (06:30 Changed length -> 50 cm)
-  const ev = replayEvents[activeIndex] ?? replayEvents[0]!;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const fallbackEv = {
+    time: '00:00',
+    label: 'No bench actions recorded yet — record readings on the bench to populate replay.',
+    lengthCm: 40,
+    stopwatchS: '0.00 s',
+    angleDeg: 0,
+    flagged: false,
+  };
+  const ev = replayEvents[activeIndex] ?? replayEvents[0] ?? fallbackEv;
   const flagCount = replayEvents.filter((e) => e.flagged).length;
 
   const pivotX = 285;

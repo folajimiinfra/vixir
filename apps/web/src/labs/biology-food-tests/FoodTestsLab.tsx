@@ -214,24 +214,7 @@ export function FoodTestsLab() {
   const [sampleId, setSampleId] = useState<FoodSampleId>('cassava');
   const [reagentId, setReagentId] = useState<FoodReagentId>('iodine');
   const [waterBathOn, setWaterBathOn] = useState(true);
-  const [logs, setLogs] = useState<LoggedFoodTest[]>([
-    {
-      id: 1,
-      sampleName: 'Sample A · Cassava',
-      reagentName: 'Iodine solution',
-      observation: 'Turns deep blue-black',
-      inference: 'Starch present (+)',
-      positive: true,
-    },
-    {
-      id: 2,
-      sampleName: 'Sample B · Glucose',
-      reagentName: 'Benedict’s + heat',
-      observation: 'Brick-red precipitate formed',
-      inference: 'Reducing sugar present (+)',
-      positive: true,
-    },
-  ]);
+  const [logs, setLogs] = useState<LoggedFoodTest[]>([]);
   const [logMsg, setLogMsg] = useState(
     'log > Added 2 drops of Iodine solution to Sample A (Cassava suspension) → blue-black complex formed.'
   );

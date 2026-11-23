@@ -95,19 +95,33 @@ describe('Lab Workspaces & Core Screens', () => {
     expect(screen.getByText(/POINTING AT · LAB BENCH/i)).toBeInTheDocument();
   });
 
-  it('syncs deterministic seeded RNG readings and auto-marking between labSessionStore and F1–F4 screens', () => {
+  it('starts with an empty readings table (0/20) and reaches 20/20 as trials and precautions are recorded', () => {
     const store = useLabSessionStore.getState();
+    store.clearPendulumRows();
     const initialMark = computeAutoMark(
-      store.pendulumRows,
-      store.precautions,
-      store.gValue
+      useLabSessionStore.getState().pendulumRows,
+      useLabSessionStore.getState().precautions,
+      useLabSessionStore.getState().gValue
     );
-    expect(initialMark.total).toBe(18);
+    expect(initialMark.total).toBe(0);
     expect(initialMark.maxTotal).toBe(20);
 
-    // Fix the 2 d.p. warning and add 3rd precaution -> reaches 20 / 20
+    // Record 6 trials dynamically on the bench (40..90 cm) and check all 3 precautions -> reaches 20 / 20
+    for (const lengthCm of [40, 50, 60, 70, 80, 90]) {
+      store.recordPendulumTrial({
+        lengthCm,
+        theta0Deg: 8,
+        oscillations: 20,
+        eyeLevel: true,
+      });
+    }
     store.fixAllDecimalPlaces();
-    store.setPrecautions((p) => ({ ...p, centreSwing: true }));
+    store.setPrecautions(() => ({
+      parallax: true,
+      smallAngle: true,
+      centreSwing: true,
+      extra: '',
+    }));
 
     const updatedState = useLabSessionStore.getState();
     const fullMark = computeAutoMark(
