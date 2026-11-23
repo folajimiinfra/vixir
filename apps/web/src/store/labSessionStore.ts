@@ -39,6 +39,7 @@ export interface PrecautionsState {
   smallAngle: boolean;
   centreSwing: boolean;
   extra: string;
+  customPrecautions?: string[];
 }
 
 export interface AutoMarkCriterion {
@@ -261,11 +262,15 @@ export function computeAutoMark(
         2
       )} m s⁻², consistent with your data.`;
 
+  const customCount = (precautions.customPrecautions || []).filter(
+    (s) => s.trim().length > 6
+  ).length;
   const statedCount =
     (precautions.parallax ? 1 : 0) +
     (precautions.smallAngle ? 1 : 0) +
     (precautions.centreSwing ? 1 : 0) +
-    (precautions.extra.trim().length > 8 ? 1 : 0);
+    (precautions.extra.trim().length > 8 ? 1 : 0) +
+    customCount;
   const precAwarded = statedCount >= 3 ? 2 : statedCount >= 1 ? 1 : 0;
   const precReason =
     statedCount >= 3
@@ -367,6 +372,7 @@ interface LabSessionState {
     rawStopwatchS?: number;
   }) => {
     measuredLengthCm: number;
+    oscillations: number;
     t1: number;
     t2: number;
     tMean: number;
@@ -472,6 +478,7 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => {
       smallAngle: false,
       centreSwing: false,
       extra: '',
+      customPrecautions: [],
     },
     gValue: '',
     submissionId: 'VX-7KQ2-0142-A1',
@@ -598,12 +605,17 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => {
       );
 
       const truePeriod = pendulumPeriod(lengthCm / 100, 9.81, theta0Deg);
-      const trueElapsed = oscillations * truePeriod;
+      // Match t1 and t2 to the EXACT same oscillation count so we never average e.g. 5 oscillations with 20 oscillations!
+      const useLiveStopwatch =
+        typeof rawStopwatchS === 'number' && rawStopwatchS >= truePeriod * 0.75;
+      const effectiveOscillations = useLiveStopwatch
+        ? Math.max(1, Math.round(rawStopwatchS / truePeriod))
+        : Math.max(1, oscillations);
+      const trueElapsed = effectiveOscillations * truePeriod;
 
-      const t1 =
-        rawStopwatchS && rawStopwatchS >= 2
-          ? Number(rawStopwatchS.toFixed(2))
-          : readStopwatch(trueElapsed, { resolution: 0.01, reactionSigma: 0.08 }, swRng);
+      const t1 = useLiveStopwatch
+        ? Number(rawStopwatchS.toFixed(2))
+        : readStopwatch(trueElapsed, { resolution: 0.01, reactionSigma: 0.08 }, swRng);
       const t2 = readStopwatch(
         trueElapsed,
         { resolution: 0.01, reactionSigma: 0.08 },
@@ -611,11 +623,12 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => {
       );
 
       const tMean = Number(((t1 + t2) / 2).toFixed(2));
-      const periodT = Number((tMean / oscillations).toFixed(3));
+      const periodT = Number((tMean / effectiveOscillations).toFixed(3));
       const periodT2 = Number((periodT * periodT).toFixed(3));
 
       return {
         measuredLengthCm,
+        oscillations: effectiveOscillations,
         t1,
         t2,
         tMean,
@@ -645,7 +658,7 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => {
           tMean: measured.tMean.toFixed(2),
           periodT: measured.periodT.toFixed(3),
           periodT2: measured.periodT2.toFixed(3),
-          oscillations: opts.oscillations,
+          oscillations: measured.oscillations,
         };
         updatedRows = existingRows.map((r, i) => (i === existingIdx ? targetRow : r));
       } else {
@@ -657,7 +670,7 @@ export const useLabSessionStore = create<LabSessionState>((set, get) => {
           tMean: measured.tMean.toFixed(2),
           periodT: measured.periodT.toFixed(3),
           periodT2: measured.periodT2.toFixed(3),
-          oscillations: opts.oscillations,
+          oscillations: measured.oscillations,
         };
         updatedRows = [...existingRows, targetRow];
       }

@@ -5,7 +5,10 @@ import {
   pendulumPeriod,
   pendulumAngle,
 } from '../../../../../packages/sim-core/src/index';
-import { useLabSessionStore } from '../../store/labSessionStore';
+import {
+  useLabSessionStore,
+  computeRegressionForRows,
+} from '../../store/labSessionStore';
 
 interface PendulumReading {
   id: number;
@@ -132,13 +135,14 @@ export function PendulumLab() {
   };
 
   const handleRecordReading = () => {
-    const n = oscCount >= 5 ? oscCount : 20;
+    const useStopwatch = stopwatchTime >= truePeriod * 0.75;
+    const n = useStopwatch ? Math.max(1, Math.round(stopwatchTime / truePeriod)) : 20;
     const syncedRow = recordPendulumTrial({
       lengthCm,
       theta0Deg: releaseAngle,
       oscillations: n,
       eyeLevel,
-      rawStopwatchS: stopwatchTime >= 2 ? stopwatchTime : undefined,
+      rawStopwatchS: useStopwatch ? stopwatchTime : undefined,
     });
 
     const recordedL = Number((syncedRow.lengthM * 100).toFixed(1));
@@ -146,7 +150,7 @@ export function PendulumLab() {
     const T = Number(syncedRow.periodT);
 
     setLogMsg(
-      `log > [Seed #${seed}] Saved L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${n} osc), T = ${T.toFixed(3)} s to DB.`
+      `log > [Seed #${seed}] Saved L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${syncedRow.oscillations} osc), T = ${T.toFixed(3)} s to DB.`
     );
   };
 
@@ -506,25 +510,46 @@ export function PendulumLab() {
                     T² / s²
                   </text>
 
-                  {/* Dynamic best-fit line when 2+ points are recorded */}
-                  {readings.length >= 2 &&
+                  {/* True OLS Regression Line of Best Fit clipped mathematically to [0.3..1.0] × [0..4.0] */}
+                  {pendulumRows.length >= 2 &&
                     (() => {
-                      const sorted = [...readings].sort((a, b) => a.lengthCm - b.lengthCm);
-                      const first = sorted[0]!;
-                      const last = sorted[sorted.length - 1]!;
-                      const x1 = 32 + ((first.lengthCm / 100 - 0.3) / 0.7) * 205;
-                      const y1 = 125 - (Math.min(first.periodSquared, 4.0) / 4.0) * 100;
-                      const x2 = 32 + ((last.lengthCm / 100 - 0.3) / 0.7) * 205;
-                      const y2 = 125 - (Math.min(last.periodSquared, 4.0) / 4.0) * 100;
+                      const fit = computeRegressionForRows(pendulumRows);
+                      let xStart = 0.3;
+                      let yStart = fit.slope * xStart + fit.intercept;
+                      let xEnd = 1.0;
+                      let yEnd = fit.slope * xEnd + fit.intercept;
+
+                      if (Math.abs(fit.slope) > 1e-6) {
+                        if (yStart < 0) {
+                          yStart = 0;
+                          xStart = (0 - fit.intercept) / fit.slope;
+                        } else if (yStart > 4.0) {
+                          yStart = 4.0;
+                          xStart = (4.0 - fit.intercept) / fit.slope;
+                        }
+                        if (yEnd > 4.0) {
+                          yEnd = 4.0;
+                          xEnd = (4.0 - fit.intercept) / fit.slope;
+                        } else if (yEnd < 0) {
+                          yEnd = 0;
+                          xEnd = (0 - fit.intercept) / fit.slope;
+                        }
+                      }
+                      xStart = Math.max(0.3, Math.min(1.0, xStart));
+                      xEnd = Math.max(0.3, Math.min(1.0, xEnd));
+
+                      const px1 = 32 + ((xStart - 0.3) / 0.7) * 205;
+                      const py1 = 125 - (Math.max(0, Math.min(4.0, yStart)) / 4.0) * 100;
+                      const px2 = 32 + ((xEnd - 0.3) / 0.7) * 205;
+                      const py2 = 125 - (Math.max(0, Math.min(4.0, yEnd)) / 4.0) * 100;
                       return (
                         <line
-                          x1={x1}
-                          y1={y1}
-                          x2={x2}
-                          y2={y2}
+                          x1={px1}
+                          y1={py1}
+                          x2={px2}
+                          y2={py2}
                           stroke="#38BDF8"
-                          strokeWidth="1.5"
-                          strokeDasharray="3 3"
+                          strokeWidth="1.8"
                         />
                       );
                     })()}

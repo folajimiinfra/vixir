@@ -23,19 +23,84 @@ export function ResultsGraphScreen() {
   const setPrecautions = useLabSessionStore((s) => s.setPrecautions);
 
   const [showBestFit, setShowBestFit] = useState(true);
+  const [newPrecautionText, setNewPrecautionText] = useState('');
 
   useEffect(() => {
     void hydrateFromBackend();
   }, [hydrateFromBackend]);
 
   const fit = computeRegressionForRows(rows);
-  const slopeDisplay = fit.slope.toFixed(2);
-  const pctDiff = (
-    (Math.abs((Number(gValue) || 9.82) - 9.81) / 9.81) *
-    100
-  ).toFixed(1);
+  const hasFit = rows.length >= 2 && Number.isFinite(fit.slope) && Math.abs(fit.slope) > 0.01;
+  const slopeDisplay = hasFit ? fit.slope.toFixed(2) : '0.00';
+
+  // Exact mathematical clipping of OLS line y = m*x + c against plot box [0..1.0] × [0..4.0]
+  const computeGraphLineGeometry = () => {
+    if (!hasFit) return null;
+    let lineX1 = 0.0;
+    let lineY1 = fit.slope * lineX1 + fit.intercept;
+    let lineX2 = 1.0;
+    let lineY2 = fit.slope * lineX2 + fit.intercept;
+
+    if (Math.abs(fit.slope) > 1e-6) {
+      if (lineY1 < 0) {
+        lineY1 = 0;
+        lineX1 = (0 - fit.intercept) / fit.slope;
+      } else if (lineY1 > 4.0) {
+        lineY1 = 4.0;
+        lineX1 = (4.0 - fit.intercept) / fit.slope;
+      }
+      if (lineY2 > 4.0) {
+        lineY2 = 4.0;
+        lineX2 = (4.0 - fit.intercept) / fit.slope;
+      } else if (lineY2 < 0) {
+        lineY2 = 0;
+        lineX2 = (0 - fit.intercept) / fit.slope;
+      }
+    }
+    lineX1 = Math.max(0, Math.min(1.0, lineX1));
+    lineX2 = Math.max(0, Math.min(1.0, lineX2));
+    lineY1 = fit.slope * lineX1 + fit.intercept;
+    lineY2 = fit.slope * lineX2 + fit.intercept;
+
+    // Large slope triangle vertices A and B spanning > 60% of the visible best-fit line
+    const sorted = [...rows].sort((a, b) => a.lengthM - b.lengthM);
+    let xA = Math.max(lineX1 + 0.05, Math.min(sorted[0]!.lengthM, lineX2 - 0.1));
+    let xB = Math.min(lineX2 - 0.05, Math.max(sorted[sorted.length - 1]!.lengthM, xA + 0.1));
+    if (xB - xA < 0.35 && lineX2 - lineX1 >= 0.45) {
+      const span = lineX2 - lineX1;
+      xA = lineX1 + span * 0.18;
+      xB = lineX1 + span * 0.85;
+    }
+    const yA = fit.slope * xA + fit.intercept;
+    const yB = fit.slope * xB + fit.intercept;
+
+    return { lineX1, lineY1, lineX2, lineY2, xA, yA, xB, yB };
+  };
+
+  const lineGeom = computeGraphLineGeometry();
+  const parsedG = Number(gValue);
+  const hasValidG = Number.isFinite(parsedG) && parsedG > 0;
+  const pctDiffNum = hasValidG ? (Math.abs(parsedG - 9.81) / 9.81) * 100 : null;
+  const pctDiff = pctDiffNum !== null ? pctDiffNum.toFixed(1) : '—';
 
   const hasDpWarning = rows.some((r) => (r.periodT2.split('.')[1] || '').length !== 3);
+
+  const handleAddCustomPrecaution = () => {
+    const trimmed = newPrecautionText.trim();
+    if (!trimmed) return;
+    setPrecautions((p) => ({
+      ...p,
+      customPrecautions: [...(p.customPrecautions || []), trimmed],
+    }));
+    setNewPrecautionText('');
+  };
+
+  const handleRemoveCustomPrecaution = (idx: number) => {
+    setPrecautions((p) => ({
+      ...p,
+      customPrecautions: (p.customPrecautions || []).filter((_, i) => i !== idx),
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
@@ -321,107 +386,120 @@ export function ResultsGraphScreen() {
                 T² / s²
               </text>
 
-              {/* Dynamic Best-fit Line & Large Slope Triangle (only drawn when 2+ readings exist) */}
-              {showBestFit &&
-                rows.length >= 2 &&
-                (() => {
-                  const sorted = [...rows].sort((a, b) => a.lengthM - b.lengthM);
-                  const xA = Math.max(0.1, sorted[0]!.lengthM);
-                  const xB = Math.min(0.95, sorted[sorted.length - 1]!.lengthM);
-                  const yA = fit.slope * xA + fit.intercept;
-                  const yB = fit.slope * xB + fit.intercept;
-                  const lineX1 = 0.05;
-                  const lineY1 = Math.max(0, fit.slope * lineX1 + fit.intercept);
-                  const lineX2 = 0.95;
-                  const lineY2 = Math.min(4.0, fit.slope * lineX2 + fit.intercept);
+              {/* Exact Mathematically Clipped OLS Best-fit Line & Large Slope Triangle */}
+              {showBestFit && lineGeom && (
+                <>
+                  {/* Right-angled large slope triangle legs (ΔL horizontal & ΔT² vertical) */}
+                  <line
+                    x1={70 + lineGeom.xA * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yA / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1.4"
+                    strokeDasharray="4 4"
+                  />
+                  <line
+                    x1={70 + lineGeom.xB * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yB / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1.4"
+                    strokeDasharray="4 4"
+                  />
 
-                  return (
-                    <>
-                      <line
-                        x1="70"
-                        y1={330 - (yA / 4) * 300}
-                        x2={70 + xA * 520}
-                        y2={330 - (yA / 4) * 300}
-                        stroke="#B54708"
-                        strokeWidth="1.3"
-                        strokeDasharray="4 4"
-                      />
-                      <line
-                        x1={70 + xA * 520}
-                        y1={330 - (yA / 4) * 300}
-                        x2={70 + xA * 520}
-                        y2="330"
-                        stroke="#B54708"
-                        strokeWidth="1.3"
-                        strokeDasharray="4 4"
-                      />
+                  {/* Axis projection guides for A and B */}
+                  <line
+                    x1="70"
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xA * 520}
+                    y2={330 - (lineGeom.yA / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1={70 + lineGeom.xA * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xA * 520}
+                    y2="330"
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1="70"
+                    y1={330 - (lineGeom.yB / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yB / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1={70 + lineGeom.xB * 520}
+                    y1={330 - (lineGeom.yB / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2="330"
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
 
-                      <line
-                        x1="70"
-                        y1={330 - (yB / 4) * 300}
-                        x2={70 + xB * 520}
-                        y2={330 - (yB / 4) * 300}
-                        stroke="#B54708"
-                        strokeWidth="1.3"
-                        strokeDasharray="4 4"
-                      />
-                      <line
-                        x1={70 + xB * 520}
-                        y1={330 - (yB / 4) * 300}
-                        x2={70 + xB * 520}
-                        y2="330"
-                        stroke="#B54708"
-                        strokeWidth="1.3"
-                        strokeDasharray="4 4"
-                      />
+                  {/* True OLS Best-Fit Line */}
+                  <line
+                    x1={70 + lineGeom.lineX1 * 520}
+                    y1={330 - (lineGeom.lineY1 / 4) * 300}
+                    x2={70 + lineGeom.lineX2 * 520}
+                    y2={330 - (lineGeom.lineY2 / 4) * 300}
+                    stroke="#1D4ED8"
+                    strokeWidth="2.2"
+                  />
 
-                      <line
-                        x1={70 + lineX1 * 520}
-                        y1={330 - (lineY1 / 4) * 300}
-                        x2={70 + lineX2 * 520}
-                        y2={330 - (lineY2 / 4) * 300}
-                        stroke="#1D4ED8"
-                        strokeWidth="2"
-                      />
+                  {/* Vertex A */}
+                  <circle
+                    cx={70 + lineGeom.xA * 520}
+                    cy={330 - (lineGeom.yA / 4) * 300}
+                    r="4.5"
+                    fill="#FFFFFF"
+                    stroke="#B54708"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x={70 + lineGeom.xA * 520 + 8}
+                    y={330 - (lineGeom.yA / 4) * 300 - 8}
+                    fill="#B54708"
+                    fontSize="11"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    A ({lineGeom.xA.toFixed(3)}, {lineGeom.yA.toFixed(2)})
+                  </text>
 
-                      <circle
-                        cx={70 + xA * 520}
-                        cy={330 - (yA / 4) * 300}
-                        r="4.5"
-                        fill="#FFFFFF"
-                        stroke="#B54708"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={70 + xA * 520 + 8}
-                        y={330 - (yA / 4) * 300 - 8}
-                        fill="#B54708"
-                        fontSize="11"
-                        fontFamily="JetBrains Mono, monospace"
-                      >
-                        A ({xA.toFixed(3)}, {yA.toFixed(2)})
-                      </text>
-
-                      <circle
-                        cx={70 + xB * 520}
-                        cy={330 - (yB / 4) * 300}
-                        r="4.5"
-                        fill="#FFFFFF"
-                        stroke="#B54708"
-                        strokeWidth="2"
-                      />
-                      <text
-                        x={70 + xB * 520 - 115}
-                        y={330 - (yB / 4) * 300 - 8}
-                        fill="#B54708"
-                        fontSize="11"
-                        fontFamily="JetBrains Mono, monospace"
-                      >
-                        B ({xB.toFixed(3)}, {yB.toFixed(2)})
-                      </text>
-                    </>
-                  );
-                })()}
+                  {/* Vertex B */}
+                  <circle
+                    cx={70 + lineGeom.xB * 520}
+                    cy={330 - (lineGeom.yB / 4) * 300}
+                    r="4.5"
+                    fill="#FFFFFF"
+                    stroke="#B54708"
+                    strokeWidth="2"
+                  />
+                  <text
+                    x={Math.min(480, Math.max(80, 70 + lineGeom.xB * 520 - 110))}
+                    y={330 - (lineGeom.yB / 4) * 300 - 10}
+                    fill="#B54708"
+                    fontSize="11"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    B ({lineGeom.xB.toFixed(3)}, {lineGeom.yB.toFixed(2)})
+                  </text>
+                </>
+              )}
 
               {/* Plotted Crosses (×) */}
               {rows.map((r) => {
@@ -451,10 +529,26 @@ export function ResultsGraphScreen() {
 
               <div className="bg-[#F5F7FA] rounded-xl p-4 font-mono text-xs space-y-1.5 text-[#0E1726]">
                 <div>slope = ΔT² / ΔL</div>
-                <div>= (3.41 - 1.10) / (0.850 - 0.275)</div>
-                <div>= 2.31 / 0.575</div>
-                <div className="text-[#2448D8] font-bold">= {slopeDisplay} s² m⁻¹</div>
-                <div className="pt-1">g = 4π² / slope = 39.48 / {slopeDisplay}</div>
+                {lineGeom ? (
+                  <>
+                    <div>
+                      = ({lineGeom.yB.toFixed(2)} - {lineGeom.yA.toFixed(2)}) / (
+                      {lineGeom.xB.toFixed(3)} - {lineGeom.xA.toFixed(3)})
+                    </div>
+                    <div>
+                      = {(lineGeom.yB - lineGeom.yA).toFixed(2)} /{' '}
+                      {(lineGeom.xB - lineGeom.xA).toFixed(3)}
+                    </div>
+                    <div className="text-[#2448D8] font-bold">= {slopeDisplay} s² m⁻¹</div>
+                    <div className="pt-1">
+                      g = 4π² / slope = 39.48 / {slopeDisplay}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[#6B778C]">
+                    Record at least 2 distinct lengths on the bench to compute the slope.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -470,23 +564,43 @@ export function ResultsGraphScreen() {
                     type="text"
                     value={gValue}
                     onChange={(e) => setGValue(e.target.value)}
+                    placeholder="e.g. 9.81"
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-[#D0D7E2] font-mono text-sm text-[#0E1726]"
                   />
                   <span className="font-mono text-xs text-[#475467]">m s⁻²</span>
                 </div>
               </div>
 
-              <div className="bg-[#E6F6EE] rounded-xl p-3.5 text-xs text-[#0F7B45] leading-relaxed">
-                Consistent with your own data. Percentage difference from 9.81 m s⁻²:{' '}
-                <strong>{pctDiff}%</strong>
-              </div>
+              {pctDiffNum !== null && (
+                <div
+                  className={`rounded-xl p-3.5 text-xs leading-relaxed ${
+                    pctDiffNum <= 5 && fit.slope > 0
+                      ? 'bg-[#E6F6EE] text-[#0F7B45]'
+                      : 'bg-[#FEF5EE] border border-[#F9D7C4] text-[#9A3412]'
+                  }`}
+                >
+                  {pctDiffNum <= 5 && fit.slope > 0
+                    ? `Consistent with standard gravity. Percentage difference from 9.81 m s⁻²: `
+                    : `Check your outlier readings or slope — percentage difference from 9.81 m s⁻² is high: `}
+                  <strong>{pctDiff}%</strong>
+                </div>
+              )}
             </div>
 
-            {/* Precautions taken */}
+            {/* Precautions taken (Checkboxes + Dynamic Addable Custom Precautions List) */}
             <div className="bg-white rounded-2xl border border-[#E3E8EF] p-6 space-y-3">
-              <h2 className="font-display text-base font-bold text-[#0E1726]">
-                Precautions taken
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-base font-bold text-[#0E1726]">
+                  Precautions taken
+                </h2>
+                <span className="font-mono text-[11px] text-[#6B778C]">
+                  {(precautions.parallax ? 1 : 0) +
+                    (precautions.smallAngle ? 1 : 0) +
+                    (precautions.centreSwing ? 1 : 0) +
+                    (precautions.customPrecautions?.length || 0)}{' '}
+                  stated
+                </span>
+              </div>
 
               <div className="space-y-2 text-xs text-[#0E1726]">
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -524,15 +638,53 @@ export function ResultsGraphScreen() {
                 </label>
               </div>
 
-              <textarea
-                rows={3}
-                value={precautions.extra}
-                onChange={(e) =>
-                  setPrecautions((p) => ({ ...p, extra: e.target.value }))
-                }
-                placeholder="Other precautions or sources of error..."
-                className="w-full px-3 py-2 rounded-xl border border-[#D0D7E2] text-xs placeholder:text-[#6B778C]"
-              />
+              {/* Added Custom Precautions List */}
+              {(precautions.customPrecautions || []).length > 0 && (
+                <ul className="space-y-1.5 pt-1">
+                  {(precautions.customPrecautions || []).map((item, idx) => (
+                    <li
+                      key={`${item}-${idx}`}
+                      className="flex items-start justify-between gap-2 px-3 py-2 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] text-xs text-[#0E1726]"
+                    >
+                      <span className="leading-snug">• {item}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove precaution ${idx + 1}`}
+                        onClick={() => handleRemoveCustomPrecaution(idx)}
+                        className="text-[#6B778C] hover:text-[#C4321C] font-bold px-1 cursor-pointer shrink-0"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Add New Precaution Input + Button */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  aria-label="Add another precaution"
+                  value={newPrecautionText}
+                  onChange={(e) => setNewPrecautionText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomPrecaution();
+                    }
+                  }}
+                  placeholder="Add another precaution (e.g. switched off fans)..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-[#D0D7E2] text-xs placeholder:text-[#6B778C] focus:outline-none focus:border-[#2448D8]"
+                />
+                <button
+                  type="button"
+                  disabled={!newPrecautionText.trim()}
+                  onClick={handleAddCustomPrecaution}
+                  className="px-3.5 py-2 rounded-xl bg-[#EAEFFE] hover:bg-[#DBEAFE] disabled:opacity-50 text-[#1D4ED8] text-xs font-semibold shrink-0 cursor-pointer"
+                >
+                  + Add
+                </button>
+              </div>
             </div>
 
             <button
