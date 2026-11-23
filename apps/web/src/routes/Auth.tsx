@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Eye, EyeOff } from 'lucide-react';
+import { vixirApi, type UserRole } from '../lib/api';
 
 type Tab = 'signin' | 'create';
 type Role = 'student' | 'teacher' | 'admin';
@@ -470,6 +471,8 @@ export function Auth() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [code, setCode] = useState('');
+  const [institutionName, setInstitutionName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Continuous auto-scrolling carousel state (moves on its own every 4.2 seconds)
@@ -516,7 +519,7 @@ export function Auth() {
     return null;
   };
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
 
@@ -532,6 +535,27 @@ export function Auth() {
     }
 
     setErrors({});
+    setIsSubmitting(true);
+    try {
+      const user = await vixirApi.login(email.trim(), password);
+      setIsSubmitting(false);
+      if (nextRoute) {
+        navigate(nextRoute);
+        return;
+      }
+      if (user.role === 'TEACHER') navigate('/teacher');
+      else if (user.role === 'ADMIN') navigate('/admin');
+      else navigate('/app');
+      return;
+    } catch (err) {
+      setIsSubmitting(false);
+      const apiErr = err as Error & { status?: number };
+      if (apiErr.status && apiErr.status >= 400) {
+        setErrors({ form: apiErr.message || 'Invalid email or password' });
+        return;
+      }
+    }
+
     if (nextRoute) {
       navigate(nextRoute);
       return;
@@ -545,7 +569,7 @@ export function Auth() {
     }
   };
 
-  const handleCreateAccount = (e: React.FormEvent) => {
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     const nextErrors: Record<string, string> = {};
 
@@ -565,12 +589,49 @@ export function Auth() {
       nextErrors.code = 'Enter a valid code (4–24 letters, numbers, or hyphens)';
     }
 
+    const trimmedInst = institutionName.trim();
+    if (trimmedInst.length > 120) {
+      nextErrors.institutionName = 'Institution name must be at most 120 characters';
+    }
+
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
     }
 
     setErrors({});
+    const [firstName, ...restNames] = trimmedName.split(/\s+/);
+    const lastName = restNames.join(' ') || 'Student';
+    setIsSubmitting(true);
+    try {
+      const user = await vixirApi.register({
+        email: email.trim(),
+        password,
+        firstName: firstName || 'Adaora',
+        lastName,
+        role: role.toUpperCase() as UserRole,
+        classCode: role === 'student' && trimmedCode ? trimmedCode : undefined,
+        institutionName:
+          (role === 'teacher' || role === 'admin') && trimmedInst ? trimmedInst : undefined,
+      });
+      setIsSubmitting(false);
+      if (nextRoute) {
+        navigate(nextRoute);
+        return;
+      }
+      if (user.role === 'TEACHER') navigate('/teacher');
+      else if (user.role === 'ADMIN') navigate('/admin');
+      else navigate('/app');
+      return;
+    } catch (err) {
+      setIsSubmitting(false);
+      const apiErr = err as Error & { status?: number };
+      if (apiErr.status && apiErr.status >= 400) {
+        setErrors({ form: apiErr.message || 'Could not create account' });
+        return;
+      }
+    }
+
     if (nextRoute) {
       navigate(nextRoute);
       return;
@@ -850,11 +911,18 @@ export function Auth() {
                   </a>
                 </div>
 
+                {errors.form && (
+                  <p role="alert" className="text-xs font-semibold text-[#C4321C] bg-[#FEF2F2] border border-[#FECACA] rounded-xl px-3.5 py-2.5">
+                    {errors.form}
+                  </p>
+                )}
+
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors mt-2 cursor-pointer"
                 >
-                  Sign in
+                  {isSubmitting ? 'Signing in...' : 'Sign in'}
                 </button>
               </form>
 
@@ -1081,11 +1149,58 @@ export function Auth() {
                   )}
                 </div>
 
+                {(role === 'teacher' || role === 'admin') && (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label
+                        htmlFor="create-institution"
+                        className="block text-xs font-semibold text-[#0E1726]"
+                      >
+                        Institution / School name
+                      </label>
+                      <span className="text-xs text-[#6B778C]">
+                        optional — max 120 chars
+                      </span>
+                    </div>
+                    <input
+                      id="create-institution"
+                      type="text"
+                      maxLength={120}
+                      aria-invalid={Boolean(errors.institutionName)}
+                      value={institutionName}
+                      onChange={(e) => {
+                        setInstitutionName(e.target.value);
+                        if (errors.institutionName) {
+                          setErrors((prev) => ({ ...prev, institutionName: '' }));
+                        }
+                      }}
+                      placeholder="e.g. King's College Lagos"
+                      className={`w-full px-3.5 py-2.5 bg-white border rounded-xl text-sm text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 ${
+                        errors.institutionName
+                          ? 'border-[#C4321C] focus:ring-[#C4321C]'
+                          : 'border-[#D0D7E2] focus:ring-[#2448D8]'
+                      }`}
+                    />
+                    {errors.institutionName && (
+                      <p role="alert" className="text-xs font-medium text-[#C4321C] mt-1.5">
+                        {errors.institutionName}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {errors.form && (
+                  <p role="alert" className="text-xs font-semibold text-[#C4321C] bg-[#FEF2F2] border border-[#FECACA] rounded-xl px-3.5 py-2.5">
+                    {errors.form}
+                  </p>
+                )}
+
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors mt-2 cursor-pointer"
                 >
-                  Create account →
+                  {isSubmitting ? 'Creating account...' : 'Create account →'}
                 </button>
               </form>
 

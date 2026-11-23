@@ -1,9 +1,16 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   APPARATUS_CATALOG,
   type EncyclopediaItem,
 } from './apparatusCatalog';
+import {
+  getStoredAccessToken,
+  getStoredUser,
+  vixirApi,
+  type AssignmentSummary,
+  type UserProfile,
+} from '../lib/api';
 
 type StudentNavKey =
   | 'dashboard'
@@ -66,6 +73,50 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
 // B1 — Student Dashboard
 export function StudentDashboardScreen() {
   const [search, setSearch] = useState('');
+  const [user, setUser] = useState<UserProfile | null>(() => getStoredUser());
+  const [apiAssignments, setApiAssignments] = useState<AssignmentSummary[]>([]);
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [joinFeedback, setJoinFeedback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!getStoredAccessToken()) return;
+    let cancelled = false;
+    vixirApi
+      .getMe()
+      .then((me) => {
+        if (!cancelled) setUser(me);
+      })
+      .catch(() => {});
+    vixirApi
+      .listMyAssignments()
+      .then((list) => {
+        if (!cancelled) setApiAssignments(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const handleJoinClassCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = joinCodeInput.trim();
+    if (!code) return;
+    try {
+      const cls = await vixirApi.joinClass(code);
+      setJoinFeedback(`Joined ${cls.name} (${cls.joinCode}) ✓`);
+      setJoinCodeInput('');
+      const updated = await vixirApi.listMyAssignments().catch(() => []);
+      setApiAssignments(updated);
+    } catch (err) {
+      setJoinFeedback((err as Error).message || `Code ${code} saved locally`);
+    }
+  };
+
+  const displayName = user?.firstName || 'Adaeze';
+  const initials = user
+    ? `${user.firstName?.[0] || 'A'}${user.lastName?.[0] || 'O'}`.toUpperCase()
+    : 'AO';
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
@@ -79,11 +130,29 @@ export function StudentDashboardScreen() {
               SS3 Science · Kings College, Lagos
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
-              Good evening, Adaeze
+              Good evening, {displayName}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <form onSubmit={handleJoinClassCode} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                aria-label="Join class with code"
+                value={joinCodeInput}
+                onChange={(e) => setJoinCodeInput(e.target.value)}
+                placeholder="Join class code (e.g. PHY-SS3-DEMO)"
+                className="w-48 px-3 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs font-mono text-[#0E1726] placeholder:text-[#6B778C]"
+              />
+              {joinCodeInput.trim() && (
+                <button
+                  type="submit"
+                  className="px-3 py-2 rounded-xl bg-[#2448D8] text-white text-xs font-semibold cursor-pointer"
+                >
+                  Join
+                </button>
+              )}
+            </form>
             <input
               type="search"
               aria-label="Search experiments"
@@ -93,10 +162,21 @@ export function StudentDashboardScreen() {
               className="w-56 sm:w-64 px-3.5 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
             />
             <div className="w-9 h-9 rounded-full bg-[#FDECE3] text-[#9A3412] text-xs font-bold flex items-center justify-center shrink-0">
-              AO
+              {initials}
             </div>
           </div>
         </div>
+
+        {joinFeedback && (
+          <div className="mb-4 px-4 py-2.5 rounded-xl bg-[#E6F6EE] border border-[#A7F3D0] text-xs font-semibold text-[#0F7B45]">
+            {joinFeedback}
+          </div>
+        )}
+        {apiAssignments.length > 0 && (
+          <div className="mb-4 px-4 py-2.5 rounded-xl bg-[#EAEFFE] border border-[#BFDBFE] text-xs font-semibold text-[#1D4ED8]">
+            {apiAssignments.length} published class assignment(s) synced from Vixir API (:8081)
+          </div>
+        )}
 
         {/* Due this week */}
         <section className="mb-7">

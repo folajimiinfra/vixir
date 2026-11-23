@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Check, AlertCircle } from 'lucide-react';
 import {
@@ -6,6 +6,7 @@ import {
   computeAutoMark,
   computeRegressionForRows,
 } from '../store/labSessionStore';
+import { vixirApi, type MarkReportResponse } from '../lib/api';
 
 // F1 — Results table, graph & calculations
 export function ResultsGraphScreen() {
@@ -763,12 +764,34 @@ export function ReviewSubmitScreen() {
 // F3 — Marked Report & Feedback (/attempt/:id/report)
 export function MarkedReportScreen() {
   const navigate = useNavigate();
+  const attemptId = useLabSessionStore((s) => s.attemptId);
   const rows = useLabSessionStore((s) => s.pendulumRows);
   const precautions = useLabSessionStore((s) => s.precautions);
   const gValue = useLabSessionStore((s) => s.gValue);
 
+  const [apiReport, setApiReport] = useState<MarkReportResponse | null>(null);
+
+  useEffect(() => {
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attemptId);
+    if (!isUuid) return;
+    let cancelled = false;
+    vixirApi
+      .getMarkReport(attemptId)
+      .then((res) => {
+        if (!cancelled) setApiReport(res);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [attemptId]);
+
   const autoMark = computeAutoMark(rows, precautions, gValue);
-  const scoreRatio = autoMark.total / autoMark.maxTotal;
+  const totalScore = apiReport ? apiReport.mark.total : autoMark.total;
+  const maxTotalScore = apiReport ? apiReport.mark.maxTotal : autoMark.maxTotal;
+  const isReviewedByTeacher = apiReport ? Boolean(apiReport.mark.reviewed) : true;
+  const scoreRatio = totalScore / Math.max(1, maxTotalScore);
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
@@ -828,17 +851,18 @@ export function MarkedReportScreen() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-display text-2xl font-bold text-white">
-                    {autoMark.total}
+                    {totalScore}
                   </span>
                   <span className="text-[10px] text-[#93A0B8]">
-                    out of {autoMark.maxTotal}
+                    out of {maxTotalScore}
                   </span>
                 </div>
               </div>
 
               <div>
                 <div className="text-[11px] font-bold tracking-wider uppercase text-[#34D399] mb-1">
-                  MARKED · GRADE {autoMark.grade}
+                  {isReviewedByTeacher ? 'REVIEWED BY TEACHER' : 'AUTO-MARKED'} · GRADE{' '}
+                  {autoMark.grade}
                 </div>
                 <h1 className="font-display text-2xl sm:text-3xl font-bold text-white mb-1.5">
                   Simple pendulum — determination of g
@@ -894,12 +918,15 @@ export function MarkedReportScreen() {
               <div>
                 <div className="text-xs mb-1">
                   <strong className="text-[#0E1726]">Mr. Bello</strong>{' '}
-                  <span className="text-[#6B778C]">· teacher comment</span>
+                  <span className="text-[#6B778C]">
+                    · {isReviewedByTeacher ? 'reviewed teacher comment' : 'auto-marker feedback'}
+                  </span>
                 </div>
                 <p className="text-xs text-[#0E1726] leading-relaxed">
-                  {autoMark.total === 20
-                    ? 'Full marks! Every derived column is formatted to 3 decimal places, your large slope triangle is well chosen, and all three physical precautions are clearly stated.'
-                    : 'Excellent graph and a good large triangle for the slope. Watch your decimal places — one T² value was given to 2 d.p. when the rest were 3. Remember to state a precaution about timing from the centre of the swing.'}
+                  {apiReport?.mark.teacherComment ||
+                    (totalScore === maxTotalScore
+                      ? 'Full marks! Every derived column is formatted to 3 decimal places, your large slope triangle is well chosen, and all three physical precautions are clearly stated.'
+                      : 'Excellent graph and a good large triangle for the slope. Watch your decimal places — one T² value was given to 2 d.p. when the rest were 3. Remember to state a precaution about timing from the centre of the swing.')}
                 </p>
               </div>
             </section>

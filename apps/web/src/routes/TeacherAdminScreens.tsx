@@ -1,5 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import {
+  getStoredAccessToken,
+  vixirApi,
+  type ClassSummary,
+  type PracticalMode,
+} from '../lib/api';
 
 function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignments' | 'marking' | 'builder' | 'library' }) {
   const items = [
@@ -51,6 +57,21 @@ function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignm
 // G1 — Teacher Dashboard (/teacher)
 export function TeacherDashboardScreen() {
   const navigate = useNavigate();
+  const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
+
+  useEffect(() => {
+    if (!getStoredAccessToken()) return;
+    let cancelled = false;
+    vixirApi
+      .listClasses()
+      .then((list) => {
+        if (!cancelled && list.length > 0) setApiClasses(list);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
@@ -221,11 +242,18 @@ export function TeacherDashboardScreen() {
             <h2 className="font-display text-base font-bold text-[#0E1726]">My classes</h2>
 
             <div className="space-y-2.5">
-              {[
-                { name: 'SS3A Physics', students: 42, code: 'PHY-SS3-7KQ2' },
-                { name: 'SS3B Physics', students: 39, code: 'PHY-SS3-2MV8' },
-                { name: 'SS2 Science', students: 51, code: 'SCI-SS2-9TR4' },
-              ].map((cls) => (
+              {(apiClasses.length > 0
+                ? apiClasses.map((c) => ({
+                    name: c.name,
+                    students: c.studentCount ?? 24,
+                    code: c.joinCode,
+                  }))
+                : [
+                    { name: 'SS3A Physics', students: 42, code: 'PHY-SS3-7KQ2' },
+                    { name: 'SS3B Physics', students: 39, code: 'PHY-SS3-2MV8' },
+                    { name: 'SS2 Science', students: 51, code: 'SCI-SS2-9TR4' },
+                  ]
+              ).map((cls) => (
                 <div
                   key={cls.code}
                   className="rounded-xl border border-[#E3E8EF] p-3.5 flex items-center justify-between"
@@ -272,6 +300,35 @@ export function AssignExperimentScreen() {
   const totalStudents =
     (classes.ss3a ? 42 : 0) + (classes.ss3b ? 39 : 0) + (classes.ss2 ? 51 : 0);
 
+  const handlePublishToStudents = async () => {
+    if (getStoredAccessToken()) {
+      try {
+        const myClasses = await vixirApi.listClasses();
+        const targetClass = myClasses[0];
+        if (targetClass) {
+          const now = new Date();
+          const due = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+          const created = await vixirApi.createAssignment({
+            classId: targetClass.id,
+            experimentId: 'phy.pendulum.g',
+            experimentVersion: 1,
+            title: experiment,
+            mode: mode.toUpperCase() as PracticalMode,
+            opensAt: now.toISOString(),
+            dueAt: due.toISOString(),
+            noiseLevel: noiseLevel === 0 ? 'NONE' : noiseLevel === 1 ? 'LOW' : 'REALISTIC',
+            attemptsAllowed: 2,
+            releasePolicy: autoRelease ? 'IMMEDIATE' : 'MANUAL',
+          });
+          await vixirApi.publishAssignment(created.id).catch(() => {});
+        }
+      } catch {
+        // Fallback to demo results screen when offline
+      }
+    }
+    navigate('/teacher/assignments/demo/results');
+  };
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
       <header className="bg-white border-b border-[#E3E8EF]">
@@ -289,7 +346,9 @@ export function AssignExperimentScreen() {
             </button>
             <button
               type="button"
-              onClick={() => navigate('/teacher/assignments/demo/results')}
+              onClick={() => {
+                void handlePublishToStudents();
+              }}
               className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white font-semibold cursor-pointer"
             >
               Publish to students
