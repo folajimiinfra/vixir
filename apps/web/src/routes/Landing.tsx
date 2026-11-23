@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
+import { useAuth } from '../context/AuthContext';
 
 function HeroPendulumCard() {
   // Smooth simple harmonic motion around the pivot (135, 38)
@@ -165,6 +166,17 @@ function HeroPendulumCard() {
 }
 
 export function Landing() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const dashboardPath =
+    user?.role === 'TEACHER'
+      ? '/teacher'
+      : user?.role === 'ADMIN'
+        ? '/admin'
+        : '/app';
+  const initials = user
+    ? `${user.firstName?.[0] || 'U'}${user.lastName?.[0] || ''}`.toUpperCase()
+    : '';
+
   return (
     <main className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
       {/* Top Navbar */}
@@ -199,20 +211,48 @@ export function Landing() {
             </a>
           </nav>
 
-          <div className="flex items-center gap-4">
-            <Link
-              to="/auth"
-              className="text-sm font-semibold text-[#0E1726] hover:text-[#2448D8] transition-colors"
-            >
-              Sign in
-            </Link>
-            <Link
-              to="/auth?tab=create"
-              className="px-4 py-2 rounded-lg bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
-            >
-              Request a demo
-            </Link>
-          </div>
+          {isAuthenticated && user ? (
+            <div className="flex items-center gap-3">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#F5F7FA] border border-[#E3E8EF] text-xs">
+                <span className="w-6 h-6 rounded-full bg-[#FDECE3] text-[#9A3412] font-bold flex items-center justify-center text-[11px]">
+                  {initials}
+                </span>
+                <span className="font-semibold text-[#0E1726]">
+                  {user.firstName} {user.lastName}
+                </span>
+              </div>
+              <Link
+                to={dashboardPath}
+                className="px-4 py-2 rounded-lg bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
+              >
+                Dashboard →
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  void logout();
+                }}
+                className="text-xs font-semibold text-[#475467] hover:text-[#C4321C] transition-colors cursor-pointer"
+              >
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-4">
+              <Link
+                to="/auth"
+                className="text-sm font-semibold text-[#0E1726] hover:text-[#2448D8] transition-colors"
+              >
+                Sign in
+              </Link>
+              <Link
+                to="/auth?tab=create"
+                className="px-4 py-2 rounded-lg bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
+              >
+                Request a demo
+              </Link>
+            </div>
+          )}
         </div>
       </header>
 
@@ -237,12 +277,21 @@ export function Landing() {
               </p>
 
               <div className="flex flex-wrap items-center gap-3 mb-5">
-                <Link
-                  to="/auth"
-                  className="px-5 py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
-                >
-                  Get started free
-                </Link>
+                {isAuthenticated && user ? (
+                  <Link
+                    to={dashboardPath}
+                    className="px-5 py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
+                  >
+                    Go to dashboard →
+                  </Link>
+                ) : (
+                  <Link
+                    to="/auth"
+                    className="px-5 py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-sm font-semibold transition-colors"
+                  >
+                    Get started free
+                  </Link>
+                )}
                 <Link
                   to="/lab/physics/pendulum"
                   className="px-5 py-3 rounded-xl bg-white hover:bg-[#EDF1F7] text-[#0E1726] border border-[#E3E8EF] text-sm font-semibold transition-colors"
