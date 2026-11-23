@@ -18,8 +18,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
+from typing import Any
 
 from .contracts import Mode, PointerTarget, ScreenMap
 from .graph.nodes import process_user_query

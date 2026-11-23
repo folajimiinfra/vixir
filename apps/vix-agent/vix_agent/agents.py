@@ -11,6 +11,7 @@ Implements the multi-agent patterns from Michael Albada's *Building Applications
 from __future__ import annotations
 
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Literal
 

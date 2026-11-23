@@ -20,6 +20,9 @@ dev = ["pytest>=8", "hypothesis>=6.100", "ruff>=0.6"]
 line-length = 110
 target-version = "py312"
 
+[tool.ruff.lint]
+ignore = ["BLE001"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]

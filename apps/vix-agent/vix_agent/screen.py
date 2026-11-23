@@ -162,9 +162,11 @@ def resolve_screen_reference(
     viewport_h = max(1, screen_map.viewport.get("h", 900))
 
     # Check sub-element dotted references first (e.g. "orange ball" / "the bob" -> "bench.bob")
-    if any(tok in q for tok in ("orange ball", "the bob", "pendulum bob", "brass bob", "hanging ball")):
-        if screen_map.has_id("bench.bob"):
-            return (["bench.bob"], 0.92)
+    if (
+        any(tok in q for tok in ("orange ball", "the bob", "pendulum bob", "brass bob", "hanging ball"))
+        and screen_map.has_id("bench.bob")
+    ):
+        return (["bench.bob"], 0.92)
 
     for region in candidates:
         score = 0.0
@@ -191,9 +193,10 @@ def resolve_screen_reference(
 
         # 3. Synonym table match
         for canonical_id, phrases in _REGION_SYNONYMS.items():
-            if canonical_id == r_id or r_id.endswith(canonical_id):
-                if any(p in q for p in phrases):
-                    score = max(score, 0.88)
+            if (canonical_id == r_id or r_id.endswith(canonical_id)) and any(
+                p in q for p in phrases
+            ):
+                score = max(score, 0.88)
 
         # 4. Region kind match ("this instrument", "this table", "this chart", "this control")
         if r_kind in q:

@@ -268,31 +268,30 @@ def _classify_intent_fast(user_text: str, screen: ScreenMap | None) -> tuple[Int
         return ("build_setup", 0.98)
 
     # 2. If student is actively pointing at an element on screen and asks a deictic question ("what is this?", "how do I adjust this?", "why does this show...")
-    if screen is not None and screen.pointerTarget is not None:
-        if any(
-            phrase in q
-            for phrase in (
-                "what is this",
-                "what's this",
-                "what is that",
-                "what does this do",
-                "how do i use this",
-                "how does this work",
-                "why is this",
-                "why does this",
-                "explain this",
-                "look at this",
-                "pointing at",
-                "this button",
-                "this slider",
-                "this part",
-                "this organ",
-                "this meter",
-                "this wire",
-                "right here",
-            )
-        ):
-            return ("explain_region", 0.98)
+    if screen is not None and screen.pointerTarget is not None and any(
+        phrase in q
+        for phrase in (
+            "what is this",
+            "what's this",
+            "what is that",
+            "what does this do",
+            "how do i use this",
+            "how does this work",
+            "why is this",
+            "why does this",
+            "explain this",
+            "look at this",
+            "pointing at",
+            "this button",
+            "this slider",
+            "this part",
+            "this organ",
+            "this meter",
+            "this wire",
+            "right here",
+        )
+    ):
+        return ("explain_region", 0.98)
 
     # 3. Tour navigation commands
     if parse_tour_nav_command(q) is not None:

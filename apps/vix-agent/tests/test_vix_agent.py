@@ -257,7 +257,7 @@ def test_knowledge_graph_self_notes_autogen_team_and_actor_critic():
 
     # 3. AutoGenLabTeam decomposes 'what_next' across Diagnostics, Screen, and Pedagogy specialists
     team = AutoGenLabTeam()
-    trace, kg_out, rpcs = team.run_consultation(
+    trace, _kg_out, rpcs = team.run_consultation(
         intent="what_next",
         user_text="What should I do next and why is the warning flashing?",
         screen=sm,

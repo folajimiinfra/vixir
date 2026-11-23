@@ -334,7 +334,8 @@ async def handle_ws(request: web.Request) -> web.WebSocketResponse:
         if msg.type == web.WSMsgType.TEXT:
             try:
                 data = json.loads(msg.data)
-            except Exception:
+            except Exception as exc:
+                logger.debug("Ignored non-JSON WS message: %s", exc)
                 continue
 
             msg_type = data.get("type", "turn")
@@ -421,8 +422,8 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
         try:
             pt = PointerTarget.model_validate(raw_pointer)
             screen_map = screen_map.model_copy(update={"pointerTarget": pt})
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.debug("Ignored invalid pointerTarget in /vix/voice-turn: %s", exc)
 
     result = await asyncio.to_thread(
         process_user_query,

@@ -91,9 +91,7 @@ class PolicyGuard:
 
     def blocks(self, message: str, mode: Mode = "GRADED") -> bool:
         """Synchronous check for rule violations + LLM classifier."""
-        if self.rule_check(message, mode) is not None:
-            return True
-        return False
+        return self.rule_check(message, mode) is not None
 
     async def check(self, message: str, mode: Mode) -> tuple[bool, str | None]:
         """Run both deterministic rule check and real LLM classifier independently; blocked if either flags it (Req 6 AC3)."""
