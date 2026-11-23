@@ -1,17 +1,31 @@
 package org.vixir.auth;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
+/**
+ * Accepts either a school email address or a matric / admission number in {@code email} (and optional {@code matricNo}).
+ */
 public record RegisterRequest(
-        @NotBlank @Email String email,
-        @NotBlank @Size(min = 8, message = "Password must be at least 8 characters") String password,
-        @NotBlank String firstName,
-        @NotBlank String lastName,
+        @NotBlank @Size(max = 120) String email,
+        @NotBlank @Size(min = 8, max = 128) String password,
+        @NotBlank @Size(max = 80) String firstName,
+        @NotBlank @Size(max = 80) String lastName,
         @NotNull AppUser.Role role,
-        String classCode,  // optional; required when role == STUDENT and you want to join
-        @Size(max = 120, message = "Institution name must be at most 120 characters")
-        String institutionName  // optional; TEACHER/ADMIN only. Defaults to a name derived from the user.
-) {}
+        String classCode,
+        @Size(max = 120) String institutionName,
+        @Size(max = 64) String matricNo
+) {
+    public RegisterRequest(
+            String email,
+            String password,
+            String firstName,
+            String lastName,
+            AppUser.Role role,
+            String classCode,
+            String institutionName
+    ) {
+        this(email, password, firstName, lastName, role, classCode, institutionName, null);
+    }
+}

@@ -65,22 +65,48 @@ public class AuthService {
 
     public record TokenPair(String accessToken, String refreshToken) {}
 
+    private static final java.util.regex.Pattern EMAIL_PATTERN =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+    private static final java.util.regex.Pattern MATRIC_PATTERN =
+            java.util.regex.Pattern.compile("^[A-Za-z0-9][A-Za-z0-9/_.-]{3,39}$");
+
+    private static boolean isValidEmailOrMatric(String raw) {
+        if (raw == null || raw.isBlank()) return false;
+        String trimmed = raw.trim();
+        return EMAIL_PATTERN.matcher(trimmed).matches() || MATRIC_PATTERN.matcher(trimmed).matches();
+    }
+
     @Transactional
     public TokenPair register(RegisterRequest req) {
-        // Req 1.4 — duplicate email
-        if (userRepo.existsByEmail(req.email())) {
-            throw ApiException.conflict("EMAIL_TAKEN", "Email is already registered");
+        String identifier = req.email() != null ? req.email().trim() : "";
+        if (!isValidEmailOrMatric(identifier)) {
+            throw ApiException.unprocessable("VALIDATION_FAILED",
+                    "Enter a valid school email (e.g. adaora@kings.edu.ng) or matric / admission number (e.g. 2025/16/16/0416)");
+        }
+
+        // Req 1.4 — duplicate email or matric number
+        if (userRepo.existsByEmailIgnoreCase(identifier) || userRepo.existsByMatricNoIgnoreCase(identifier)) {
+            throw ApiException.conflict("EMAIL_TAKEN", "Email or matric / admission number is already registered");
+        }
+        if (req.matricNo() != null && !req.matricNo().isBlank()
+                && userRepo.existsByMatricNoIgnoreCase(req.matricNo().trim())) {
+            throw ApiException.conflict("MATRIC_TAKEN", "Matric / admission number is already registered");
         }
 
         // Req 1.3 — validate class code when student provides one
-        if (req.role() == AppUser.Role.STUDENT && req.classCode() != null) {
+        if (req.role() == AppUser.Role.STUDENT && req.classCode() != null && !req.classCode().isBlank()) {
             classRepo.findByJoinCodeIgnoreCaseAndArchivedAtIsNull(req.classCode())
                     .orElseThrow(() -> ApiException.unprocessable("CLASS_CODE_INVALID",
                             "Class code does not match an active class"));
         }
 
         var user = new AppUser();
-        user.setEmail(req.email());
+        user.setEmail(identifier);
+        if (!identifier.contains("@")) {
+            user.setMatricNo(identifier);
+        } else if (req.matricNo() != null && !req.matricNo().isBlank()) {
+            user.setMatricNo(req.matricNo().trim());
+        }
         user.setPasswordHash(passwords.hash(req.password()));
         user.setFirstName(req.firstName());
         user.setLastName(req.lastName());
@@ -94,7 +120,7 @@ public class AuthService {
         }
 
         // Req 1.2 — enrol student in class within same transaction
-        if (req.role() == AppUser.Role.STUDENT && req.classCode() != null) {
+        if (req.role() == AppUser.Role.STUDENT && req.classCode() != null && !req.classCode().isBlank()) {
             var cls = classRepo.findByJoinCodeIgnoreCaseAndArchivedAtIsNull(req.classCode()).get();
             var enrolment = new Enrolment();
             enrolment.setClassId(cls.getId());
@@ -108,8 +134,16 @@ public class AuthService {
 
     @Transactional
     public TokenPair login(LoginRequest req) {
-        var user = userRepo.findByEmail(req.email())
-                .orElseThrow(() -> ApiException.unauthorized("INVALID_CREDENTIALS", "Invalid email or password"));
+        String identifier = req.email() != null ? req.email().trim() : "";
+        if (!isValidEmailOrMatric(identifier)) {
+            throw ApiException.unprocessable("VALIDATION_FAILED",
+                    "Enter a valid school email or matric / admission number");
+        }
+
+        var user = userRepo.findByEmailIgnoreCase(identifier)
+                .or(() -> userRepo.findByMatricNoIgnoreCase(identifier))
+                .orElseThrow(() -> ApiException.unauthorized("INVALID_CREDENTIALS",
+                        "Invalid email / matric number or password"));
 
         // Req 1.10
         if (user.getStatus() == AppUser.UserStatus.DISABLED) {
