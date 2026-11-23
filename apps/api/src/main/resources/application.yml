@@ -22,7 +22,7 @@ spring:
       write-dates-as-timestamps: false
 
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8081}
   shutdown: graceful
   # Behind a proxy (Render, nginx), Tomcat takes the client IP from X-Forwarded-For only when the request
   # comes from a private-range proxy address. The auth rate limiter relies on this; never parse the header in code.
