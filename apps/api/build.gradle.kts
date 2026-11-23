@@ -27,7 +27,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql")
 
     // OpenAPI / Swagger
-    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.9")
+    implementation("org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0")
 
     // JWT encoding (issuing access + refresh tokens)
     implementation("com.nimbusds:nimbus-jose-jwt:9.40")
