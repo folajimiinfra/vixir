@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Mic, X, Sparkles, Volume2, Eye, Cpu, Crosshair } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 import type { SubjectLab } from './LabLayout';
 
 export type VixTargetRegion =
@@ -596,6 +597,8 @@ export function VixConnectModal({
   onClose,
   onStartTour,
 }: VixConnectModalProps) {
+  const { user } = useAuth();
+  const studentFirstName = user?.firstName || 'Student';
   const [micOn, setMicOn] = useState(true);
   const [screenOn, setScreenOn] = useState(true);
   const [cameraOn, setCameraOn] = useState(false);
@@ -640,7 +643,7 @@ export function VixConnectModal({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          firstName: 'Adaora',
+          firstName: studentFirstName,
           mode: 'PRACTICE',
           locale: 'en',
           voice: selectedVoice,
@@ -675,7 +678,7 @@ export function VixConnectModal({
 
     const personaName =
       selectedVoice === 'tunde' ? 'Tunde' : selectedVoice === 'grace' ? 'Grace' : 'Ada';
-    const fallbackIntro = `Hello Adaora! I am Vix, speaking in ${personaName}'s voice as your AI laboratory guide for ${experimentTitle}. I can see every component, terminal pin, meter, and slider on your screen, help you draw or wire setups, and guide you with Socratic questions—though I will never give away final graded answers or submit your report for you. Would you like me to take you on a complete spotlight tour of every detail on this workspace?`;
+    const fallbackIntro = `Hello ${studentFirstName}! I am Vix, speaking in ${personaName}'s voice as your AI laboratory guide for ${experimentTitle}. I can see every component, terminal pin, meter, and slider on your screen, help you draw or wire setups, and guide you with Socratic questions—though I will never give away final graded answers or submit your report for you. Would you like me to take you on a complete spotlight tour of every detail on this workspace?`;
     setConnecting(false);
     await playVixNeuralAudio(
       fallbackIntro,

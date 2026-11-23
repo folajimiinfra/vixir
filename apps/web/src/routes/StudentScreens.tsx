@@ -4,12 +4,12 @@ import {
   APPARATUS_CATALOG,
   type EncyclopediaItem,
 } from './apparatusCatalog';
+import { useAuth } from '../context/AuthContext';
 import {
   getStoredAccessToken,
-  getStoredUser,
   vixirApi,
   type AssignmentSummary,
-  type UserProfile,
+  type ClassSummary,
 } from '../lib/api';
 
 type StudentNavKey =
@@ -23,6 +23,8 @@ type StudentNavKey =
   | 'settings';
 
 function StudentSidebar({ active }: { active: StudentNavKey }) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const navItems: { id: StudentNavKey; label: string; to: string }[] = [
     { id: 'dashboard', label: 'Dashboard', to: '/app' },
     { id: 'labs', label: 'Laboratories (5 labs)', to: '/labs' },
@@ -62,9 +64,29 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
         </nav>
       </div>
 
-      <div className="mt-6 md:mt-0 px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
-        <span>All results synced · 2 min ago</span>
+      <div className="mt-6 md:mt-0 space-y-2.5">
+        {user && (
+          <div className="px-3 py-2.5 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] text-xs">
+            <div className="font-bold text-[#0E1726] truncate">
+              {user.firstName} {user.lastName}
+            </div>
+            <div className="text-[11px] text-[#6B778C] truncate">{user.email}</div>
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate('/auth');
+              }}
+              className="mt-2 text-[11px] font-semibold text-[#C4321C] hover:underline cursor-pointer"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
+        <div className="px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
+          <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
+          <span>All results synced · 2 min ago</span>
+        </div>
       </div>
     </aside>
   );
@@ -73,24 +95,26 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
 // B1 — Student Dashboard
 export function StudentDashboardScreen() {
   const [search, setSearch] = useState('');
-  const [user, setUser] = useState<UserProfile | null>(() => getStoredUser());
+  const { user, refreshProfile } = useAuth();
   const [apiAssignments, setApiAssignments] = useState<AssignmentSummary[]>([]);
+  const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
   const [joinCodeInput, setJoinCodeInput] = useState('');
   const [joinFeedback, setJoinFeedback] = useState<string | null>(null);
 
   useEffect(() => {
     if (!getStoredAccessToken()) return;
     let cancelled = false;
-    vixirApi
-      .getMe()
-      .then((me) => {
-        if (!cancelled) setUser(me);
-      })
-      .catch(() => {});
+    void refreshProfile();
     vixirApi
       .listMyAssignments()
       .then((list) => {
         if (!cancelled) setApiAssignments(list);
+      })
+      .catch(() => {});
+    vixirApi
+      .listClasses()
+      .then((list) => {
+        if (!cancelled) setApiClasses(list);
       })
       .catch(() => {});
     return () => {
@@ -106,17 +130,27 @@ export function StudentDashboardScreen() {
       const cls = await vixirApi.joinClass(code);
       setJoinFeedback(`Joined ${cls.name} (${cls.joinCode}) ✓`);
       setJoinCodeInput('');
-      const updated = await vixirApi.listMyAssignments().catch(() => []);
-      setApiAssignments(updated);
+      const [updatedAsgns, updatedCls] = await Promise.all([
+        vixirApi.listMyAssignments().catch(() => []),
+        vixirApi.listClasses().catch(() => []),
+      ]);
+      setApiAssignments(updatedAsgns);
+      setApiClasses(updatedCls);
     } catch (err) {
-      setJoinFeedback((err as Error).message || `Code ${code} saved locally`);
+      setJoinFeedback((err as Error).message || `Could not join class with code ${code}`);
     }
   };
 
-  const displayName = user?.firstName || 'Adaeze';
+  const displayName = user
+    ? `${user.firstName} ${user.lastName}`.trim()
+    : 'Student';
   const initials = user
-    ? `${user.firstName?.[0] || 'A'}${user.lastName?.[0] || 'O'}`.toUpperCase()
-    : 'AO';
+    ? `${user.firstName?.[0] || 'S'}${user.lastName?.[0] || ''}`.toUpperCase()
+    : 'ST';
+  const classSubtitle =
+    apiClasses.length > 0
+      ? apiClasses.map((c) => `${c.name} (${c.joinCode})`).join(' · ')
+      : user?.email || 'Science Laboratory Workspace';
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
@@ -127,7 +161,7 @@ export function StudentDashboardScreen() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
           <div>
             <div className="text-xs text-[#475467] mb-0.5">
-              SS3 Science · Kings College, Lagos
+              {classSubtitle}
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
               Good evening, {displayName}

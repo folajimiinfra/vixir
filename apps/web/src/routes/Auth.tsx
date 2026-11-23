@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { Eye, EyeOff } from 'lucide-react';
-import { vixirApi, type UserRole } from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { type UserRole } from '../lib/api';
 
 type Tab = 'signin' | 'create';
 type Role = 'student' | 'teacher' | 'admin';
@@ -488,6 +489,7 @@ export function Auth() {
   const activeSlide = LAB_CAROUSEL_SLIDES[slideIndex] ?? LAB_CAROUSEL_SLIDES[0]!;
 
   const navigate = useNavigate();
+  const { login, register } = useAuth();
   const nextRoute = searchParams.get('next');
 
   // Validates school email (e.g. adaora@kings.edu.ng) OR matric/admission number (e.g. 2025/PHY/0142)
@@ -537,35 +539,23 @@ export function Auth() {
     setErrors({});
     setIsSubmitting(true);
     try {
-      const user = await vixirApi.login(email.trim(), password);
+      const user = await login(email.trim(), password);
       setIsSubmitting(false);
-      if (nextRoute) {
+      if (nextRoute && !nextRoute.startsWith('/auth')) {
         navigate(nextRoute);
         return;
       }
       if (user.role === 'TEACHER') navigate('/teacher');
       else if (user.role === 'ADMIN') navigate('/admin');
       else navigate('/app');
-      return;
     } catch (err) {
       setIsSubmitting(false);
       const apiErr = err as Error & { status?: number };
-      if (apiErr.status && apiErr.status >= 400) {
-        setErrors({ form: apiErr.message || 'Invalid email or password' });
-        return;
-      }
-    }
-
-    if (nextRoute) {
-      navigate(nextRoute);
-      return;
-    }
-    if (email.toLowerCase().includes('teacher') || email.toLowerCase().includes('bello')) {
-      navigate('/teacher');
-    } else if (email.toLowerCase().includes('admin')) {
-      navigate('/admin');
-    } else {
-      navigate('/app');
+      setErrors({
+        form:
+          apiErr.message ||
+          'Sign in failed. Check your email and password or verify Vixir API (:8081) is running.',
+      });
     }
   };
 
@@ -601,13 +591,13 @@ export function Auth() {
 
     setErrors({});
     const [firstName, ...restNames] = trimmedName.split(/\s+/);
-    const lastName = restNames.join(' ') || 'Student';
+    const lastName = restNames.join(' ') || 'User';
     setIsSubmitting(true);
     try {
-      const user = await vixirApi.register({
+      const user = await register({
         email: email.trim(),
         password,
-        firstName: firstName || 'Adaora',
+        firstName: firstName!,
         lastName,
         role: role.toUpperCase() as UserRole,
         classCode: role === 'student' && trimmedCode ? trimmedCode : undefined,
@@ -615,30 +605,22 @@ export function Auth() {
           (role === 'teacher' || role === 'admin') && trimmedInst ? trimmedInst : undefined,
       });
       setIsSubmitting(false);
-      if (nextRoute) {
+      if (nextRoute && !nextRoute.startsWith('/auth')) {
         navigate(nextRoute);
         return;
       }
       if (user.role === 'TEACHER') navigate('/teacher');
       else if (user.role === 'ADMIN') navigate('/admin');
       else navigate('/app');
-      return;
     } catch (err) {
       setIsSubmitting(false);
       const apiErr = err as Error & { status?: number };
-      if (apiErr.status && apiErr.status >= 400) {
-        setErrors({ form: apiErr.message || 'Could not create account' });
-        return;
-      }
+      setErrors({
+        form:
+          apiErr.message ||
+          'Could not create account. Check your details or verify Vixir API (:8081) is running.',
+      });
     }
-
-    if (nextRoute) {
-      navigate(nextRoute);
-      return;
-    }
-    if (role === 'student') navigate('/app');
-    else if (role === 'teacher') navigate('/teacher');
-    else navigate('/admin');
   };
 
   const getCodeFieldLabel = () => {
@@ -934,7 +916,11 @@ export function Auth() {
 
               <button
                 type="button"
-                onClick={() => navigate('/app')}
+                onClick={() =>
+                  setErrors({
+                    form: 'School SSO requires an institutional SAML/OIDC domain. Sign in with your email and password above or create an account.',
+                  })
+                }
                 className="w-full py-2.5 rounded-xl bg-white hover:bg-[#EDF1F7] border border-[#D0D7E2] text-[#0E1726] text-sm font-semibold transition-colors cursor-pointer"
               >
                 Continue with school SSO

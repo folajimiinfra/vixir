@@ -6,6 +6,7 @@ import {
   computeAutoMark,
   computeRegressionForRows,
 } from '../store/labSessionStore';
+import { useAuth } from '../context/AuthContext';
 import { vixirApi, type MarkReportResponse } from '../lib/api';
 
 // F1 — Results table, graph & calculations
@@ -1006,7 +1007,11 @@ export function MarkedReportScreen() {
 
 // F4 — Bench Replay (/attempt/:id/replay)
 export function BenchReplayScreen() {
+  const { user } = useAuth();
   const replayEvents = useLabSessionStore((s) => s.replayEvents);
+  const studentDisplayName = user
+    ? `${user.firstName} ${user.lastName}`.trim()
+    : 'Student';
   const [activeIndex, setActiveIndex] = useState(6); // Action 7 (06:30 Changed length -> 50 cm)
   const ev = replayEvents[activeIndex] ?? replayEvents[0]!;
   const flagCount = replayEvents.filter((e) => e.flagged).length;
@@ -1031,7 +1036,7 @@ export function BenchReplayScreen() {
           </Link>
           <div>
             <h1 className="font-display text-sm sm:text-base font-bold text-white">
-              Bench replay · Adaeze Okafor
+              Bench replay · {studentDisplayName}
             </h1>
             <p className="text-xs text-[#93A0B8]">
               Simple pendulum · attempt 1 · {Math.max(46, replayEvents.length)} actions · 38 min

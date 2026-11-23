@@ -3,6 +3,8 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { Landing } from '../src/routes/Landing';
 import { Auth } from '../src/routes/Auth';
+import { AuthProvider, RequireAuth } from '../src/context/AuthContext';
+import { setStoredAccessToken } from '../src/lib/api';
 import { LabWorkspace } from '../src/routes/LabWorkspace';
 import {
   StudentDashboardScreen,
@@ -288,5 +290,34 @@ describe('Lab Workspaces & Core Screens', () => {
     fireEvent.contextMenu(canvasSvg, { clientX: 250, clientY: 200 });
     expect(screen.getByRole('menu', { name: /Circuit workbench context menu/i })).toBeInTheDocument();
     expect(screen.getByText(/CIRCUIT WORKBENCH MENU/i)).toBeInTheDocument();
+  });
+
+  it('displays the authenticated user name from AuthProvider and guards protected routes with RequireAuth', () => {
+    setStoredAccessToken('mock-jwt-token');
+    const { unmount } = render(
+      <AuthProvider
+        initialUser={{
+          id: 'u-1',
+          email: 'student@demo.vixir.org',
+          firstName: 'Chidi',
+          lastName: 'Eze',
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          locale: 'en',
+          institutionId: 'inst-1',
+        }}
+      >
+        <MemoryRouter>
+          <RequireAuth>
+            <StudentDashboardScreen />
+          </RequireAuth>
+        </MemoryRouter>
+      </AuthProvider>
+    );
+
+    expect(screen.getByText(/Good evening, Chidi Eze/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Adaeze/i)).not.toBeInTheDocument();
+    unmount();
+    setStoredAccessToken(null);
   });
 });

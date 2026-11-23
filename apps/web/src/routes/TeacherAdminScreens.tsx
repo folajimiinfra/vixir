@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
+import { useAuth } from '../context/AuthContext';
 import {
   getStoredAccessToken,
   vixirApi,
@@ -8,6 +9,8 @@ import {
 } from '../lib/api';
 
 function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignments' | 'marking' | 'builder' | 'library' }) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const items = [
     { id: 'dashboard' as const, label: 'Dashboard', to: '/teacher' },
     { id: 'classes' as const, label: 'Classes', to: '/teacher' },
@@ -50,6 +53,25 @@ function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignm
           })}
         </nav>
       </div>
+
+      {user && (
+        <div className="mt-6 md:mt-0 px-3 py-2.5 rounded-xl bg-[#121A2B] border border-[#22304A] text-xs">
+          <div className="font-bold text-white truncate">
+            {user.firstName} {user.lastName}
+          </div>
+          <div className="text-[11px] text-[#93A0B8] truncate">{user.email}</div>
+          <button
+            type="button"
+            onClick={async () => {
+              await logout();
+              navigate('/auth');
+            }}
+            className="mt-2 text-[11px] font-semibold text-[#FCA5A5] hover:underline cursor-pointer"
+          >
+            Sign out
+          </button>
+        </div>
+      )}
     </aside>
   );
 }
@@ -57,6 +79,7 @@ function TeacherSidebar({ active }: { active: 'dashboard' | 'classes' | 'assignm
 // G1 — Teacher Dashboard (/teacher)
 export function TeacherDashboardScreen() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
 
   useEffect(() => {
@@ -81,10 +104,10 @@ export function TeacherDashboardScreen() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="text-xs text-[#475467] mb-0.5">
-              Physics Department · First term 2026/27
+              {user?.email || 'Science Department'} · First term 2026/27
             </div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
-              Welcome, Mr. Bello
+              Welcome, {user ? `${user.firstName} ${user.lastName}`.trim() : 'Teacher'}
             </h1>
           </div>
 
