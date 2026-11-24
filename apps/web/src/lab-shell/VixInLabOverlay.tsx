@@ -1054,10 +1054,6 @@ export function VixSpotlightFloatingCard({
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
   const [liveConnected, setLiveConnected] = useState(false);
 
-  // Interactive Animated Worked Example Visual Walkthrough
-  const [workedExampleOpen, setWorkedExampleOpen] = useState(false);
-  const [workedStepIdx, setWorkedStepIdx] = useState(0);
-
   // "Point Anywhere on Screen" laser pointer mode & tracked target
   const [pointModeActive, setPointModeActive] = useState(false);
   const [pointedTarget, setPointedTarget] = useState<VixPointerTarget | null>(null);
@@ -1347,12 +1343,18 @@ export function VixSpotlightFloatingCard({
                   new CustomEvent('vix:build-setup', { detail: msg.payload || {} })
                 );
               }
+            } else if (msg.type === 'bench_control') {
+              // Vix directly operates the REAL lab bench controls in Live Tutorial Sandbox Mode!
+              window.dispatchEvent(
+                new CustomEvent('vix:bench-control', {
+                  detail: { action: msg.action, params: msg.params || {} },
+                })
+              );
+              setLastIntent(
+                msg.action === 'end_tutorial_sandbox' ? 'live' : 'tutorial_sandbox'
+              );
             } else if (msg.type === 'ui_action') {
-              if (msg.action === 'worked_example') {
-                setWorkedExampleOpen(true);
-                setWorkedStepIdx(Number(msg.stepIndex || 0));
-                setLastIntent('worked_example');
-              } else if (msg.action === 'start_tour') {
+              if (msg.action === 'start_tour') {
                 if (!dimNonActive) onToggleDim();
                 onSelectStep(0);
                 setLastIntent('studio_tour');
@@ -1430,113 +1432,6 @@ export function VixSpotlightFloatingCard({
   const stepDefaultCaption = currentStep.getCaption(activeLab, experimentTitle, lang);
   const displayedCaption =
     liveTypedCaption ?? customReply ?? stepDefaultCaption;
-
-  const isAnalogousSpring = activeLab === 'physics';
-  const WORKED_EXAMPLE_STEPS = isAnalogousSpring
-    ? [
-        {
-          title: 'Step 1 · Vary the independent variable cleanly',
-          caption:
-            'In this analogous Hookes Law spring lab, hang slotted masses one by one and wait for the spring to settle before reading.',
-          loadG: 100,
-          extCm: 4.0,
-          pts: [{ x: 0.5, y: 2.0 }],
-        },
-        {
-          title: 'Step 2 · Read scale at eye level & repeat',
-          caption:
-            'Keep your eye strictly perpendicular to the metre rule pointer to avoid parallax error, and repeat during unloading to take a reliable mean reading.',
-          loadG: 200,
-          extCm: 8.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-          ],
-        },
-        {
-          title: 'Step 3 · Plot points & draw a balanced line of best fit',
-          caption:
-            'Plot Force on the vertical axis against extension on the horizontal axis using more than half the grid, balancing scattered points evenly above and below the line.',
-          loadG: 250,
-          extCm: 10.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-            { x: 2.5, y: 10.0 },
-          ],
-        },
-        {
-          title: 'Step 4 · Use a large slope triangle to find the constant',
-          caption:
-            'Choose two well-separated vertices A and B on the best-fit line, compute change in y over change in x to obtain spring constant k, then apply this exact method on your own bench.',
-          loadG: 300,
-          extCm: 12.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-            { x: 2.5, y: 10.0 },
-            { x: 3.0, y: 12.0 },
-          ],
-        },
-      ]
-    : [
-        {
-          title: 'Step 1 · Set up & check zero error',
-          caption:
-            'In this analogous Simple Pendulum lab, measure length L from the bottom of the split cork to the centre of the bob and confirm the stopwatch reads zero.',
-          loadG: 100,
-          extCm: 4.0,
-          pts: [{ x: 0.5, y: 2.0 }],
-        },
-        {
-          title: 'Step 2 · Take repeated measurements across 5–6 values',
-          caption:
-            'Time 20 complete small-angle oscillations twice at each length, average t1 and t2, and tabulate derived columns to consistent decimal places.',
-          loadG: 200,
-          extCm: 8.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-          ],
-        },
-        {
-          title: 'Step 3 · Plot your linear graph',
-          caption:
-            'Plot T squared on the vertical axis against length L on the horizontal axis and draw a single straight line of best fit balancing points evenly.',
-          loadG: 250,
-          extCm: 10.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-            { x: 2.5, y: 10.0 },
-          ],
-        },
-        {
-          title: 'Step 4 · Extract slope from a large triangle',
-          caption:
-            'Read two wide vertices A and B directly off the best-fit line to calculate the gradient and physical constant, then repeat this discipline on your own lab bench.',
-          loadG: 300,
-          extCm: 12.0,
-          pts: [
-            { x: 0.5, y: 2.0 },
-            { x: 1.0, y: 4.0 },
-            { x: 1.5, y: 6.1 },
-            { x: 2.0, y: 8.0 },
-            { x: 2.5, y: 10.0 },
-            { x: 3.0, y: 12.0 },
-          ],
-        },
-      ];
 
   const handleAskQuestion = async (qText: string) => {
     const q = qText.trim();
@@ -1632,167 +1527,6 @@ export function VixSpotlightFloatingCard({
           </button>
         </div>
       )}
-
-      {/* Interactive Animated Worked Example Visual Walkthrough Panel (Analogous Different Lab!) */}
-      {workedExampleOpen &&
-        (() => {
-          const wStep = WORKED_EXAMPLE_STEPS[workedStepIdx] ?? WORKED_EXAMPLE_STEPS[0]!;
-          const springCoilsY = 34 + wStep.extCm * 4.5;
-          return (
-            <div
-              role="dialog"
-              aria-label="Vix Interactive Worked Example Walkthrough"
-              className="fixed bottom-5 left-5 sm:left-16 z-40 w-[calc(100%-2.5rem)] max-w-[450px] bg-[#0B1220]/96 backdrop-blur-md border-2 border-[#38BDF8]/70 rounded-2xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.8)] space-y-3 text-[#E6EBF5]"
-            >
-              <div className="flex items-center justify-between gap-2 border-b border-[#1E2A42] pb-2">
-                <div>
-                  <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#38BDF8]">
-                    LIVE WORKED EXAMPLE · {isAnalogousSpring ? "HOOKE'S LAW SPRING LAB" : 'PENDULUM ANALOGY'}
-                  </div>
-                  <div className="font-display text-sm font-bold text-white">
-                    {wStep.title}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setWorkedExampleOpen(false)}
-                  className="px-2 py-1 rounded-lg bg-[#121A2B] hover:bg-[#192338] text-xs text-[#93A0B8] hover:text-white cursor-pointer"
-                >
-                  Close ×
-                </button>
-              </div>
-
-              {/* Animated Analogous Apparatus + Live Regression Plot SVG */}
-              <div className="bg-[#080E1A] border border-[#1E2A42] rounded-xl p-2">
-                <svg viewBox="0 0 380 140" className="w-full h-36">
-                  {/* Left: Analogous Spring-Mass Apparatus stretching per step */}
-                  <rect x="20" y="12" width="90" height="5" rx="2" fill="#64748B" />
-                  <line x1="28" y1="17" x2="28" y2="128" stroke="#475569" strokeWidth="4" />
-                  {/* Stretched coil spring */}
-                  <path
-                    d={`M 75 17 L 75 24 L 66 ${24 + (springCoilsY - 24) * 0.2} L 84 ${
-                      24 + (springCoilsY - 24) * 0.4
-                    } L 66 ${24 + (springCoilsY - 24) * 0.6} L 84 ${
-                      24 + (springCoilsY - 24) * 0.8
-                    } L 75 ${springCoilsY}`}
-                    fill="none"
-                    stroke="#38BDF8"
-                    strokeWidth="2.2"
-                  />
-                  {/* Mass hanger & slotted weight */}
-                  <rect
-                    x="61"
-                    y={springCoilsY}
-                    width="28"
-                    height="18"
-                    rx="3"
-                    fill="#F97316"
-                    stroke="#FDBA74"
-                    strokeWidth="1.5"
-                  />
-                  <text
-                    x="75"
-                    y={springCoilsY + 12}
-                    textAnchor="middle"
-                    fill="#0B1220"
-                    fontSize="8.5"
-                    fontWeight="700"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    {wStep.loadG}g
-                  </text>
-                  {/* Eye-level horizontal scale pointer */}
-                  <line
-                    x1="89"
-                    y1={springCoilsY + 9}
-                    x2="132"
-                    y2={springCoilsY + 9}
-                    stroke="#4ADE80"
-                    strokeWidth="1.5"
-                    strokeDasharray="3 2"
-                  />
-                  <rect x="132" y="18" width="12" height="108" rx="2" fill="#B4986B" />
-                  <text
-                    x="138"
-                    y={springCoilsY + 12}
-                    fill="#4ADE80"
-                    fontSize="8"
-                    fontFamily="JetBrains Mono, monospace"
-                  >
-                    e={wStep.extCm.toFixed(1)}cm
-                  </text>
-
-                  {/* Right: Live Worked Example Graph + Large Slope Triangle (Steps 3 & 4) */}
-                  <rect x="176" y="10" width="194" height="120" rx="8" fill="#0B1220" stroke="#1E2A42" />
-                  <line x1="198" y1="112" x2="354" y2="112" stroke="#475569" strokeWidth="1.2" />
-                  <line x1="198" y1="22" x2="198" y2="112" stroke="#475569" strokeWidth="1.2" />
-
-                  {/* Best-fit line appears from Step 3 onward */}
-                  {workedStepIdx >= 2 && (
-                    <line
-                      x1="198"
-                      y1="112"
-                      x2="348"
-                      y2="28"
-                      stroke="#38BDF8"
-                      strokeWidth="2"
-                    />
-                  )}
-                  {/* Large Slope Triangle appears on Step 4 */}
-                  {workedStepIdx >= 3 && (
-                    <>
-                      <path
-                        d="M 226 96 L 326 96 L 326 40"
-                        fill="none"
-                        stroke="#F97316"
-                        strokeWidth="1.6"
-                        strokeDasharray="4 3"
-                      />
-                      <circle cx="226" cy="96" r="3.5" fill="#F97316" />
-                      <circle cx="326" cy="40" r="3.5" fill="#F97316" />
-                      <text x="276" y="107" textAnchor="middle" fill="#FDBA74" fontSize="8" fontFamily="JetBrains Mono, monospace">
-                        Large ΔF / Δe triangle → k
-                      </text>
-                    </>
-                  )}
-                  {/* Plotted points */}
-                  {wStep.pts.map((pt, idx) => (
-                    <circle
-                      key={idx}
-                      cx={198 + (pt.x / 3.2) * 150}
-                      cy={112 - (pt.y / 13) * 86}
-                      r="3.2"
-                      fill="#4ADE80"
-                    />
-                  ))}
-                  <text x="276" y="124" textAnchor="middle" fill="#93A0B8" fontSize="7.5" fontFamily="JetBrains Mono, monospace">
-                    Analogous Graph · Force vs Extension
-                  </text>
-                </svg>
-              </div>
-
-              <p className="text-xs text-[#C9D3E6] leading-relaxed">{wStep.caption}</p>
-
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <span className="font-mono text-[11px] text-[#93A0B8]">
-                  Step {workedStepIdx + 1} / {WORKED_EXAMPLE_STEPS.length}
-                </span>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleNaturalBargeIn();
-                      setWorkedExampleOpen(false);
-                    }}
-                    className="px-3.5 py-1.5 rounded-lg bg-[#4ADE80] hover:bg-[#22C55E] text-[#0B1220] text-xs font-bold cursor-pointer"
-                  >
-                    Try on my own bench ✓
-                  </button>
-                </div>
-              </div>
-            </div>
-          );
-        })()}
 
       <aside
         aria-label="Vix live in-lab guide"

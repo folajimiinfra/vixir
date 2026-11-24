@@ -103,23 +103,72 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                 "parameters": {"type": "OBJECT", "properties": {}},
             },
             {
-                "name": "show_worked_example",
+                "name": "start_tutorial_sandbox",
                 "description": (
-                    "Open or advance the interactive visual Worked Example walkthrough panel (showing an "
-                    "analogous DIFFERENT lab like Hooke's Law Spiral Spring so the student learns the practical "
-                    "method visually without getting their graded bench answers). Call with step_index 0 to open, "
-                    "then 1, 2, 3 as you walk through each step."
+                    "Enter Live Tutorial Sandbox Mode on the student's ACTUAL lab bench so you can construct and "
+                    "demonstrate an analogous example from scratch while they watch (their own real saved readings "
+                    "are safely preserved and untouched). For example, on Pendulum Lab you run a Mars-gravity "
+                    "sandbox pendulum (g_demo = 3.72 m/s^2); on Electronics Lab you clear the board and wire an "
+                    "analogous 10-ohm resistor circuit from scratch."
                 ),
                 "parameters": {
                     "type": "OBJECT",
                     "properties": {
-                        "step_index": {
-                            "type": "INTEGER",
-                            "description": "Step index 0, 1, 2, or 3 of the visual worked example.",
-                        }
+                        "scenario_title": {
+                            "type": "STRING",
+                            "description": "Short title for the analogous tutorial demo banner, e.g. 'Tutorial Demo: Pendulum on Mars (g = 3.72 m/s²)'",
+                        },
+                        "analog_note": {
+                            "type": "STRING",
+                            "description": "Brief note explaining why this analogous setup teaches the exact method without giving away their graded answer.",
+                        },
                     },
-                    "required": ["step_index"],
+                    "required": ["scenario_title"],
                 },
+            },
+            {
+                "name": "operate_bench_control",
+                "description": (
+                    "Physically operate a real control on the student's lab bench during a Live Tutorial Sandbox "
+                    "so the student watches you build and perform the experiment step by step! "
+                    "Pendulum actions: 'place_protractor', 'set_length_cm' (value 30..100), 'set_release_angle' (value 5..25), "
+                    "'set_eye_level' (value 1 or 0), 'toggle_swing' (value 1 or 0), 'start_stopwatch', 'stop_stopwatch', "
+                    "'reset_stopwatch', 'record_demo_trial'. "
+                    "Electronics actions: 'clear_board', 'add_component' (component_kind: battery|rheostat|ammeter|voltmeter|wireX|key|resistor|led|diode|capacitor, x, y), "
+                    "'wire_components' (from_node, from_term, to_node, to_term), 'set_rheostat' (value 0..20), 'set_emf' (value 1.5..6.0), 'toggle_key' (value 1 or 0), 'record_demo_trial'."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "action": {
+                            "type": "STRING",
+                            "description": "The exact bench action name to execute visibly on screen.",
+                        },
+                        "value": {
+                            "type": "NUMBER",
+                            "description": "Optional numeric value (e.g. length in cm, angle in degrees, rheostat ohms, 1 for true / 0 for false).",
+                        },
+                        "component_kind": {
+                            "type": "STRING",
+                            "description": "For Electronics add_component: battery, rheostat, ammeter, voltmeter, wireX, key, resistor, led, diode, or capacitor.",
+                        },
+                        "x": {"type": "NUMBER", "description": "Optional X coordinate on circuit board."},
+                        "y": {"type": "NUMBER", "description": "Optional Y coordinate on circuit board."},
+                        "from_node": {"type": "STRING", "description": "Source node ID for wire_components."},
+                        "from_term": {"type": "STRING", "description": "Source terminal ('a' or 'b')."},
+                        "to_node": {"type": "STRING", "description": "Target node ID for wire_components."},
+                        "to_term": {"type": "STRING", "description": "Target terminal ('a' or 'b')."},
+                    },
+                    "required": ["action"],
+                },
+            },
+            {
+                "name": "end_tutorial_sandbox",
+                "description": (
+                    "Exit Live Tutorial Sandbox Mode when the student understands the walkthrough and is ready "
+                    "to practice on their own real bench (restores their real saved readings)."
+                ),
+                "parameters": {"type": "OBJECT", "properties": {}},
             },
             {
                 "name": "build_circuit_setup",
@@ -175,8 +224,14 @@ def _build_live_system_instruction(
         "- Whenever the student asks about what is on their screen, what they are pointing at, or how many readings they have, ALWAYS call `inspect_student_screen` first so your answer matches their live screen 100% accurately.\n"
         "- Whenever explaining a specific part of the bench, call `spotlight_region` so the orange highlight lights up on their screen as you talk.\n"
         "- If the student asks for a tour of the lab studio, call `start_studio_tour` (or call `spotlight_region` sequentially as you walk them around!).\n"
-        "- If the student asks to see a worked example or walkthrough from another lab so they can practice themselves, call `show_worked_example` with step_index=0 (and advance steps 1, 2, 3 as you explain each step).\n"
-        "- If the student asks you to build or draw a circuit on the Electronics board, call `build_circuit_setup`.\n"
+        "LIVE BENCH TUTORIAL WALKTHROUGH (CRITICAL — NO HARDCODED 4-STEP SCRIPT!):\n"
+        "- If the student asks you to walk them through an example or show them how to do the practical:\n"
+        "  1. First call `start_tutorial_sandbox` with an analogous scenario similar to their bench (e.g., on Pendulum Lab use a Mars-gravity pendulum sandbox; on Electronics Lab clear the board and wire an analogous resistor circuit from scratch).\n"
+        "  2. Construct and run the experiment LIVE ON THE REAL BENCH step by step using `operate_bench_control` (e.g., place_protractor -> set_length_cm -> set_release_angle -> set_eye_level -> start_stopwatch -> stop_stopwatch -> record_demo_trial across multiple lengths so they literally watch the live graph plot!).\n"
+        "  3. There is NO fixed step count—take as many steps as needed (5, 6, 8+) until the student fully understands! After every 1–2 actions, briefly explain WHY you did that step and invite follow-up questions before proceeding.\n"
+        "  4. If the student interrupts with a follow-up question about any step, answer it thoroughly (you can even demonstrate the concept live on the bench, like toggling parallax off/on!), then continue when they are ready.\n"
+        "  5. When they are confident and ready to try themselves, call `end_tutorial_sandbox` so their own real bench and readings are restored.\n"
+        "- If the student asks you to build or draw a circuit on the Electronics board, call `build_circuit_setup` or `operate_bench_control`.\n"
         "- For physics/chemistry/biology/electronics/engineering theory or precautions, call `consult_science_knowledge_graph` so your explanation is grounded in WAEC/NECO curriculum.\n"
         f"- {graded_rule}\n"
     )
@@ -301,20 +356,58 @@ class GeminiLiveVixBridge:
                 "instruction": "Walk through the regions concisely and call spotlight_region for each key region as you mention it!",
             }
 
-        if name == "show_worked_example":
-            step_idx = max(0, min(3, int(args.get("step_index", 0))))
+        if name == "start_tutorial_sandbox":
+            title = str(
+                args.get("scenario_title")
+                or f"Live Tutorial Sandbox · {exp_ctx.title} (Analogous Demo)"
+            )
+            note = str(
+                args.get("analog_note")
+                or "Your own real readings are safely saved while Vix demonstrates from scratch."
+            )
             await self.send_browser_json(
                 {
-                    "type": "ui_action",
-                    "action": "worked_example",
-                    "stepIndex": step_idx,
+                    "type": "bench_control",
+                    "action": "start_tutorial_sandbox",
+                    "params": {"scenarioTitle": title, "analogNote": note},
                 }
             )
             return {
-                "status": "opened_worked_example_panel",
-                "analogousLab": "Hooke's Law Spiral Spring (Force vs Extension)",
-                "stepIndex": step_idx,
-                "note": "The student can now visually see the animated Hooke's Law spring and graph on their screen. Explain this step briefly without giving away their graded bench answers.",
+                "status": "tutorial_sandbox_active",
+                "scenarioTitle": title,
+                "nextHint": (
+                    "The real bench is now in Tutorial Sandbox Mode starting from scratch. "
+                    "Use operate_bench_control step by step (1-2 controls per turn) and check in with the student for follow-up questions."
+                ),
+            }
+
+        if name == "operate_bench_control":
+            action = str(args.get("action") or "")
+            params = {k: v for k, v in args.items() if k != "action"}
+            await self.send_browser_json(
+                {
+                    "type": "bench_control",
+                    "action": action,
+                    "params": params,
+                }
+            )
+            return {
+                "status": "executed_on_live_bench",
+                "action": action,
+                "params": params,
+            }
+
+        if name == "end_tutorial_sandbox":
+            await self.send_browser_json(
+                {
+                    "type": "bench_control",
+                    "action": "end_tutorial_sandbox",
+                    "params": {},
+                }
+            )
+            return {
+                "status": "tutorial_sandbox_closed",
+                "note": "Student's real bench and saved PostgreSQL readings have been restored.",
             }
 
         if name == "build_circuit_setup":

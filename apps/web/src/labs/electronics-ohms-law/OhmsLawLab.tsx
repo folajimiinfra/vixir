@@ -540,6 +540,65 @@ export function OhmsLawLab() {
     return () => window.removeEventListener('vix:build-setup', onVixBuild);
   });
 
+  // Listen for Vix Live Bench Control RPCs so Vix can construct & demonstrate circuits from scratch step by step!
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onBenchControl = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ action: string; params?: Record<string, unknown> }>).detail;
+      if (!detail?.action) return;
+      const { action, params = {} } = detail;
+
+      if (action === 'start_tutorial_sandbox' || action === 'clear_board') {
+        setNodes([]);
+        setWires([]);
+        setKeyClosed(false);
+        setPan({ x: 0, y: 0 });
+        setZoom(1);
+        setLogMsg('log > [Vix Tutorial Sandbox] Cleared circuit board to build from scratch step by step.');
+      } else if (action === 'add_component' && typeof params.component_kind === 'string') {
+        handleAddComponent(params.component_kind as ComponentKind, {
+          x: Number(params.x) || 220 + nodes.length * 90,
+          y: Number(params.y) || 180,
+        });
+      } else if (action === 'wire_components') {
+        const fromNode = String(params.from_node || '');
+        const toNode = String(params.to_node || '');
+        if (fromNode && toNode) {
+          setWires((prev) => [
+            ...prev,
+            {
+              id: `vix-w-${Date.now().toString().slice(-4)}`,
+              fromNode,
+              fromTerm: (params.from_term === 'b' ? 'b' : 'a') as 'a' | 'b',
+              toNode,
+              toTerm: (params.to_term === 'b' ? 'b' : 'a') as 'a' | 'b',
+            },
+          ]);
+          setLogMsg(`log > [Vix Demo] Wired ${fromNode} → ${toNode}.`);
+        }
+      } else if (action === 'set_rheostat') {
+        const rh = Math.max(0, Math.min(20, Number(params.value) || 8));
+        updateRheostat(rh);
+        setLogMsg(`log > [Vix Demo] Set sliding rheostat Rh = ${rh} Ω.`);
+      } else if (action === 'set_emf') {
+        const eVal = Math.max(1.5, Math.min(6.0, Number(params.value) || 3.0));
+        setEmfV(eVal);
+        setLogMsg(`log > [Vix Demo] Set DC supply EMF = ${eVal.toFixed(1)} V.`);
+      } else if (action === 'toggle_key') {
+        const closed = Boolean(Number(params.value ?? 1));
+        setKeyClosed(closed);
+        setLogMsg(closed ? 'log > [Vix Demo] Closed plug key K.' : 'log > [Vix Demo] Opened plug key K.');
+      } else if (action === 'record_demo_trial') {
+        handleRecord();
+      } else if (action === 'end_tutorial_sandbox') {
+        handleResetStandardCircuit();
+      }
+    };
+
+    window.addEventListener('vix:bench-control', onBenchControl);
+    return () => window.removeEventListener('vix:bench-control', onBenchControl);
+  });
+
   const handleToggleKey = () => {
     const next = !keyClosed;
     setKeyClosed(next);
