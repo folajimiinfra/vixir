@@ -440,16 +440,21 @@ export function Landing() {
               </p>
             </Link>
 
-            <Link
-              to="/lab/biology/digestion"
-              className="bg-[#121A2B] border border-[#22304A] hover:border-[#22C55E] rounded-2xl p-5 transition-colors block"
+            <div
+              aria-disabled="true"
+              className="bg-[#121A2B]/60 border border-[#22304A]/60 rounded-2xl p-5 opacity-45 grayscale cursor-not-allowed select-none"
             >
-              <h3 className="font-display text-base font-bold text-[#4ADE80] mb-2">Biology</h3>
-              <p className="text-xs text-[#93A0B8] leading-relaxed">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-display text-base font-bold text-[#94A3B8]">Biology</h3>
+                <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-[#1E293B] text-[#94A3B8]">
+                  Coming soon
+                </span>
+              </div>
+              <p className="text-xs text-[#64748B] leading-relaxed">
                 Journey of food (digestion) · Dissection of a mammal (rat) · Human body systems ·
                 Food tests
               </p>
-            </Link>
+            </div>
 
             <Link
               to="/lab/electronics/ohms-law"

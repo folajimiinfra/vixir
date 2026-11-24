@@ -52,7 +52,13 @@ export interface LabLayoutProps {
   dotGrid?: boolean;
 }
 
-const LAB_TABS: { id: SubjectLab; label: string; to: string; activeClass: string }[] = [
+const LAB_TABS: {
+  id: SubjectLab;
+  label: string;
+  to: string;
+  activeClass: string;
+  disabled?: boolean;
+}[] = [
   {
     id: 'physics',
     label: 'Physics',
@@ -70,6 +76,7 @@ const LAB_TABS: { id: SubjectLab; label: string; to: string; activeClass: string
     label: 'Biology',
     to: '/lab/biology/digestion',
     activeClass: 'bg-[#122D1F] text-[#4ADE80]',
+    disabled: true,
   },
   {
     id: 'electronics',
@@ -160,8 +167,17 @@ export function LabLayout({
   const navigate = useNavigate();
   const location = useLocation();
 
-  // In-Lab Vix state: 'closed' | 'connect' | 'tour'
-  const [vixMode, setVixMode] = useState<'closed' | 'connect' | 'tour'>('closed');
+  // In-Lab Vix state: 'closed' | 'connect' | 'tour' (auto-reopens seamlessly when Vix switches labs!)
+  const [vixMode, setVixMode] = useState<'closed' | 'connect' | 'tour'>(() => {
+    if (
+      typeof window !== 'undefined' &&
+      window.sessionStorage.getItem('vix_auto_reopen') === '1'
+    ) {
+      window.sessionStorage.removeItem('vix_auto_reopen');
+      return 'tour';
+    }
+    return 'closed';
+  });
   const [vixVoice, setVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
   const [vixStepIdx, setVixStepIdx] = useState(3); // Default to Bench
   const [dimNonActive, setDimNonActive] = useState(false);
@@ -296,13 +312,25 @@ export function LabLayout({
           </div>
         </div>
 
-        {/* Center: 5-Lab Pill Switcher */}
+        {/* Center: Lab Pill Switcher (Biology grayed out & disabled for now) */}
         <nav
           aria-label="Laboratory switcher"
-          className="hidden xl:flex items-center bg-[#121A2B] border border-[#22304A] rounded-full p-1 gap-0.5"
+          className="hidden md:flex items-center bg-[#121A2B] border border-[#22304A] rounded-full p-1 gap-0.5"
         >
           {LAB_TABS.map((tab) => {
             const isActive = tab.id === activeLab;
+            if (tab.disabled) {
+              return (
+                <span
+                  key={tab.id}
+                  aria-disabled="true"
+                  title="Biology lab is coming soon"
+                  className="px-3.5 py-1 rounded-full text-xs font-semibold text-[#4B5563] opacity-45 cursor-not-allowed select-none"
+                >
+                  {tab.label}
+                </span>
+              );
+            }
             return (
               <Link
                 key={tab.id}

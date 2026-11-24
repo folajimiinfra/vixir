@@ -936,61 +936,99 @@ export function LabsHubScreen() {
 
         {/* Lab Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {labCards.map((lab) => (
-            <div
-              key={lab.name}
-              className="bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between"
-            >
-              <div>
-                <div className={`${lab.headerBg} p-5`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <h2 className={`font-display text-lg font-bold ${lab.titleColor}`}>
-                      {lab.name}
-                    </h2>
-                    <span className={`font-mono text-xs ${lab.titleColor}`}>
-                      {lab.count}
-                    </span>
+          {labCards.map((lab) => {
+            const isDisabledLab = lab.name === 'Biology';
+            return (
+              <div
+                key={lab.name}
+                aria-disabled={isDisabledLab || undefined}
+                className={`bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between ${
+                  isDisabledLab ? 'opacity-50 grayscale select-none' : ''
+                }`}
+              >
+                <div>
+                  <div className={`${isDisabledLab ? 'bg-[#EDF1F7]' : lab.headerBg} p-5`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h2
+                        className={`font-display text-lg font-bold ${
+                          isDisabledLab ? 'text-[#6B778C]' : lab.titleColor
+                        }`}
+                      >
+                        {lab.name}
+                      </h2>
+                      <span
+                        className={`font-mono text-xs ${
+                          isDisabledLab ? 'text-[#6B778C] font-semibold' : lab.titleColor
+                        }`}
+                      >
+                        {isDisabledLab ? 'Coming soon' : lab.count}
+                      </span>
+                    </div>
+                    <p
+                      className={`text-xs ${
+                        isDisabledLab ? 'text-[#6B778C]' : lab.titleColor
+                      } opacity-90 leading-relaxed`}
+                    >
+                      {lab.desc}
+                    </p>
                   </div>
-                  <p className={`text-xs ${lab.titleColor} opacity-90 leading-relaxed`}>
-                    {lab.desc}
-                  </p>
+
+                  <ul className="divide-y divide-[#E3E8EF] px-5 py-2 text-xs">
+                    {lab.items.map((item) => {
+                      const status = getPracticalStatusBadge(item.expId);
+                      return (
+                        <li
+                          key={item.title}
+                          className="py-2.5 flex items-center justify-between gap-2"
+                        >
+                          {isDisabledLab ? (
+                            <span className="font-medium text-[#6B778C] cursor-not-allowed">
+                              {item.title}
+                            </span>
+                          ) : (
+                            <Link
+                              to={item.to}
+                              className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
+                            >
+                              {item.title}
+                            </Link>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              isDisabledLab
+                                ? 'bg-[#EDF1F7] text-[#6B778C]'
+                                : status.badgeClass
+                            }`}
+                          >
+                            {isDisabledLab ? 'Disabled' : status.badge}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
 
-                <ul className="divide-y divide-[#E3E8EF] px-5 py-2 text-xs">
-                  {lab.items.map((item) => {
-                    const status = getPracticalStatusBadge(item.expId);
-                    return (
-                      <li
-                        key={item.title}
-                        className="py-2.5 flex items-center justify-between gap-2"
-                      >
-                        <Link
-                          to={item.to}
-                          className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
-                        >
-                          {item.title}
-                        </Link>
-                        <span
-                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${status.badgeClass}`}
-                        >
-                          {status.badge}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className="p-4 pt-2">
+                  {isDisabledLab ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="block w-full py-2.5 text-center rounded-xl bg-[#F1F4F9] border border-[#D0D7E2] text-xs font-semibold text-[#6B778C] cursor-not-allowed"
+                    >
+                      Biology lab — coming soon
+                    </button>
+                  ) : (
+                    <Link
+                      to={lab.to}
+                      className="block w-full py-2.5 text-center rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] transition-colors"
+                    >
+                      {lab.buttonLabel}
+                    </Link>
+                  )}
+                </div>
               </div>
-
-              <div className="p-4 pt-2">
-                <Link
-                  to={lab.to}
-                  className="block w-full py-2.5 text-center rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] transition-colors"
-                >
-                  {lab.buttonLabel}
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </div>
@@ -1211,56 +1249,96 @@ export function ExperimentLibraryScreen() {
 
         {/* Subject Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          {['All', 'Physics', 'Chemistry', 'Biology', 'Electronics', 'Engineering'].map((subj) => (
-            <button
-              key={subj}
-              type="button"
-              onClick={() => setFilter(subj)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                filter === subj
-                  ? 'bg-[#0E1726] text-white'
-                  : 'bg-white border border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7]'
-              }`}
-            >
-              {subj}
-            </button>
-          ))}
+          {['All', 'Physics', 'Chemistry', 'Biology', 'Electronics', 'Engineering'].map((subj) => {
+            const isDisabled = subj === 'Biology';
+            return (
+              <button
+                key={subj}
+                type="button"
+                disabled={isDisabled}
+                title={isDisabled ? 'Biology lab coming soon' : undefined}
+                onClick={() => {
+                  if (!isDisabled) setFilter(subj);
+                }}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  isDisabled
+                    ? 'bg-[#EDF1F7] border border-[#E3E8EF] text-[#94A3B8] opacity-60 cursor-not-allowed'
+                    : filter === subj
+                      ? 'bg-[#0E1726] text-white cursor-pointer'
+                      : 'bg-white border border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7] cursor-pointer'
+                }`}
+              >
+                {subj}
+                {isDisabled ? ' (Soon)' : ''}
+              </button>
+            );
+          })}
         </div>
 
         <div className="text-xs text-[#6B778C] mb-4">{filtered.length} experiments</div>
 
         {/* Experiment Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((exp) => (
-            <Link
-              key={exp.slug}
-              to={`/experiments/${exp.slug}`}
-              className="bg-white rounded-2xl border border-[#E3E8EF] hover:border-[#2448D8] overflow-hidden flex flex-col justify-between transition-colors group"
-            >
-              <div>
+          {filtered.map((exp) => {
+            const isDisabledExp = exp.subject === 'Biology';
+            if (isDisabledExp) {
+              return (
                 <div
-                  className={`${exp.bannerBg} h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold ${exp.formulaColor}`}
+                  key={exp.slug}
+                  aria-disabled="true"
+                  className="bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between opacity-50 grayscale cursor-not-allowed select-none"
                 >
-                  {exp.formula}
-                </div>
-                <div className="p-5">
-                  <div
-                    className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${exp.formulaColor}`}
-                  >
-                    {exp.subject}
+                  <div>
+                    <div className="bg-[#EDF1F7] h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold text-[#6B778C]">
+                      {exp.formula}
+                    </div>
+                    <div className="p-5">
+                      <div className="text-[10px] font-bold tracking-wider uppercase mb-1 text-[#6B778C]">
+                        {exp.subject} · COMING SOON
+                      </div>
+                      <h2 className="font-display text-sm font-bold text-[#475467] mb-1.5 leading-snug">
+                        {exp.title}
+                      </h2>
+                      <p className="text-xs text-[#6B778C] leading-relaxed">{exp.desc}</p>
+                    </div>
                   </div>
-                  <h2 className="font-display text-sm font-bold text-[#0E1726] group-hover:text-[#2448D8] mb-1.5 leading-snug">
-                    {exp.title}
-                  </h2>
-                  <p className="text-xs text-[#475467] leading-relaxed">{exp.desc}</p>
+                  <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
+                    {`${exp.baseMeta}   Disabled`}
+                  </div>
                 </div>
-              </div>
+              );
+            }
+            return (
+              <Link
+                key={exp.slug}
+                to={`/experiments/${exp.slug}`}
+                className="bg-white rounded-2xl border border-[#E3E8EF] hover:border-[#2448D8] overflow-hidden flex flex-col justify-between transition-colors group"
+              >
+                <div>
+                  <div
+                    className={`${exp.bannerBg} h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold ${exp.formulaColor}`}
+                  >
+                    {exp.formula}
+                  </div>
+                  <div className="p-5">
+                    <div
+                      className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${exp.formulaColor}`}
+                    >
+                      {exp.subject}
+                    </div>
+                    <h2 className="font-display text-sm font-bold text-[#0E1726] group-hover:text-[#2448D8] mb-1.5 leading-snug">
+                      {exp.title}
+                    </h2>
+                    <p className="text-xs text-[#475467] leading-relaxed">{exp.desc}</p>
+                  </div>
+                </div>
 
-              <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
-                {`${exp.baseMeta}   ${getExpStatusText(exp.expId)}`}
-              </div>
-            </Link>
-          ))}
+                <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
+                  {`${exp.baseMeta}   ${getExpStatusText(exp.expId)}`}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>

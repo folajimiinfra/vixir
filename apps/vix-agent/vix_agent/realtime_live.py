@@ -171,6 +171,26 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                 "parameters": {"type": "OBJECT", "properties": {}},
             },
             {
+                "name": "switch_lab",
+                "description": (
+                    "Navigate the student's browser directly to another laboratory or practical bench when they ask "
+                    "to switch labs. Valid routes: '/lab/physics/pendulum', '/lab/physics/refraction', "
+                    "'/lab/physics/moments', '/lab/chemistry/titration', '/lab/chemistry/qualitative-analysis', "
+                    "'/lab/electronics/ohms-law', '/lab/engineering/beam'. "
+                    "NOTE: Biology labs are currently disabled (coming soon) and cannot be opened."
+                ),
+                "parameters": {
+                    "type": "OBJECT",
+                    "properties": {
+                        "lab_route": {
+                            "type": "STRING",
+                            "description": "Exact target route such as '/lab/chemistry/titration' or '/lab/electronics/ohms-law'.",
+                        }
+                    },
+                    "required": ["lab_route"],
+                },
+            },
+            {
                 "name": "build_circuit_setup",
                 "description": (
                     "Draw and wire a requested circuit topology on the student's Electronics schematic board "
@@ -231,6 +251,7 @@ def _build_live_system_instruction(
         "  3. There is NO fixed step count—take as many steps as needed (5, 6, 8+) until the student fully understands! After every 1–2 actions, briefly explain WHY you did that step and invite follow-up questions before proceeding.\n"
         "  4. If the student interrupts with a follow-up question about any step, answer it thoroughly (you can even demonstrate the concept live on the bench, like toggling parallax off/on!), then continue when they are ready.\n"
         "  5. When they are confident and ready to try themselves, call `end_tutorial_sandbox` so their own real bench and readings are restored.\n"
+        "- If the student asks you to switch to another laboratory or practical (Physics Pendulum, Refraction, Moments, Chemistry Titration, Qualitative Salt Analysis, Electronics Ohm's Law, or Engineering Beam Deflection), call `switch_lab` immediately! NOTE: Biology lab is temporarily disabled (coming soon), so if they ask for Biology, kindly explain that Biology is coming soon and offer Physics, Chemistry, Electronics, or Engineering instead.\n"
         "- If the student asks you to build or draw a circuit on the Electronics board, call `build_circuit_setup` or `operate_bench_control`.\n"
         "- For physics/chemistry/biology/electronics/engineering theory or precautions, call `consult_science_knowledge_graph` so your explanation is grounded in WAEC/NECO curriculum.\n"
         f"- {graded_rule}\n"
@@ -409,6 +430,36 @@ class GeminiLiveVixBridge:
                 "status": "tutorial_sandbox_closed",
                 "note": "Student's real bench and saved PostgreSQL readings have been restored.",
             }
+
+        if name == "switch_lab":
+            raw_route = str(args.get("lab_route") or "").strip()
+            allowed_routes = {
+                "/lab/physics/pendulum",
+                "/lab/physics/refraction",
+                "/lab/physics/moments",
+                "/lab/chemistry/titration",
+                "/lab/chemistry/qualitative-analysis",
+                "/lab/electronics/ohms-law",
+                "/lab/engineering/beam",
+            }
+            if "biology" in raw_route.lower():
+                return {
+                    "status": "disabled",
+                    "reason": "Biology lab is temporarily disabled (coming soon). Offer Physics, Chemistry, Electronics, or Engineering instead.",
+                }
+            if raw_route not in allowed_routes:
+                return {
+                    "status": "invalid_route",
+                    "allowedRoutes": sorted(allowed_routes),
+                }
+            await self.send_browser_json(
+                {
+                    "type": "rpc",
+                    "method": "navigate",
+                    "payload": {"to": raw_route},
+                }
+            )
+            return {"status": "navigating", "to": raw_route}
 
         if name == "build_circuit_setup":
             desc = str(args.get("description") or "Ohm's law circuit")

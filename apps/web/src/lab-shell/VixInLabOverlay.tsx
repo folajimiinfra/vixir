@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router';
+import { Link, useNavigate } from 'react-router';
 import { Mic, X, Sparkles, Eye, Cpu, Crosshair } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLabSessionStore } from '../store/labSessionStore';
@@ -1038,6 +1038,7 @@ export function VixSpotlightFloatingCard({
   onToggleDim,
   onEndCall,
 }: VixSpotlightFloatingCardProps) {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const studentFirstName = user?.firstName || 'Student';
   const [lang, setLang] = useState<VixLanguage>('English');
@@ -1342,6 +1343,13 @@ export function VixSpotlightFloatingCard({
                 window.dispatchEvent(
                   new CustomEvent('vix:build-setup', { detail: msg.payload || {} })
                 );
+              } else if (msg.method === 'navigate' && msg.payload?.to) {
+                const dest = String(msg.payload.to);
+                if (!dest.includes('/biology')) {
+                  window.sessionStorage.setItem('vix_auto_reopen', '1');
+                  stopLiveSession();
+                  navigate(dest);
+                }
               }
             } else if (msg.type === 'bench_control') {
               // Vix directly operates the REAL lab bench controls in Live Tutorial Sandbox Mode!
