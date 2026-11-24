@@ -140,11 +140,12 @@ async def handle_session_start(request: web.Request) -> web.Response:
             status=409,
         )
 
-    first_name = (body.get("firstName") or "Adaora").split()[0]
-    locale = body.get("locale") or "en"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    locale = body.get("locale") or "English"
     voice = body.get("voice") or "ada"
     brain_spec = body.get("brain") or None
     exp_title = body.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
+    include_audio = bool(body.get("includeAudio", True))
 
     brain = create_llm_brain(brain_spec)
     runner = VixSessionRunner(session_id=session_id, brain=brain)
@@ -153,26 +154,43 @@ async def handle_session_start(request: web.Request) -> web.Response:
     runner.locale = locale
     runner.voice = voice
     runner.connected = True
+    readings_count: int | None = None
     if body.get("screenMap"):
         runner.on_screenmap_data(body["screenMap"])
+        sim_data = body["screenMap"].get("sim") if isinstance(body["screenMap"], dict) else None
+        if isinstance(sim_data, dict) and sim_data.get("readingsCount") is not None:
+            readings_count = int(sim_data["readingsCount"])
 
     _SESSIONS[session_id] = runner
 
-    persona_display = {"ada": "Ada", "tunde": "Tunde", "grace": "Grace"}.get(
-        voice.lower(), "Ada"
+    progress_note = (
+        f" with {readings_count} readings recorded so far"
+        if isinstance(readings_count, int) and readings_count > 0
+        else ""
     )
     greeting_prompt = (
-        f"Introduce yourself to {first_name} in {locale} as Vix (speaking in {persona_display}'s voice), their AI laboratory guide for '{exp_title}' (mode: {mode}).\n"
-        "In 3 clear, natural conversational sentences:\n"
-        "1. Introduce yourself warmly and name the current practical workspace.\n"
-        "2. State clearly what you WILL do (explain every tiny component, terminal pin, meter, and slider on the screen, help draw or wire setups on the bench, and guide with Socratic questions) and what you CANNOT do (never give away graded numerical answers or submit their class report).\n"
-        "3. Ask if they would like a complete spotlight tour explaining every detail on this lab screen, or if they want to click on a specific component to start."
+        f"Greet {first_name} in {locale} as Vix in exactly 2 short, warm spoken sentences (no LaTeX, no markdown):\n"
+        f"1. Say: 'Hi {first_name}, I can see you are in the {exp_title} lab studio{progress_note}.'\n"
+        "2. Ask: 'Would you like a quick interactive tour of this lab studio, or would you like me to walk you through a live worked example so you can see how to handle the practical?'"
     )
     greeting = await brain.generate(
         greeting_prompt,
-        system="You are Vix, a warm, conversational Nigerian science lab partner. Output 3 clear sentences.",
+        system="You are Vix, a warm, conversational Nigerian science lab partner. Speak naturally in 2 brief sentences.",
         fast=True,
+        max_tokens=120,
     )
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and greeting:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                greeting, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline greeting TTS failed: %s", exc)
 
     room_name = f"vix-{session_id}"
     lk_token = mint_livekit_token(room_name, f"student-{first_name.lower()}", first_name)
@@ -186,6 +204,8 @@ async def handle_session_start(request: web.Request) -> web.Response:
             "voice": voice,
             "greeting": greeting,
             "sentences": split_into_sentences(greeting),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "room": room_name,
             "livekitUrl": lk_url,
             "livekitToken": lk_token,
@@ -194,7 +214,7 @@ async def handle_session_start(request: web.Request) -> web.Response:
 
 
 async def handle_turn(request: web.Request) -> web.Response:
-    """POST /vix/turn — run a live student question + ScreenMap through the 18-node Vix LangGraph & real LLM."""
+    """POST /vix/turn — run a live student question + ScreenMap through the Vix LangGraph & real LLM with inline Neural TTS."""
     try:
         body = await request.json()
     except Exception:
@@ -206,7 +226,10 @@ async def handle_turn(request: web.Request) -> web.Response:
 
     session_id = body.get("sessionId") or "live-web-session"
     mode: Mode = body.get("mode") or "PRACTICE"
-    locale = body.get("locale") or "en"
+    locale = body.get("locale") or "English"
+    voice = body.get("voice") or "ada"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    include_audio = bool(body.get("includeAudio", True))
     brain_spec = body.get("brain") or None
     raw_screen = body.get("screenMap")
     raw_pointer = body.get("pointerTarget")
@@ -231,17 +254,21 @@ async def handle_turn(request: web.Request) -> web.Response:
             runner.switch_brain(brain_spec)
         runner.mode = mode
         runner.locale = locale
+        if first_name != "Student":
+            runner.first_name = first_name
         if screen_map is not None:
             runner.on_screenmap_data(screen_map)
         result = await runner.handle_student_turn(query)
         active_brain_id = runner.brain.identifier
     else:
-        result = process_user_query(
+        result = await asyncio.to_thread(
+            process_user_query,
             query,
             screen_map=screen_map,
             mode=mode,
             session_id=session_id,
             locale=locale,
+            first_name=first_name,
             brain=brain_spec,
         )
         active_brain_id = result.get("llm_brain") or create_llm_brain(brain_spec).identifier
@@ -252,15 +279,37 @@ async def handle_turn(request: web.Request) -> web.Response:
     ]
     tour = result.get("tour")
     tour_dump = tour.model_dump() if hasattr(tour, "model_dump") else tour
-
+    intent_val = result.get("intent", "what_next")
     reply_text = result.get("reply") or result.get("response") or ""
+
+    ui_action: str | None = None
+    if intent_val == "worked_example":
+        ui_action = "open_worked_example"
+    elif intent_val == "explain_screen":
+        ui_action = "start_tour"
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and reply_text:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                reply_text, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline turn TTS failed: %s", exc)
+
     return _json_response(
         {
             "sessionId": session_id,
             "brain": active_brain_id,
-            "intent": result.get("intent", "what_next"),
+            "intent": intent_val,
+            "uiAction": ui_action,
             "reply": reply_text,
             "sentences": split_into_sentences(reply_text),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "blocked": bool(result.get("blocked") or result.get("policy_blocked")),
             "targetIds": result.get("target_ids") or [],
             "rpcPlan": rpcs,
@@ -408,6 +457,9 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
     # Delegate to the full LangGraph turn logic with the transcribed speech
     session_id = body.get("sessionId") or "live-web-session"
     mode: Mode = body.get("mode") or "PRACTICE"
+    voice = body.get("voice") or "ada"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    include_audio = bool(body.get("includeAudio", True))
     raw_screen = body.get("screenMap")
     raw_pointer = body.get("pointerTarget")
 
@@ -432,6 +484,7 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
         mode=mode,
         session_id=session_id,
         locale=locale,
+        first_name=first_name,
         brain=brain.identifier,
     )
 
@@ -441,7 +494,26 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
     ]
     tour = result.get("tour")
     tour_dump = tour.model_dump() if hasattr(tour, "model_dump") else tour
+    intent_val = result.get("intent", "what_next")
     reply_text = result.get("reply") or result.get("response") or ""
+
+    ui_action: str | None = None
+    if intent_val == "worked_example":
+        ui_action = "open_worked_example"
+    elif intent_val == "explain_screen":
+        ui_action = "start_tour"
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and reply_text:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                reply_text, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline voice-turn TTS failed: %s", exc)
 
     return _json_response(
         {
@@ -449,9 +521,12 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
             "sessionId": session_id,
             "brain": brain.identifier,
             "transcript": transcript,
-            "intent": result.get("intent", "what_next"),
+            "intent": intent_val,
+            "uiAction": ui_action,
             "reply": reply_text,
             "sentences": split_into_sentences(reply_text),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "blocked": bool(result.get("blocked") or result.get("policy_blocked")),
             "targetIds": result.get("target_ids") or [],
             "rpcPlan": rpcs,

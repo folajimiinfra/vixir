@@ -105,6 +105,44 @@ def _format_screen_context(screen: ScreenMap | None) -> str:
     )
 
 
+def _clean_spoken_text(text: str) -> str:
+    """Remove raw LaTeX, markdown, and internal region IDs so Vix speaks and types natural human language."""
+    if not text:
+        return ""
+    out = text
+    # Convert LaTeX fractions \frac{a}{b} -> a over b
+    out = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1 over \2", out)
+    out = out.replace("\\pi", "pi").replace("\\cdot", "times").replace("\\times", "times")
+    out = out.replace("\\theta", "theta").replace("\\Delta", "delta ").replace("\\approx", "approximately ")
+    out = re.sub(r"T\^2", "T squared", out)
+    out = re.sub(r"L\^3", "L cubed", out)
+    out = out.replace("$", "").replace("`", "").replace("**", "")
+    # Replace internal kebab-case DOM region IDs with natural spoken names
+    replacements = {
+        "'data-panel'": "readings panel on the right",
+        '"data-panel"': "readings panel on the right",
+        "data-panel": "readings panel",
+        "'instrument-dock'": "instrument controls at the bottom",
+        '"instrument-dock"': "instrument controls at the bottom",
+        "instrument-dock": "instrument controls",
+        "'apparatus-tray'": "apparatus tray on the left",
+        '"apparatus-tray"': "apparatus tray on the left",
+        "apparatus-tray": "apparatus tray",
+        "'tool-rail'": "left tool rail",
+        '"tool-rail"': "left tool rail",
+        "tool-rail": "left tool rail",
+        "'top-bar'": "top bar",
+        '"top-bar"': "top bar",
+        "top-bar": "top bar",
+        "'bench'": "lab bench",
+        '"bench"': "lab bench",
+    }
+    for k, v in replacements.items():
+        out = out.replace(k, v)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
+
+
 def _build_system_prompt(state: VixState) -> str:
     """Build system prompt enriched with Ch. 6 Working Memory, Self-Notes, and Ch. 7 Reflexion/ExpeL rules (strictly non-PII per Req 8 AC1)."""
     base = _read_prompt("system.txt")
@@ -121,6 +159,10 @@ def _build_system_prompt(state: VixState) -> str:
 
     return (
         f"{base}\n\n"
+        "SPOKEN STYLE RULE (CRITICAL):\n"
+        "- Speak naturally like a real human lab partner. NEVER output LaTeX syntax (no $, no \\frac, no \\cdot, no \\pi) and NEVER quote internal region IDs like 'data-panel' or 'bench'.\n"
+        "- Say 'T squared equals four pi squared over g times L' and 'your readings panel on the right'.\n"
+        "- Always trust the live readingsCount and ScreenMap telemetry provided in the Self-Notes; never invent how many trials the student has recorded.\n\n"
         f"Session Context (strictly non-PII per safety rules):\n"
         f"- Student first name: {first_name}\n"
         f"- Mode: {mode}\n"
@@ -1162,9 +1204,10 @@ def safe_question_node(state: VixState) -> VixState:
 
 
 def act_node(state: VixState) -> VixState:
-    """Validate all planned RPC IDs against the current ScreenMap, update WorkingMemory, and append showCaption RPC."""
+    """Validate all planned RPC IDs against the current ScreenMap, clean spoken text, update WorkingMemory, and append showCaption RPC."""
     screen = state.get("screen")
-    reply = state.get("reply") or state.get("draft") or ""
+    raw_reply = state.get("reply") or state.get("draft") or ""
+    reply = _clean_spoken_text(raw_reply)
     raw_plan = list(state.get("rpc_plan") or [])
     session_id = state.get("session_id") or "session-default"
     wm, _ = get_session_memories(session_id)
@@ -1435,6 +1478,7 @@ def process_user_query(
     session_id: str = "session-default",
     experiment_id: str = "phy.pendulum.g",
     locale: str = "en",
+    first_name: str = "Student",
     brain: str | None = None,
 ) -> dict[str, Any]:
     """Process a user query through the canonical Vix LangGraph powered by the real LLM + Ch. 5–8 Multi-Agent System."""
@@ -1453,6 +1497,7 @@ def process_user_query(
         mode="GRADED" if mode == "GRADED" else "PRACTICE",
         screen=parsed_screen,
         session_id=session_id,
+        first_name=first_name,
         locale=locale,
         llm_brain=active_brain.identifier,
     )

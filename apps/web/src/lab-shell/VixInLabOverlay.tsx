@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
 import { Mic, X, Sparkles, Volume2, Eye, Cpu, Crosshair } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useLabSessionStore } from '../store/labSessionStore';
 import type { SubjectLab } from './LabLayout';
 
 export type VixTargetRegion =
@@ -194,15 +195,16 @@ function playSingleDataUriWithLiveTyping(
 }
 
 /**
- * Synthesizes the full reply as ONE seamless continuous Gemini 3.8 Neural TTS WAV clip
- * (no choppy gaps or pitch jumps between sentences) and reveals words in real-time lockstep with playback.
+ * Plays inline base64 WAV audio returned directly inside /vix/session/start, /vix/turn, or /vix/voice-turn
+ * (0 ms extra network fetch!) while revealing words in real time. Falls back to /vix/tts if audio is omitted.
  */
 export async function playVixNeuralAudio(
   text: string,
   voice: 'ada' | 'tunde' | 'grace' = 'ada',
   locale: string = 'English',
   _preSplitSentences?: string[],
-  onLiveTextUpdate?: (typedSoFar: string) => void
+  onLiveTextUpdate?: (typedSoFar: string) => void,
+  inlineAudio?: { audio: string; mimeType?: string } | null
 ): Promise<boolean> {
   const cleaned = text.trim();
   if (!cleaned || typeof window === 'undefined' || typeof Audio === 'undefined') {
@@ -213,7 +215,13 @@ export async function playVixNeuralAudio(
   stopVixNeuralAudio();
   const myGen = audioGenerationSeq;
 
-  const uri = await fetchSentenceAudioDataUri(cleaned, voice, locale).catch(() => null);
+  let uri: string | null = null;
+  if (inlineAudio?.audio) {
+    uri = `data:${inlineAudio.mimeType || 'audio/wav'};base64,${inlineAudio.audio}`;
+    neuralAudioCache.set(`${voice}::${locale}::${cleaned}`, uri);
+  } else {
+    uri = await fetchSentenceAudioDataUri(cleaned, voice, locale).catch(() => null);
+  }
   if (audioGenerationSeq !== myGen) return false;
 
   if (!uri) {
@@ -534,15 +542,36 @@ export function collectLiveDomScreenMap(
     engineering: 'D7',
   };
 
+  // Compute REAL live readingsCount & recorded parameters from Zustand store and live DOM (NEVER hardcoded!)
+  const routePath =
+    typeof window !== 'undefined' ? window.location.pathname : `/lab/${activeLab}`;
+  let liveReadingsCount = 0;
+  let recordedSummary: string[] = [];
+
+  if (activeLab === 'physics' && routePath.includes('pendulum')) {
+    const storeRows = useLabSessionStore.getState().pendulumRows;
+    liveReadingsCount = storeRows.length;
+    recordedSummary = storeRows.map((r) => `${(r.lengthM * 100).toFixed(1)}cm`);
+  } else if (typeof document !== 'undefined') {
+    const dataPanelEl = document.querySelector('[data-vix-id="data-panel"]');
+    const panelText = dataPanelEl?.textContent || '';
+    const countMatch = panelText.match(/Readings\s*\((\d+)\)/i);
+    if (countMatch) {
+      liveReadingsCount = Number(countMatch[1]);
+    } else if (dataPanelEl) {
+      liveReadingsCount = dataPanelEl.querySelectorAll('tbody tr').length;
+    }
+  }
+
   return {
     v: 1 as const,
     screen: screenCodeMap[activeLab] || 'D1',
-    route: typeof window !== 'undefined' ? window.location.pathname : `/lab/${activeLab}`,
+    route: routePath,
     mode,
     experiment: {
       id: `${activeLab}.practical`,
       title: experimentTitle,
-      step: 'READINGS',
+      step: liveReadingsCount >= 5 ? 'GRAPH' : liveReadingsCount > 0 ? 'READINGS' : 'SETUP',
     },
     viewport: {
       w: typeof window !== 'undefined' ? window.innerWidth : 1440,
@@ -553,8 +582,9 @@ export function collectLiveDomScreenMap(
     sim: {
       released: true,
       warnings: [],
-      readingsCount: 2,
+      readingsCount: liveReadingsCount,
       readingsTarget: 6,
+      recordedLengths: recordedSummary,
     },
     lastEvents: [],
   };
@@ -1011,11 +1041,16 @@ export function VixSpotlightFloatingCard({
   const [heardTranscript, setHeardTranscript] = useState<string | null>(null);
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
 
+  // Interactive Animated Worked Example Visual Walkthrough (shows an analogous DIFFERENT lab step by step!)
+  const [workedExampleOpen, setWorkedExampleOpen] = useState(false);
+  const [workedStepIdx, setWorkedStepIdx] = useState(0);
+
   // "Point Anywhere on Screen" laser pointer mode & tracked target
   const [pointModeActive, setPointModeActive] = useState(false);
   const [pointedTarget, setPointedTarget] = useState<VixPointerTarget | null>(null);
   const hoverTargetRef = useRef<VixPointerTarget | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const isGreetingRef = useRef<boolean>(true);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -1099,14 +1134,143 @@ export function VixSpotlightFloatingCard({
   };
 
   /** Speak text AND type it out word-by-word simultaneously as the voice plays! */
-  const speakAndTypeSimultaneously = async (text: string, sentences?: string[]) => {
-    await playVixNeuralAudio(text, voice, lang, sentences, (typedSoFar) => {
-      setLiveTypedCaption(typedSoFar);
-    });
+  const speakAndTypeSimultaneously = async (
+    text: string,
+    sentences?: string[],
+    inlineAudio?: { audio: string; mimeType?: string } | null
+  ) => {
+    await playVixNeuralAudio(
+      text,
+      voice,
+      lang,
+      sentences,
+      (typedSoFar) => {
+        setLiveTypedCaption(typedSoFar);
+      },
+      inlineAudio
+    );
+  };
+
+  // Interactive 4-step analogous lab walkthrough (Hooke's Law Spiral Spring when on Pendulum; Pendulum when on Electronics/Chemistry/etc.)
+  const isAnalogousSpring = activeLab === 'physics';
+  const WORKED_EXAMPLE_STEPS = isAnalogousSpring
+    ? [
+        {
+          title: 'Step 1 · Vary the independent variable cleanly',
+          caption:
+            'In this analogous Hookes Law spring lab, hang slotted masses one by one (50 g, 100 g, 150 g, 200 g) and wait for the spring to settle before reading.',
+          loadG: 100,
+          extCm: 4.0,
+          pts: [{ x: 0.5, y: 2.0 }],
+        },
+        {
+          title: 'Step 2 · Read scale at eye level & repeat',
+          caption:
+            'Keep your eye strictly perpendicular to the metre rule pointer to avoid parallax error, and repeat during unloading to take a reliable mean reading.',
+          loadG: 200,
+          extCm: 8.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+          ],
+        },
+        {
+          title: 'Step 3 · Plot points & draw a balanced line of best fit',
+          caption:
+            'Plot Force on the vertical axis against extension on the horizontal axis using more than half the grid, balancing scattered points evenly above and below the line.',
+          loadG: 250,
+          extCm: 10.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+            { x: 2.5, y: 10.0 },
+          ],
+        },
+        {
+          title: 'Step 4 · Use a large slope triangle to find the physical constant',
+          caption:
+            'Choose two well-separated vertices A and B on the best-fit line, compute change in y over change in x to obtain the spring constant k, then apply this exact method on your own pendulum bench!',
+          loadG: 300,
+          extCm: 12.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+            { x: 2.5, y: 10.0 },
+            { x: 3.0, y: 12.0 },
+          ],
+        },
+      ]
+    : [
+        {
+          title: 'Step 1 · Set up & check zero error',
+          caption:
+            'In this analogous Simple Pendulum lab, measure length L from the bottom of the split cork to the centre of the bob and confirm the stopwatch reads zero.',
+          loadG: 100,
+          extCm: 4.0,
+          pts: [{ x: 0.5, y: 2.0 }],
+        },
+        {
+          title: 'Step 2 · Take repeated measurements across 5–6 values',
+          caption:
+            'Time 20 complete small-angle oscillations twice at each length, average t1 and t2, and tabulate your derived columns to consistent decimal places.',
+          loadG: 200,
+          extCm: 8.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+          ],
+        },
+        {
+          title: 'Step 3 · Plot your linear graph',
+          caption:
+            'Plot T squared on the vertical axis against length L on the horizontal axis and draw a single straight line of best fit balancing points evenly.',
+          loadG: 250,
+          extCm: 10.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+            { x: 2.5, y: 10.0 },
+          ],
+        },
+        {
+          title: 'Step 4 · Extract slope from a large triangle & apply to your bench',
+          caption:
+            'Read two wide vertices A and B directly off the best-fit line to calculate the gradient and physical constant, then repeat this exact discipline on your own lab bench!',
+          loadG: 300,
+          extCm: 12.0,
+          pts: [
+            { x: 0.5, y: 2.0 },
+            { x: 1.0, y: 4.0 },
+            { x: 1.5, y: 6.1 },
+            { x: 2.0, y: 8.0 },
+            { x: 2.5, y: 10.0 },
+            { x: 3.0, y: 12.0 },
+          ],
+        },
+      ];
+
+  const openInteractiveWorkedExample = (startAt = 0) => {
+    handleNaturalBargeIn();
+    setWorkedExampleOpen(true);
+    setWorkedStepIdx(startAt);
+    const stepObj = WORKED_EXAMPLE_STEPS[startAt]!;
+    setCustomReply(stepObj.caption);
+    void speakAndTypeSimultaneously(stepObj.caption);
   };
 
   const handleSelectTourStepAndSpeak = (newIdx: number) => {
     handleNaturalBargeIn();
+    setWorkedExampleOpen(false);
     setCustomReply(null);
     setLiveTypedCaption(null);
     onSelectStep(newIdx);
@@ -1153,10 +1317,13 @@ export function VixSpotlightFloatingCard({
         signal: controller.signal,
         body: JSON.stringify({
           sessionId,
+          firstName: studentFirstName,
           query: q,
           mode: 'PRACTICE',
           locale: lang,
+          voice,
           brain,
+          includeAudio: true,
           screenMap,
           pointerTarget: activePointer,
         }),
@@ -1175,6 +1342,15 @@ export function VixSpotlightFloatingCard({
           reflexionPlans: data.reflexionPlans,
           llmMs,
         });
+
+        // Execute live UI actions returned by Vix (open interactive Worked Example or Spotlight Tour!)
+        if (data.uiAction === 'open_worked_example') {
+          setWorkedExampleOpen(true);
+          setWorkedStepIdx(0);
+        } else if (data.uiAction === 'start_tour') {
+          if (!dimNonActive) onToggleDim();
+          onSelectStep(0);
+        }
 
         // Execute any spotlight/pointAt/buildSetup RPC returned by the Vix LangGraph
         const rpcs: Array<{ method: string; payload?: Record<string, unknown> }> =
@@ -1198,11 +1374,15 @@ export function VixSpotlightFloatingCard({
           }
         }
 
-        // Keep customReply stored, and start speaking + typing word-for-word at the exact same instant!
+        // Start speaking + typing word-for-word IMMEDIATELY using the inline audio (0ms extra fetch!)
         setCustomReply(reply);
         setLiveTypedCaption('...');
         setIsLoadingTurn(false);
-        await speakAndTypeSimultaneously(reply, data.sentences);
+        await speakAndTypeSimultaneously(
+          reply,
+          data.sentences,
+          data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
+        );
         return;
       }
     } catch (err) {
@@ -1257,11 +1437,14 @@ export function VixSpotlightFloatingCard({
         signal: controller.signal,
         body: JSON.stringify({
           sessionId,
+          firstName: studentFirstName,
           audio: base64Audio,
           mimeType,
           mode: 'PRACTICE',
           locale: lang,
+          voice,
           brain,
+          includeAudio: true,
           screenMap,
           pointerTarget: activePointer,
         }),
@@ -1288,6 +1471,14 @@ export function VixSpotlightFloatingCard({
           llmMs,
         });
 
+        if (data.uiAction === 'open_worked_example') {
+          setWorkedExampleOpen(true);
+          setWorkedStepIdx(0);
+        } else if (data.uiAction === 'start_tour') {
+          if (!dimNonActive) onToggleDim();
+          onSelectStep(0);
+        }
+
         const rpcs: Array<{ method: string; payload?: Record<string, unknown> }> =
           data.rpcPlan || [];
         for (const call of rpcs) {
@@ -1312,7 +1503,11 @@ export function VixSpotlightFloatingCard({
         setCustomReply(reply);
         setLiveTypedCaption('...');
         setIsLoadingTurn(false);
-        await speakAndTypeSimultaneously(reply, data.sentences);
+        await speakAndTypeSimultaneously(
+          reply,
+          data.sentences,
+          data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
+        );
         return;
       }
     } catch {
@@ -1434,11 +1629,12 @@ export function VixSpotlightFloatingCard({
         const pct = Math.min(100, Math.round(rms * 380));
         setMicLevel(pct);
 
-        // Echo-Shield: while Vix is playing audio out of laptop speakers (or within 350ms of room reverb),
-        // pause VAD auto-trigger so speaker echo NEVER chops Vix's own voice mid-sentence!
-        // (Student can still click the Mic button or type at any moment to interrupt immediately.)
+        // Echo-Shield & Greeting Guard: pause VAD auto-trigger while Vix is greeting or playing audio
+        // so ambient noise or speaker echo NEVER aborts Vix's intro or chops its speech!
         const inSpeakerEchoGuard =
-          Boolean(activeNeuralAudio) || performance.now() - lastAudioEndedAt < 350;
+          isGreetingRef.current ||
+          Boolean(activeNeuralAudio) ||
+          performance.now() - lastAudioEndedAt < 450;
         if (inSpeakerEchoGuard) {
           speakingFrames = 0;
           silenceFrames = 0;
@@ -1449,13 +1645,14 @@ export function VixSpotlightFloatingCard({
         const isRecordingNow =
           mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
 
-        const threshold = 0.028;
+        // Require clear human voice above room/fan noise floor (0.045 for 3 frames = 180ms)
+        const threshold = 0.045;
 
         if (rms > threshold) {
           speakingFrames += 1;
           silenceFrames = 0;
 
-          if (speakingFrames >= 2 && !isRecordingNow) {
+          if (speakingFrames >= 3 && !isRecordingNow) {
             beginSegmentRecording();
           }
         } else {
@@ -1482,13 +1679,15 @@ export function VixSpotlightFloatingCard({
     }
   };
 
-  // Automatically start the real hardware microphone + VAD AND live greeting when the Vix card opens!
+  // Immediately introduce Vix on open ("Hi <Name>, I can see you are in <lab>..."), THEN activate hands-free mic VAD!
   useEffect(() => {
     let cancelled = false;
+    isGreetingRef.current = true;
     void startHardwareMicrophoneWithVAD();
 
     const greetImmediately = async () => {
       try {
+        const liveMap = collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE');
         const resp = await fetch(`${VIX_AGENT_URL}/vix/session/start`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1498,7 +1697,9 @@ export function VixSpotlightFloatingCard({
             locale: lang,
             voice,
             brain,
+            includeAudio: true,
             experimentTitle,
+            screenMap: liveMap,
           }),
         });
         if (!cancelled && resp.ok) {
@@ -1508,17 +1709,24 @@ export function VixSpotlightFloatingCard({
           }
           if (data.greeting) {
             setCustomReply(data.greeting);
-            await speakAndTypeSimultaneously(data.greeting, data.sentences);
+            await speakAndTypeSimultaneously(
+              data.greeting,
+              data.sentences,
+              data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
+            );
           }
         }
       } catch {
         // Keep bench explanation visible if offline
+      } finally {
+        isGreetingRef.current = false;
       }
     };
     void greetImmediately();
 
     return () => {
       cancelled = true;
+      isGreetingRef.current = false;
       stopVixNeuralAudio();
       stopHardwareMicrophone();
     };
@@ -1609,6 +1817,182 @@ export function VixSpotlightFloatingCard({
           </button>
         </div>
       )}
+
+      {/* Interactive Animated Worked Example Visual Walkthrough Panel (Analogous Different Lab!) */}
+      {workedExampleOpen &&
+        (() => {
+          const wStep = WORKED_EXAMPLE_STEPS[workedStepIdx] ?? WORKED_EXAMPLE_STEPS[0]!;
+          const springCoilsY = 34 + wStep.extCm * 4.5;
+          return (
+            <div
+              role="dialog"
+              aria-label="Vix Interactive Worked Example Walkthrough"
+              className="fixed bottom-5 left-5 sm:left-16 z-40 w-[calc(100%-2.5rem)] max-w-[450px] bg-[#0B1220]/96 backdrop-blur-md border-2 border-[#38BDF8]/70 rounded-2xl p-4 shadow-[0_24px_60px_rgba(0,0,0,0.8)] space-y-3 text-[#E6EBF5]"
+            >
+              <div className="flex items-center justify-between gap-2 border-b border-[#1E2A42] pb-2">
+                <div>
+                  <div className="font-mono text-[10px] font-bold uppercase tracking-wider text-[#38BDF8]">
+                    LIVE WORKED EXAMPLE · {isAnalogousSpring ? "HOOKE'S LAW SPRING LAB" : 'PENDULUM ANALOGY'}
+                  </div>
+                  <div className="font-display text-sm font-bold text-white">
+                    {wStep.title}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setWorkedExampleOpen(false)}
+                  className="px-2 py-1 rounded-lg bg-[#121A2B] hover:bg-[#192338] text-xs text-[#93A0B8] hover:text-white cursor-pointer"
+                >
+                  Close ×
+                </button>
+              </div>
+
+              {/* Animated Analogous Apparatus + Live Regression Plot SVG */}
+              <div className="bg-[#080E1A] border border-[#1E2A42] rounded-xl p-2">
+                <svg viewBox="0 0 380 140" className="w-full h-36">
+                  {/* Left: Analogous Spring-Mass Apparatus stretching per step */}
+                  <rect x="20" y="12" width="90" height="5" rx="2" fill="#64748B" />
+                  <line x1="28" y1="17" x2="28" y2="128" stroke="#475569" strokeWidth="4" />
+                  {/* Stretched coil spring */}
+                  <path
+                    d={`M 75 17 L 75 24 L 66 ${24 + (springCoilsY - 24) * 0.2} L 84 ${
+                      24 + (springCoilsY - 24) * 0.4
+                    } L 66 ${24 + (springCoilsY - 24) * 0.6} L 84 ${
+                      24 + (springCoilsY - 24) * 0.8
+                    } L 75 ${springCoilsY}`}
+                    fill="none"
+                    stroke="#38BDF8"
+                    strokeWidth="2.2"
+                  />
+                  {/* Mass hanger & slotted weight */}
+                  <rect
+                    x="61"
+                    y={springCoilsY}
+                    width="28"
+                    height="18"
+                    rx="3"
+                    fill="#F97316"
+                    stroke="#FDBA74"
+                    strokeWidth="1.5"
+                  />
+                  <text
+                    x="75"
+                    y={springCoilsY + 12}
+                    textAnchor="middle"
+                    fill="#0B1220"
+                    fontSize="8.5"
+                    fontWeight="700"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    {wStep.loadG}g
+                  </text>
+                  {/* Eye-level horizontal scale pointer */}
+                  <line
+                    x1="89"
+                    y1={springCoilsY + 9}
+                    x2="132"
+                    y2={springCoilsY + 9}
+                    stroke="#4ADE80"
+                    strokeWidth="1.5"
+                    strokeDasharray="3 2"
+                  />
+                  <rect x="132" y="18" width="12" height="108" rx="2" fill="#B4986B" />
+                  <text
+                    x="138"
+                    y={springCoilsY + 12}
+                    fill="#4ADE80"
+                    fontSize="8"
+                    fontFamily="JetBrains Mono, monospace"
+                  >
+                    e={wStep.extCm.toFixed(1)}cm
+                  </text>
+
+                  {/* Right: Live Worked Example Graph + Large Slope Triangle (Steps 3 & 4) */}
+                  <rect x="176" y="10" width="194" height="120" rx="8" fill="#0B1220" stroke="#1E2A42" />
+                  <line x1="198" y1="112" x2="354" y2="112" stroke="#475569" strokeWidth="1.2" />
+                  <line x1="198" y1="22" x2="198" y2="112" stroke="#475569" strokeWidth="1.2" />
+
+                  {/* Best-fit line appears from Step 3 onward */}
+                  {workedStepIdx >= 2 && (
+                    <line
+                      x1="198"
+                      y1="112"
+                      x2="348"
+                      y2="28"
+                      stroke="#38BDF8"
+                      strokeWidth="2"
+                    />
+                  )}
+                  {/* Large Slope Triangle appears on Step 4 */}
+                  {workedStepIdx >= 3 && (
+                    <>
+                      <path
+                        d="M 226 96 L 326 96 L 326 40"
+                        fill="none"
+                        stroke="#F97316"
+                        strokeWidth="1.6"
+                        strokeDasharray="4 3"
+                      />
+                      <circle cx="226" cy="96" r="3.5" fill="#F97316" />
+                      <circle cx="326" cy="40" r="3.5" fill="#F97316" />
+                      <text x="276" y="107" textAnchor="middle" fill="#FDBA74" fontSize="8" fontFamily="JetBrains Mono, monospace">
+                        Large ΔF / Δe triangle → k
+                      </text>
+                    </>
+                  )}
+                  {/* Plotted points */}
+                  {wStep.pts.map((pt, idx) => (
+                    <circle
+                      key={idx}
+                      cx={198 + (pt.x / 3.2) * 150}
+                      cy={112 - (pt.y / 13) * 86}
+                      r="3.2"
+                      fill="#4ADE80"
+                    />
+                  ))}
+                  <text x="276" y="124" textAnchor="middle" fill="#93A0B8" fontSize="7.5" fontFamily="JetBrains Mono, monospace">
+                    Analogous Graph · Force vs Extension
+                  </text>
+                </svg>
+              </div>
+
+              <p className="text-xs text-[#C9D3E6] leading-relaxed">{wStep.caption}</p>
+
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <span className="font-mono text-[11px] text-[#93A0B8]">
+                  Step {workedStepIdx + 1} / {WORKED_EXAMPLE_STEPS.length}
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    disabled={workedStepIdx === 0}
+                    onClick={() => openInteractiveWorkedExample(workedStepIdx - 1)}
+                    className="px-3 py-1.5 rounded-lg bg-[#121A2B] disabled:opacity-40 border border-[#22304A] text-xs font-semibold text-white cursor-pointer"
+                  >
+                    Prev step
+                  </button>
+                  {workedStepIdx < WORKED_EXAMPLE_STEPS.length - 1 ? (
+                    <button
+                      type="button"
+                      onClick={() => openInteractiveWorkedExample(workedStepIdx + 1)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0B1220] text-xs font-bold cursor-pointer"
+                    >
+                      Next step →
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setWorkedExampleOpen(false)}
+                      className="px-3.5 py-1.5 rounded-lg bg-[#4ADE80] hover:bg-[#22C55E] text-[#0B1220] text-xs font-bold cursor-pointer"
+                    >
+                      Try on my own bench ✓
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
       <aside
         aria-label="Vix live in-lab guide"
@@ -1798,46 +2182,7 @@ export function VixSpotlightFloatingCard({
             {isLoadingTurn ? 'Reading your live pointer & ScreenMap...' : displayedCaption}
           </p>
 
-          {/* Multi-Agent Reasoning Trace Inspector */}
-          {agentMeta && (
-            <div className="mt-2 pt-2 border-t border-[#1E2A42]">
-              <button
-                type="button"
-                onClick={() => setShowTrace((s) => !s)}
-                className="w-full flex items-center justify-between text-[10px] font-mono text-[#7DD3FC] hover:underline cursor-pointer"
-              >
-                <span>
-                  {showTrace ? '▾ Hide' : '▸ Inspect'} Multi-Agent Trace (
-                  {agentMeta.agentTrace?.length || 0} agents · {agentMeta.kgFacts?.length || 0}{' '}
-                  GraphRAG hops · Critic {agentMeta.criticScore ?? 10}/10)
-                </span>
-              </button>
-              {showTrace && (
-                <div className="mt-2 max-h-40 overflow-y-auto rounded-xl bg-[#080E1A] border border-[#1E2A42] p-2.5 space-y-2 text-[10px] font-mono text-[#C9D3E6]">
-                  {agentMeta.agentTrace?.map((m, i) => (
-                    <div key={i} className="border-b border-[#142038] pb-1.5 last:border-0">
-                      <div className="text-[#FDBA74] font-bold">
-                        [{m.phase.toUpperCase()}] {m.sender} → {m.recipient}
-                      </div>
-                      <div className="text-[#93A0B8] whitespace-pre-wrap leading-snug">
-                        {m.content}
-                      </div>
-                    </div>
-                  ))}
-                  {agentMeta.kgFacts && agentMeta.kgFacts.length > 0 && (
-                    <div>
-                      <div className="text-[#4ADE80] font-bold">GraphRAG Multi-Hop Traversal:</div>
-                      {agentMeta.kgFacts.slice(0, 3).map((f, idx) => (
-                        <div key={idx} className="text-[#93A0B8] truncate">
-                          {f}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+         
         </div>
 
         {/* Progress Bar */}
@@ -1884,20 +2229,23 @@ export function VixSpotlightFloatingCard({
           </button>
         </div>
 
-        {/* Region Spotlight Chips + Worked Analogous Example Quick Action */}
+        {/* Region Spotlight Chips + Working Quick Studio Tour & Interactive Worked Example Buttons */}
         <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] text-[#93A0B8]">
-              Tour a region or see a worked example
-            </span>
+          <div className="grid grid-cols-2 gap-1.5">
             <button
               type="button"
               onClick={() => {
-                void handleAskQuestion(
-                  'Show me how to handle this practical step-by-step using a worked example from another lab so I can practice myself.'
-                );
+                if (!dimNonActive) onToggleDim();
+                handleSelectTourStepAndSpeak(0);
               }}
-              className="px-2.5 py-1 rounded-full bg-[#1C2A47] hover:bg-[#24375E] border border-[#3B82F6]/40 text-[10px] font-semibold text-[#93C5FD] cursor-pointer shrink-0"
+              className="px-2.5 py-1.5 rounded-xl bg-[#2B170A] hover:bg-[#3A1F0D] border border-[#F97316]/60 text-[11px] font-semibold text-[#FDBA74] cursor-pointer"
+            >
+              Quick studio tour
+            </button>
+            <button
+              type="button"
+              onClick={() => openInteractiveWorkedExample(0)}
+              className="px-2.5 py-1.5 rounded-xl bg-[#1C2A47] hover:bg-[#24375E] border border-[#38BDF8]/50 text-[11px] font-semibold text-[#7DD3FC] cursor-pointer"
             >
               Worked example (another lab)
             </button>
