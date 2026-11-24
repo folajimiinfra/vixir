@@ -4,7 +4,7 @@ spring:
   config:
     import: optional:file:../../.env[.properties]
   datasource:
-    url: ${VIXIR_DB_URL:jdbc:postgresql://localhost:5432/vixir}
+    url: ${VIXIR_DB_URL:jdbc:postgresql://${VIXIR_DB_HOST:localhost}:${VIXIR_DB_PORT:5432}/${VIXIR_DB_NAME:vixir}}
     username: ${VIXIR_DB_USER}
     password: ${VIXIR_DB_PASSWORD}
   jpa:

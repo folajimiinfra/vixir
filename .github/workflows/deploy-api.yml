@@ -1,11 +1,7 @@
-name: Deploy API
+name: Build API Image (GHCR)
 
-# On every push to main that touches the API: build the Docker image, push it to GHCR,
-# then tell Render to pull it. Needs repo secret RENDER_DEPLOY_HOOK_URL (Render → service → Settings → Deploy Hook).
+# Manual GHCR image push; main-branch production deploys are gated by security checks in deploy.yml.
 on:
-  push:
-    branches: [main]
-    paths: ['apps/api/**', 'packages/experiments/**']
   workflow_dispatch:
 
 permissions:

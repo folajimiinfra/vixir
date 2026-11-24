@@ -37,20 +37,32 @@ _SESSIONS: dict[str, VixSessionRunner] = {}
 _DUPLEX_SESSIONS: dict[str, PipecatDuplexSession] = {}
 
 
-def _cors_headers() -> dict[str, str]:
+def _cors_headers(request: web.Request | None = None) -> dict[str, str]:
+    configured = [
+        o.strip().rstrip("/")
+        for o in os.environ.get("VIX_CORS_ORIGINS", "").split(",")
+        if o.strip()
+    ]
+    allow_origin = "*"
+    if configured:
+        req_origin = (request.headers.get("Origin", "") if request else "").strip().rstrip("/")
+        allow_origin = req_origin if req_origin in configured else configured[0]
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allow_origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Vary": "Origin",
     }
 
 
-def _json_response(data: dict[str, Any], status: int = 200) -> web.Response:
+def _json_response(
+    data: dict[str, Any], status: int = 200, request: web.Request | None = None
+) -> web.Response:
     return web.Response(
         text=json.dumps(data),
         status=status,
         content_type="application/json",
-        headers=_cors_headers(),
+        headers=_cors_headers(request),
     )
 
 
@@ -92,8 +104,8 @@ def mint_livekit_token(room_name: str, participant_identity: str, participant_na
     return f"{h_b64}.{p_b64}.{_b64url(sig)}"
 
 
-async def handle_options(_request: web.Request) -> web.Response:
-    return web.Response(status=204, headers=_cors_headers())
+async def handle_options(request: web.Request) -> web.Response:
+    return web.Response(status=204, headers=_cors_headers(request))
 
 
 async def handle_health(_request: web.Request) -> web.Response:
@@ -610,7 +622,8 @@ def create_http_app() -> web.Application:
 
 
 def run_server(host: str = "0.0.0.0", port: int | None = None) -> None:
-    resolved_port = int(port or os.environ.get("VIX_AGENT_PORT", "8090"))
+    render_port = os.environ.get("PORT") if os.environ.get("RENDER") else None
+    resolved_port = int(port or render_port or os.environ.get("VIX_AGENT_PORT") or "8090")
     brain = create_llm_brain()
     log_worker_startup(brain)
     logger.info("Starting Vix Agent HTTP & LiveKit server on http://%s:%d (brain=%s)", host, resolved_port, brain.identifier)

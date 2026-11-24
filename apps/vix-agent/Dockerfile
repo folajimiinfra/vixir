@@ -1,7 +1,16 @@
-FROM python:3.12-slim
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+FROM python:3.12.9-slim
+COPY --from=ghcr.io/astral-sh/uv:0.6.14 /uv /bin/uv
 WORKDIR /app
+
+RUN useradd --create-home --shell /usr/sbin/nologin appuser
+
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 COPY vix_agent ./vix_agent
-CMD ["uv", "run", "python", "-m", "vix_agent.main", "start"]
+
+RUN chown -R appuser:appuser /app
+USER appuser
+
+ENV PORT=8090
+EXPOSE 8090
+CMD ["uv", "run", "--no-dev", "python", "-m", "vix_agent.server"]

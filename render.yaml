@@ -1,0 +1,69 @@
+# Render Infrastructure Blueprint for Vixir Backend API + Vix Voice Agent + PostgreSQL
+# Frontend (apps/web) is deployed separately to Firebase Hosting via .github/workflows/deploy.yml.
+# autoDeploy is false so GitHub Actions only deploys to Render after Semgrep, Gitleaks, and CI pass.
+
+databases:
+  - name: vixir-db
+    databaseName: vixir
+    user: vixir
+    plan: free
+    region: frankfurt
+
+services:
+  - type: web
+    name: vixir-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    region: frankfurt
+    plan: starter
+    autoDeploy: false
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
+      - key: VIXIR_DB_HOST
+        fromDatabase:
+          name: vixir-db
+          property: host
+      - key: VIXIR_DB_PORT
+        fromDatabase:
+          name: vixir-db
+          property: port
+      - key: VIXIR_DB_NAME
+        fromDatabase:
+          name: vixir-db
+          property: database
+      - key: VIXIR_DB_USER
+        fromDatabase:
+          name: vixir-db
+          property: user
+      - key: VIXIR_DB_PASSWORD
+        fromDatabase:
+          name: vixir-db
+          property: password
+      - key: VIXIR_JWT_SECRET
+        generateValue: true
+      - key: VIXIR_SERVICE_SECRET
+        generateValue: true
+      - key: VIXIR_WEB_ORIGINS
+        sync: false
+
+  - type: web
+    name: vixir-vix-agent
+    runtime: docker
+    dockerfilePath: ./apps/vix-agent/Dockerfile
+    dockerContext: ./apps/vix-agent
+    region: frankfurt
+    plan: starter
+    autoDeploy: false
+    healthCheckPath: /health
+    envVars:
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: VIX_CORS_ORIGINS
+        sync: false
+      - key: VIX_LLM_PROVIDER
+        value: gemini
+      - key: VIX_LLM_MODEL
+        value: gemini-3.8-flash
