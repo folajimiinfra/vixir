@@ -19,6 +19,7 @@ import {
   VIX_TOUR_STEPS,
   type VixTargetRegion,
 } from './VixInLabOverlay';
+import { useVixCall } from '../context/VixCallContext';
 
 export type SubjectLab = 'physics' | 'chemistry' | 'biology' | 'electronics' | 'engineering';
 
@@ -166,21 +167,23 @@ export function LabLayout({
 }: LabLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const globalVix = useVixCall();
 
-  // In-Lab Vix state: 'closed' | 'connect' | 'tour' (auto-reopens seamlessly when Vix switches labs!)
-  const [vixMode, setVixMode] = useState<'closed' | 'connect' | 'tour'>(() => {
-    if (
-      typeof window !== 'undefined' &&
-      window.sessionStorage.getItem('vix_auto_reopen') === '1'
-    ) {
-      window.sessionStorage.removeItem('vix_auto_reopen');
-      return 'tour';
-    }
-    return 'closed';
-  });
-  const [vixVoice, setVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
-  const [vixStepIdx, setVixStepIdx] = useState(3); // Default to Bench
-  const [dimNonActive, setDimNonActive] = useState(false);
+  // Local fallback state only used when LabLayout is rendered outside VixCallProvider (e.g. isolated unit tests)
+  const [localVixMode, setLocalVixMode] = useState<'closed' | 'connect' | 'tour'>('closed');
+  const [localVixVoice, setLocalVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
+  const [localVixStepIdx, setLocalVixStepIdx] = useState(3);
+  const [localDimNonActive, setLocalDimNonActive] = useState(false);
+
+  const isGlobalManaged = Boolean(globalVix);
+  const vixMode: 'closed' | 'connect' | 'tour' = isGlobalManaged
+    ? globalVix!.isCallActive
+      ? 'tour'
+      : 'closed'
+    : localVixMode;
+  const vixVoice = isGlobalManaged ? globalVix!.voice : localVixVoice;
+  const vixStepIdx = isGlobalManaged ? globalVix!.stepIdx : localVixStepIdx;
+  const dimNonActive = isGlobalManaged ? globalVix!.dimNonActive : localDimNonActive;
 
   // Global Laboratory Right-Click Context Menu
   const [labContextMenu, setLabContextMenu] = useState<{
@@ -238,11 +241,14 @@ export function LabLayout({
       onCallVix();
       return;
     }
-    if (vixMode === 'tour') {
-      setVixMode('closed');
+    if (isGlobalManaged) {
+      globalVix!.toggleCall();
+      return;
+    }
+    if (localVixMode === 'tour') {
+      setLocalVixMode('closed');
     } else {
-      // Instant conversational Vix: opens live hands-free assistant directly over the bench without a blocking modal wall
-      setVixMode('tour');
+      setLocalVixMode('tour');
     }
   };
 
@@ -713,31 +719,30 @@ export function LabLayout({
         )}
       </div>
 
-      {/* In-Lab E1 Vix Connect Modal */}
-      {vixMode === 'connect' && (
+      {/* Local fallback Vix overlay (only when rendered outside global VixCallProvider, e.g. isolated unit tests) */}
+      {!isGlobalManaged && localVixMode === 'connect' && (
         <VixConnectModal
           experimentTitle={experimentTitle}
-          onClose={() => setVixMode('closed')}
+          onClose={() => setLocalVixMode('closed')}
           onStartTour={(selectedVoice) => {
-            setVixVoice(selectedVoice);
-            setVixStepIdx(3); // Point at Bench first
-            setVixMode('tour');
+            setLocalVixVoice(selectedVoice);
+            setLocalVixStepIdx(3);
+            setLocalVixMode('tour');
           }}
         />
       )}
 
-      {/* In-Lab E2 Live Spotlight Tour Floating Card */}
-      {vixMode === 'tour' && (
+      {!isGlobalManaged && localVixMode === 'tour' && (
         <VixSpotlightFloatingCard
           activeLab={activeLab}
           experimentTitle={experimentTitle}
           voice={vixVoice}
-          onChangeVoice={(v) => setVixVoice(v)}
+          onChangeVoice={(v) => setLocalVixVoice(v)}
           stepIdx={vixStepIdx}
-          onSelectStep={(idx) => setVixStepIdx(idx)}
+          onSelectStep={(idx) => setLocalVixStepIdx(idx)}
           dimNonActive={dimNonActive}
-          onToggleDim={() => setDimNonActive((d) => !d)}
-          onEndCall={() => setVixMode('closed')}
+          onToggleDim={() => setLocalDimNonActive((d) => !d)}
+          onEndCall={() => setLocalVixMode('closed')}
         />
       )}
 
@@ -766,7 +771,8 @@ export function LabLayout({
                 role="menuitem"
                 onClick={() => {
                   setLabContextMenu(null);
-                  setVixMode('connect');
+                  if (isGlobalManaged) globalVix!.openCall();
+                  else setLocalVixMode('tour');
                 }}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#FDBA74] font-semibold cursor-pointer"
               >

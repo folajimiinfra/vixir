@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider, RequireAuth } from './context/AuthContext';
+import { VixCallProvider } from './context/VixCallContext';
 import { Landing } from './routes/Landing';
 import { Auth } from './routes/Auth';
 import { LabWorkspace } from './routes/LabWorkspace';
@@ -110,7 +111,8 @@ export function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
-        <Routes>
+        <VixCallProvider>
+          <Routes>
           {/* Canonical Screen Routes (A1, A2, D1, C2 are public; all others require auth) */}
           {screens.map((s) => (
             <Route
@@ -224,6 +226,7 @@ export function App() {
           <Route path="/404" element={<NotFound />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </VixCallProvider>
       </BrowserRouter>
     </AuthProvider>
   );

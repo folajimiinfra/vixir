@@ -173,9 +173,13 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
             {
                 "name": "switch_lab",
                 "description": (
-                    "Navigate the student's browser directly to another laboratory or practical bench when they ask "
-                    "to switch labs. Valid routes: '/lab/physics/pendulum', '/lab/physics/refraction', "
-                    "'/lab/physics/moments', '/lab/chemistry/titration', '/lab/chemistry/qualitative-analysis', "
+                    "Navigate the student's browser directly to another page, laboratory, or practical bench anywhere on Vixir "
+                    "(while keeping this live voice conversation active!). Valid routes: "
+                    "'/app' (Student Dashboard), '/labs' (Laboratories Hub), '/library' (Experiment Library), "
+                    "'/apparatus' (123-Item Apparatus Encyclopedia), '/attempt/demo/results' (Results & Graph), "
+                    "'/attempt/demo/report' (Marked Report / Lab Notebook), "
+                    "'/lab/physics/pendulum', '/lab/physics/refraction', '/lab/physics/moments', "
+                    "'/lab/chemistry/titration', '/lab/chemistry/qualitative-analysis', "
                     "'/lab/electronics/ohms-law', '/lab/engineering/beam'. "
                     "NOTE: Biology labs are currently disabled (coming soon) and cannot be opened."
                 ),
@@ -184,7 +188,7 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                     "properties": {
                         "lab_route": {
                             "type": "STRING",
-                            "description": "Exact target route such as '/lab/chemistry/titration' or '/lab/electronics/ohms-law'.",
+                            "description": "Exact target route such as '/lab/chemistry/titration', '/apparatus', or '/app'.",
                         }
                     },
                     "required": ["lab_route"],
@@ -434,6 +438,12 @@ class GeminiLiveVixBridge:
         if name == "switch_lab":
             raw_route = str(args.get("lab_route") or "").strip()
             allowed_routes = {
+                "/app",
+                "/labs",
+                "/library",
+                "/apparatus",
+                "/attempt/demo/results",
+                "/attempt/demo/report",
                 "/lab/physics/pendulum",
                 "/lab/physics/refraction",
                 "/lab/physics/moments",
@@ -637,6 +647,17 @@ class GeminiLiveVixBridge:
                             )
                     except Exception as exc:
                         logger.debug("Ignored invalid pointer: %s", exc)
+
+                elif mtype == "page_changed":
+                    new_title = str(data.get("pageTitle") or self.experiment_title)
+                    new_route = str(data.get("route") or "")
+                    self.experiment_title = new_title
+                    if data.get("screenMap"):
+                        try:
+                            self.screen_map = ScreenMap.parse_validated_payload(data["screenMap"])
+                        except Exception as exc:
+                            logger.debug("Ignored invalid page_changed screenmap: %s", exc)
+                    logger.info("Student navigated live to %s (%s)", new_route, new_title)
 
                 elif mtype == "text":
                     txt = (data.get("text") or "").strip()

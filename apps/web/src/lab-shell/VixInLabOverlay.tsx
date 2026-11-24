@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { Mic, X, Sparkles, Eye, Cpu, Crosshair } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLabSessionStore } from '../store/labSessionStore';
@@ -1039,7 +1039,12 @@ export function VixSpotlightFloatingCard({
   onEndCall,
 }: VixSpotlightFloatingCardProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const activeLabRef = useRef(activeLab);
+  const experimentTitleRef = useRef(experimentTitle);
+  activeLabRef.current = activeLab;
+  experimentTitleRef.current = experimentTitle;
   const studentFirstName = user?.firstName || 'Student';
   const [lang, setLang] = useState<VixLanguage>('English');
   const [brain, setBrain] = useState<string>('gemini/gemini-3.1-flash-live-preview');
@@ -1287,15 +1292,15 @@ export function VixSpotlightFloatingCard({
         );
         void startLiveMicrophoneStream();
 
-        // Periodically sync fresh ScreenMap (so Vix always knows updated readingsCount!)
+        // Periodically sync fresh ScreenMap (using refs so navigation never drops the live call!)
         screenSyncTimer = window.setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(
               JSON.stringify({
                 type: 'screenmap',
                 screenMap: collectLiveDomScreenMap(
-                  activeLab,
-                  experimentTitle,
+                  activeLabRef.current,
+                  experimentTitleRef.current,
                   'PRACTICE',
                   pointedTarget ?? hoverTargetRef.current
                 ),
@@ -1346,8 +1351,7 @@ export function VixSpotlightFloatingCard({
               } else if (msg.method === 'navigate' && msg.payload?.to) {
                 const dest = String(msg.payload.to);
                 if (!dest.includes('/biology')) {
-                  window.sessionStorage.setItem('vix_auto_reopen', '1');
-                  stopLiveSession();
+                  // Keep live voice call continuously connected across navigation!
                   navigate(dest);
                 }
               }
@@ -1391,7 +1395,25 @@ export function VixSpotlightFloatingCard({
       if (screenSyncTimer !== null) window.clearInterval(screenSyncTimer);
       stopLiveSession();
     };
-  }, [voice, lang, activeLab, experimentTitle]);
+  }, [voice, lang]);
+
+  // Whenever the student navigates to another screen or lab, seamlessly update Vix over the SAME live WebSocket!
+  useEffect(() => {
+    const ws = liveWsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    const timer = window.setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      ws.send(
+        JSON.stringify({
+          type: 'page_changed',
+          route: location.pathname,
+          pageTitle: experimentTitle,
+          screenMap: collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE'),
+        })
+      );
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [location.pathname, activeLab, experimentTitle]);
 
   // Track live cursor hover across the lab bench
   useEffect(() => {
