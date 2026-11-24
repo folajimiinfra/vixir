@@ -49,6 +49,7 @@ const VIX_AGENT_URL =
 // =============================================================================
 
 let activeNeuralAudio: HTMLAudioElement | null = null;
+let lastAudioEndedAt = 0;
 let activeTypewriterTimer: number | null = null;
 let audioGenerationSeq = 0;
 const neuralAudioCache = new Map<string, string>();
@@ -150,6 +151,7 @@ function playSingleDataUriWithLiveTyping(
       }
       if (activeNeuralAudio === audio) {
         activeNeuralAudio = null;
+        lastAudioEndedAt = performance.now();
       }
       resolve(ok);
     };
@@ -192,14 +194,14 @@ function playSingleDataUriWithLiveTyping(
 }
 
 /**
- * Synthesizes all sentences concurrently via Gemini 3.8 Neural TTS and reveals the text
- * word-by-word in real time as each sentence is spoken aloud!
+ * Synthesizes the full reply as ONE seamless continuous Gemini 3.8 Neural TTS WAV clip
+ * (no choppy gaps or pitch jumps between sentences) and reveals words in real-time lockstep with playback.
  */
 export async function playVixNeuralAudio(
   text: string,
   voice: 'ada' | 'tunde' | 'grace' = 'ada',
   locale: string = 'English',
-  preSplitSentences?: string[],
+  _preSplitSentences?: string[],
   onLiveTextUpdate?: (typedSoFar: string) => void
 ): Promise<boolean> {
   const cleaned = text.trim();
@@ -211,56 +213,28 @@ export async function playVixNeuralAudio(
   stopVixNeuralAudio();
   const myGen = audioGenerationSeq;
 
-  const sentences =
-    preSplitSentences && preSplitSentences.length > 0
-      ? preSplitSentences.filter((s) => s.trim().length > 0)
-      : cleaned
-          .split(/(?<=[.!?])\s+/)
-          .map((s) => s.trim())
-          .filter(Boolean);
+  const uri = await fetchSentenceAudioDataUri(cleaned, voice, locale).catch(() => null);
+  if (audioGenerationSeq !== myGen) return false;
 
-  if (sentences.length === 0) {
+  if (!uri) {
     onLiveTextUpdate?.(cleaned);
+    notifySpeakingState(false);
     return false;
   }
 
-  // Kick off Gemini 3.8 Neural TTS for all sentences concurrently in parallel
-  const uriPromises = sentences.map((sent) =>
-    fetchSentenceAudioDataUri(sent, voice, locale).catch(() => null)
+  const ok = await playSingleDataUriWithLiveTyping(
+    uri,
+    cleaned,
+    '',
+    myGen,
+    onLiveTextUpdate
   );
-
-  let playedAny = false;
-  let accumulatedText = '';
-
-  for (let i = 0; i < uriPromises.length; i++) {
-    if (audioGenerationSeq !== myGen) break;
-    const sentText = sentences[i]!;
-    const uri = await uriPromises[i];
-    if (audioGenerationSeq !== myGen) break;
-
-    if (!uri) {
-      // If TTS endpoint is offline in tests/CI, reveal sentence text immediately
-      accumulatedText = accumulatedText ? `${accumulatedText} ${sentText}` : sentText;
-      onLiveTextUpdate?.(accumulatedText);
-      continue;
-    }
-
-    const ok = await playSingleDataUriWithLiveTyping(
-      uri,
-      sentText,
-      accumulatedText,
-      myGen,
-      onLiveTextUpdate
-    );
-    if (ok) playedAny = true;
-    accumulatedText = accumulatedText ? `${accumulatedText} ${sentText}` : sentText;
-  }
 
   if (audioGenerationSeq === myGen) {
     onLiveTextUpdate?.(cleaned);
     notifySpeakingState(false);
   }
-  return playedAny;
+  return ok;
 }
 
 // =============================================================================
@@ -1460,24 +1434,29 @@ export function VixSpotlightFloatingCard({
         const pct = Math.min(100, Math.round(rms * 380));
         setMicLevel(pct);
 
+        // Echo-Shield: while Vix is playing audio out of laptop speakers (or within 350ms of room reverb),
+        // pause VAD auto-trigger so speaker echo NEVER chops Vix's own voice mid-sentence!
+        // (Student can still click the Mic button or type at any moment to interrupt immediately.)
+        const inSpeakerEchoGuard =
+          Boolean(activeNeuralAudio) || performance.now() - lastAudioEndedAt < 350;
+        if (inSpeakerEchoGuard) {
+          speakingFrames = 0;
+          silenceFrames = 0;
+          setMicLevel(0);
+          return;
+        }
+
         const isRecordingNow =
           mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
 
-        // Speech energy threshold (higher threshold while Vix is speaking so speaker bleed doesn't false-trigger)
-        const threshold = activeNeuralAudio ? 0.055 : 0.025;
+        const threshold = 0.028;
 
         if (rms > threshold) {
           speakingFrames += 1;
           silenceFrames = 0;
 
-          // 2 consecutive loud frames (~120 ms) -> natural barge-in & start recording student speech!
-          if (speakingFrames >= 2) {
-            if (activeNeuralAudio) {
-              handleNaturalBargeIn();
-            }
-            if (!isRecordingNow) {
-              beginSegmentRecording();
-            }
+          if (speakingFrames >= 2 && !isRecordingNow) {
+            beginSegmentRecording();
           }
         } else {
           speakingFrames = 0;
@@ -1540,6 +1519,7 @@ export function VixSpotlightFloatingCard({
 
     return () => {
       cancelled = true;
+      stopVixNeuralAudio();
       stopHardwareMicrophone();
     };
   }, []);
