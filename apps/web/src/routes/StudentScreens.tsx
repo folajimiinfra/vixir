@@ -49,7 +49,10 @@ function StudentSidebar({
   ];
 
   return (
-    <aside className="w-full md:w-[228px] bg-white border-b md:border-b-0 md:border-r border-[#E3E8EF] p-4 flex flex-col justify-between shrink-0">
+    <aside
+      data-vix-part="site-sidebar"
+      className="w-full md:w-[228px] bg-white border-b md:border-b-0 md:border-r border-[#E3E8EF] p-4 flex flex-col justify-between shrink-0"
+    >
       <div>
         <Link to="/" className="flex items-center gap-2.5 px-2 mb-6">
           <img src="/illustrations/logo.svg" alt="" className="w-7 h-7 rounded-[7px]" />
@@ -63,6 +66,7 @@ function StudentSidebar({
               <Link
                 key={item.id}
                 to={item.to}
+                data-vix-part={`nav-${item.id}`}
                 className={`block px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-colors ${
                   isActive
                     ? 'bg-[#EAEFFE] text-[#2448D8]'
@@ -76,7 +80,7 @@ function StudentSidebar({
         </nav>
       </div>
 
-      <div className="mt-6 md:mt-0 space-y-2.5">
+      <div data-vix-part="site-account" className="mt-6 md:mt-0 space-y-2.5">
         {user && (
           <div className="px-3 py-2.5 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] text-xs">
             <div className="font-bold text-[#0E1726] truncate">
@@ -304,7 +308,7 @@ export function StudentDashboardScreen() {
         }}
       />
 
-      <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
+      <main data-vix-part="site-main" className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
           <div>
@@ -827,7 +831,7 @@ export function LabsHubScreen() {
         }}
       />
 
-      <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
+      <main data-vix-part="site-main" className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
           <div>
             <h1 className="font-display text-3xl font-bold text-[#0E1726] mb-1">
@@ -1217,7 +1221,7 @@ export function ExperimentLibraryScreen() {
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
       <StudentSidebar active="experiments" />
 
-      <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
+      <main data-vix-part="site-main" className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
           <div>
             <h1 className="font-display text-3xl font-bold text-[#0E1726] mb-1">
@@ -1393,7 +1397,7 @@ export function ExperimentBriefingScreen() {
         </div>
       </header>
 
-      <main className="max-w-[1140px] mx-auto px-6 py-8">
+      <main data-vix-part="site-main" className="max-w-[1140px] mx-auto px-6 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
           {/* Left Column */}
           <div className="lg:col-span-8 space-y-5">
@@ -1665,7 +1669,7 @@ export function ApparatusEncyclopediaScreen() {
           </div>
         </header>
 
-        <main className="max-w-[1280px] mx-auto px-6 py-8">
+        <main data-vix-part="site-main" className="max-w-[1280px] mx-auto px-6 py-8">
           <div className="flex flex-col xl:flex-row xl:items-end justify-between gap-5 mb-7 pb-5 border-b border-[#E3E8EF]">
             <div>
               <h1 className="font-display text-3xl font-bold text-[#0E1726] mb-1.5">

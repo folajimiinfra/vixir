@@ -78,12 +78,12 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                 "name": "spotlight_region",
                 "description": (
                     "Move Vix's animated glowing orange pointer & spotlight box directly onto ANY specific component "
-                    "or side of the student's screen so the pointer glides to match what you are explaining. "
-                    "Top-bar sub-components: 'top-back' (Back to labs arrow), 'top-title' (Experiment title & practical switcher dropdown), "
-                    "'top-labs' (Physics/Chemistry/Electronics/Engineering lab switcher), 'top-vix' (Call Vix toggle), 'top-next' (Analyse results / Plot graph button). "
-                    "Workspace sides: 'tool-rail' (far-left 5 tool icons), 'apparatus-tray' (left equipment list & conditions), "
-                    "'bench' (center interactive experiment stage), 'instrument-dock' (bottom sliders, stopwatch/meters & Record button), "
-                    "'event-log' (bottom timestamped log strip), 'data-panel' (right readings table, live graph & notebook)."
+                    "or side of the student's current screen so the pointer glides to match what you are explaining. "
+                    "Inside LABS (/lab/...): 'top-back', 'top-title', 'top-labs', 'top-vix', 'top-next', "
+                    "'tool-rail', 'apparatus-tray', 'bench', 'instrument-dock', 'event-log', 'data-panel'. "
+                    "On WEBSITE PORTAL pages (/app, /labs, /library, /apparatus): "
+                    "'site-sidebar', 'nav-dashboard', 'nav-labs', 'nav-experiments', 'nav-encyclopedia', "
+                    "'nav-notebook', 'nav-assignments', 'nav-grades', 'site-account', 'site-main'."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -91,13 +91,15 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                         "region_id": {
                             "type": "STRING",
                             "description": (
-                                "Exact target ID: top-back, top-title, top-labs, top-vix, top-next, "
-                                "tool-rail, apparatus-tray, bench, instrument-dock, event-log, or data-panel."
+                                "Exact target ID for the active screen — lab IDs: top-back, top-title, top-labs, top-vix, top-next, "
+                                "tool-rail, apparatus-tray, bench, instrument-dock, event-log, data-panel; "
+                                "or website portal IDs: site-sidebar, nav-dashboard, nav-labs, nav-experiments, nav-encyclopedia, "
+                                "nav-notebook, nav-assignments, nav-grades, site-account, site-main."
                             ),
                         },
                         "label": {
                             "type": "STRING",
-                            "description": "Short human-readable pointer badge label, e.g. 'Practical Switcher Dropdown' or 'Bottom Instrument Dock'.",
+                            "description": "Short human-readable pointer badge label, e.g. 'Laboratories Hub' or 'Practical Switcher Dropdown'.",
                         },
                     },
                     "required": ["region_id"],
@@ -263,15 +265,53 @@ def _resolve_live_voice(voice_id: str) -> tuple[str, str]:
     return (gemini_voice, accent)
 
 
+def _is_lab_workspace_route(route: str) -> bool:
+    return (route or "").strip().lower().startswith("/lab/")
+
+
+def _build_non_lab_greeting_prompt(first_name: str, page_title: str, route: str) -> str:
+    r = (route or "").lower()
+    if r.startswith("/apparatus"):
+        return (
+            f"Greet {first_name} warmly in 1-2 short natural sentences: note they are browsing the "
+            "Apparatus Encyclopedia, and ask which lab instrument they want explained or which practical "
+            "they would like to open. Do NOT say they are in a lab studio or offer a lab bench tour."
+        )
+    if r.startswith("/labs"):
+        return (
+            f"Greet {first_name} warmly in 1-2 short natural sentences: note they are on the Laboratories Hub, "
+            "and ask which subject they want to jump into (Physics, Chemistry, Electronics, or Engineering). "
+            "Do NOT pretend a lab bench is currently open."
+        )
+    if r.startswith(("/library", "/experiments")):
+        return (
+            f"Greet {first_name} warmly in 1-2 short natural sentences: note they are in the Experiment Library, "
+            "and ask if they want help picking a practical or opening one directly. Do NOT say they are inside a lab bench."
+        )
+    if "/results" in r or "/submit" in r or "/report" in r:
+        return (
+            f"Greet {first_name} warmly in 1-2 short natural sentences: note they are on their Results & Report page, "
+            "and ask if they want help checking their graph, slope, precautions, or lab notebook."
+        )
+    return (
+        f"Greet {first_name} warmly in 1-2 short natural sentences: note they are on {page_title} "
+        "(not inside a lab bench yet), and ask how you can help—such as reviewing their dashboard/assignments, "
+        "answering a science question, or opening any laboratory for them. Do NOT say they are in a lab studio "
+        "or offer a bench tour until they enter an actual lab."
+    )
+
+
 def _build_live_system_instruction(
     *,
     first_name: str,
     experiment_title: str,
+    current_route: str,
     mode: Mode,
     locale: str,
     accent: str,
     readings_count: int,
 ) -> str:
+    is_lab_page = _is_lab_workspace_route(current_route)
     graded_rule = (
         "CRITICAL GRADED-MODE ACADEMIC INTEGRITY RULE: You MUST NEVER reveal final numerical answers, "
         "calculated values of g, slopes, titres, or confirm whether a specific number is right or wrong. "
@@ -279,10 +319,26 @@ def _build_live_system_instruction(
         if mode == "GRADED"
         else "Guide Socratically, encouraging the student to measure and compute values themselves."
     )
+    page_header = (
+        f"Current active lab workspace: {experiment_title} (Route: {current_route}, Mode: {mode}, Readings recorded so far: {readings_count}).\n\n"
+        if is_lab_page
+        else (
+            f"Current active screen: {experiment_title} (Route: {current_route}) — THIS IS A WEBSITE/PORTAL PAGE, NOT AN OPEN LAB BENCH!\n"
+            "CRITICAL NON-LAB PAGE RULE:\n"
+            "- There is NO interactive lab bench on this screen right now. NEVER say 'I can see you are in the lab studio', "
+            "NEVER offer to help with 'this lab bench' or run a bench sandbox here.\n"
+            "- WEBSITE TOUR CAPABILITY: If the student asks for a tour of the website on this page, enthusiastically give them a live visual tour by calling `spotlight_region` on the portal sections: "
+            "`nav-dashboard` (Dashboard & progress), `nav-labs` (Laboratories Hub), `nav-experiments` (Experiment Library), `nav-encyclopedia` (123-Item Apparatus Encyclopedia), "
+            "`nav-notebook` (Lab Notebook & Marked Reports), `site-account` (Account & API sync status), and `site-main` (main workspace content)—covering 2-3 items per turn and checking in.\n"
+            "- NAVIGATION RULE: If the student asks to 'go to a lab' or 'take me to a lab' WITHOUT naming which lab, ALWAYS ask them which lab they want first "
+            "(Physics: Pendulum, Refraction, Moments; Chemistry: Titration, Qualitative Salt Analysis; Electronics: Ohm's Law Circuit Bench; Engineering: 3D Beam Deflection, Isometric Drawing 30° CAD; Biology is coming soon). "
+            "Once they indicate their choice, IMMEDIATELY call `switch_lab` from anywhere on the site!\n\n"
+        )
+    )
     return (
         f"You are Vix, a warm, charismatic, natural-sounding virtual science laboratory teacher speaking "
         f"with a natural {accent} accent in {locale} to {first_name}.\n"
-        f"Current active lab workspace: {experiment_title} (Mode: {mode}, Readings recorded so far: {readings_count}).\n\n"
+        f"{page_header}"
         "CONVERSATIONAL STYLE:\n"
         "- Speak like a real human teacher standing right beside the student's lab bench—warm, concise (1 to 3 short sentences per turn), responsive, and conversational.\n"
         "- NEVER speak raw LaTeX (no dollar signs, no 'backslash frac', no 'backslash pi') and NEVER speak internal IDs like 'data-panel' or 'instrument-dock'. Say 'T squared', 'four pi squared over g', 'your readings table on the right', 'the controls at the bottom'.\n"
@@ -311,7 +367,7 @@ def _build_live_system_instruction(
         "  3. There is NO fixed step count—take as many steps as needed until the student fully understands! After every 1–2 actions, briefly explain WHY you did that step and invite follow-up questions before proceeding.\n"
         "  4. If the student interrupts with a follow-up question or asks for a different demo, respond immediately and switch demos seamlessly with `load_demo_circuit`.\n"
         "  5. When they are confident and ready to try themselves, call `end_tutorial_sandbox` so their own real bench and readings are restored.\n"
-        "- If the student asks you to switch to another laboratory or practical (Physics Pendulum, Refraction, Moments, Chemistry Titration, Qualitative Salt Analysis, Electronics Ohm's Law, or Engineering Beam Deflection), call `switch_lab` immediately! NOTE: Biology lab is temporarily disabled (coming soon), so if they ask for Biology, kindly explain that Biology is coming soon and offer Physics, Chemistry, Electronics, or Engineering instead.\n"
+        "- NAVIGATION RULE (WORKS FROM ANYWHERE ON THE SITE): If the student says 'take me to a lab' or 'open a lab' WITHOUT naming which lab, ALWAYS ask which one they want first (Physics: Pendulum/Refraction/Moments, Chemistry: Titration/Qualitative Analysis, Electronics: Ohm's Law, or Engineering: Beam Deflection/Isometric Drawing; Biology is coming soon). The moment they name a lab or practical, call `switch_lab` immediately!\n"
         "- If the student asks you to build or draw a circuit on the Electronics board, call `build_circuit_setup` or `operate_bench_control`.\n"
         "- For physics/chemistry/biology/electronics/engineering theory or precautions, call `consult_science_knowledge_graph` so your explanation is grounded in WAEC/NECO curriculum.\n"
         f"- {graded_rule}\n"
@@ -331,6 +387,7 @@ class GeminiLiveVixBridge:
         locale: str = "English",
         mode: Mode = "PRACTICE",
         experiment_title: str = "Simple pendulum — determination of g",
+        current_route: str = "/lab/physics/pendulum",
         initial_screen_map: ScreenMap | None = None,
     ) -> None:
         self.browser_ws = browser_ws
@@ -342,7 +399,9 @@ class GeminiLiveVixBridge:
         self.experiment_title = experiment_title
         self.is_authenticated: bool = False
         self.current_route: str = (
-            initial_screen_map.route if initial_screen_map else "/lab/physics/pendulum"
+            current_route
+            or (initial_screen_map.route if initial_screen_map else "")
+            or "/app"
         )
         self.screen_map: ScreenMap | None = initial_screen_map
         self.pointer_target: PointerTarget | None = (
@@ -373,21 +432,47 @@ class GeminiLiveVixBridge:
         exp_ctx = resolve_experiment_context(self.screen_map)
 
         if name == "inspect_student_screen":
+            is_lab_page = _is_lab_workspace_route(self.current_route)
+            portal_regions = [
+                "site-sidebar",
+                "nav-dashboard",
+                "nav-labs",
+                "nav-experiments",
+                "nav-encyclopedia",
+                "nav-notebook",
+                "site-account",
+                "site-main",
+            ]
+            lab_regions = [
+                "top-bar",
+                "tool-rail",
+                "apparatus-tray",
+                "bench",
+                "instrument-dock",
+                "data-panel",
+            ]
             if self.screen_map is None:
                 return {
                     "experimentTitle": self.experiment_title,
                     "currentRoute": self.current_route,
+                    "isLabPage": is_lab_page,
                     "isAuthenticated": self.is_authenticated,
                     "mode": self.mode,
                     "readingsCount": 0,
-                    "visibleRegions": ["top-bar", "tool-rail", "apparatus-tray", "bench", "instrument-dock", "data-panel"],
+                    "visibleRegions": lab_regions if is_lab_page else portal_regions,
                     "pointerTarget": self.pointer_target.model_dump() if self.pointer_target else None,
+                    "note": (
+                        "Student is on a portal/non-lab page (no lab bench open)."
+                        if not is_lab_page
+                        else "No live DOM telemetry received yet."
+                    ),
                 }
             sim = self.screen_map.sim or {}
             pt = self.pointer_target or self.screen_map.pointerTarget
             return {
                 "screen": self.screen_map.screen,
                 "route": self.current_route or self.screen_map.route,
+                "isLabPage": is_lab_page,
                 "isAuthenticated": self.is_authenticated,
                 "mode": self.screen_map.mode,
                 "experimentTitle": (
@@ -846,6 +931,7 @@ class GeminiLiveVixBridge:
         system_text = _build_live_system_instruction(
             first_name=self.first_name,
             experiment_title=self.experiment_title,
+            current_route=self.current_route,
             mode=self.mode,
             locale=self.locale,
             accent=accent,
@@ -907,24 +993,24 @@ class GeminiLiveVixBridge:
                     }
                 )
 
-                # Trigger immediate natural greeting via realtimeInput (exactly like luminarix/voice-router!)
-                progress_phrase = (
-                    f" with {readings_count} readings recorded so far"
-                    if readings_count > 0
-                    else ""
-                )
-                await g_ws.send_str(
-                    json.dumps(
-                        {
-                            "realtimeInput": {
-                                "text": (
-                                    f"Introduce yourself warmly in 2 short natural sentences: "
-                                    f"Say Hi {self.first_name}, I can see you are in the {self.experiment_title} lab studio{progress_phrase}. "
-                                    "Ask if they would like a quick tour around the lab studio, or if they want you to walk them through a worked example so they can practice themselves."
-                                )
-                            }
-                        }
+                # Trigger immediate natural, page-accurate greeting via realtimeInput
+                if _is_lab_workspace_route(self.current_route):
+                    progress_phrase = (
+                        f" with {readings_count} readings recorded so far"
+                        if readings_count > 0
+                        else ""
                     )
+                    greeting_prompt = (
+                        f"Introduce yourself warmly in 2 short natural sentences: "
+                        f"Say Hi {self.first_name}, I can see you are in the {self.experiment_title} lab studio{progress_phrase}. "
+                        "Ask if they would like a quick tour around the lab studio, or if they want you to walk them through a worked example so they can practice themselves."
+                    )
+                else:
+                    greeting_prompt = _build_non_lab_greeting_prompt(
+                        self.first_name, self.experiment_title, self.current_route
+                    )
+                await g_ws.send_str(
+                    json.dumps({"realtimeInput": {"text": greeting_prompt}})
                 )
 
                 # Run full-duplex send/receive concurrently until either side closes

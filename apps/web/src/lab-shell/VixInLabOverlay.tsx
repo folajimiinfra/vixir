@@ -1091,6 +1091,17 @@ export function VixSpotlightFloatingCard({
     'instrument-dock': 'Bottom Instrument Controls & Stopwatch',
     'event-log': 'Timestamped Event Log',
     'data-panel': 'Right Readings Table & Live Graph',
+    // Website portal tour anchors (Dashboard, Hub, Library, Encyclopedia)
+    'site-sidebar': 'Vixir Navigation Sidebar',
+    'nav-dashboard': 'Student Dashboard',
+    'nav-labs': 'Laboratories Hub',
+    'nav-experiments': 'Experiment Library',
+    'nav-encyclopedia': '123-Item Apparatus Encyclopedia',
+    'nav-notebook': 'Lab Notebook & Marked Reports',
+    'nav-assignments': 'Class Assignments',
+    'nav-grades': 'Grades & Feedback',
+    'site-account': 'Your Account & API Sync Status',
+    'site-main': 'Main Workspace Area',
   };
 
   const findVixGuideElement = (targetId: string): Element | null => {
@@ -1252,7 +1263,7 @@ export function VixSpotlightFloatingCard({
   const syncPointerFromSpokenText = (spoken: string) => {
     turnTranscriptLengthRef.current = Math.max(turnTranscriptLengthRef.current, spoken.length);
     const lower = spoken.toLowerCase();
-    const rules: Array<[string, RegExp]> = [
+    const labRules: Array<[string, RegExp]> = [
       ['top-back', /\b(back arrow|back button|return to laboratories|left arrow)\b/g],
       ['top-title', /\b(experiment title|practical title|practical dropdown|dropdown|switch practical)\b/g],
       ['top-labs', /\b(lab switcher|discipline switcher|switch between physics|biology is coming soon)\b/g],
@@ -1265,6 +1276,19 @@ export function VixSpotlightFloatingCard({
       ['event-log', /\b(event log|log strip|timestamped log|bottom log)\b/g],
       ['data-panel', /\b(readings table|load.?deflection table|data panel|live graph|live preview|right panel|right side|notebook tab)\b/g],
     ];
+    const portalRules: Array<[string, RegExp]> = [
+      ['site-sidebar', /\b(sidebar|navigation menu|left menu)\b/g],
+      ['nav-dashboard', /\b(dashboard)\b/g],
+      ['nav-labs', /\b(laboratories|labs hub)\b/g],
+      ['nav-experiments', /\b(experiments|experiment library)\b/g],
+      ['nav-encyclopedia', /\b(encyclopedia|apparatus)\b/g],
+      ['nav-notebook', /\b(lab notebook|reports)\b/g],
+      ['nav-assignments', /\b(assignments)\b/g],
+      ['nav-grades', /\b(grades)\b/g],
+      ['site-account', /\b(account|sign out|connection status|profile)\b/g],
+      ['site-main', /\b(main area|center content|cards here|main section)\b/g],
+    ];
+    const rules = location.pathname.toLowerCase().startsWith('/lab/') ? labRules : portalRules;
 
     const matches: Array<{ targetId: string; index: number }> = [];
     for (const [tid, pat] of rules) {
@@ -1807,6 +1831,7 @@ export function VixSpotlightFloatingCard({
         locale: lang,
         mode: 'PRACTICE',
         experimentTitle,
+        route: location.pathname,
         isAuthenticated: String(Boolean(isAuthenticatedRef.current)),
       });
       const ws = new WebSocket(`${VIX_WS_URL}/vix/live?${params.toString()}`);
@@ -1828,6 +1853,7 @@ export function VixSpotlightFloatingCard({
             voice,
             locale: lang,
             experimentTitle,
+            route: location.pathname,
             screenMap: liveMap,
           })
         );
@@ -2047,10 +2073,17 @@ export function VixSpotlightFloatingCard({
     return () => window.removeEventListener('click', onWindowClick, true);
   });
 
+  const isLabWorkspaceRoute = location.pathname.toLowerCase().startsWith('/lab/');
   const currentStep = VIX_TOUR_STEPS[stepIdx] ?? VIX_TOUR_STEPS[3]!;
-  const stepDefaultCaption = currentStep.getCaption(activeLab, experimentTitle, lang);
+  const fallbackStatusCaption = isLabWorkspaceRoute
+    ? liveConnected
+      ? `Listening in ${experimentTitle} — speak naturally or type a question below.`
+      : `Connecting live voice to Vix for ${experimentTitle}…`
+    : liveConnected
+      ? `Listening on ${experimentTitle} — ask anything or tell me which lab to open.`
+      : `Connecting live voice to Vix on ${experimentTitle}…`;
   const displayedCaption =
-    liveTypedCaption ?? customReply ?? stepDefaultCaption;
+    liveTypedCaption ?? customReply ?? fallbackStatusCaption;
 
   const handleAskQuestion = async (qText: string) => {
     const q = qText.trim();
