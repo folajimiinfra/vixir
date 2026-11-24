@@ -9,8 +9,11 @@ RUN ./gradlew --no-daemon bootJar -x test
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app
+RUN groupadd --system app && useradd --system --gid app app
 COPY --from=build /repo/apps/api/build/libs/*.jar app.jar
 COPY packages/experiments /app/experiments
+RUN chown -R app:app /app
+USER app
 ENV VIXIR_EXPERIMENTS_DIR=/app/experiments
 EXPOSE 8080
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "app.jar"]

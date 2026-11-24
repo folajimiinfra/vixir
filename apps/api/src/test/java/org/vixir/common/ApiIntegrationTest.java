@@ -14,7 +14,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 /** Boots the whole API against a real Postgres (Docker), runs Flyway, checks public endpoints and auth. */
 @Testcontainers
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        properties = {
+            "vixir.jwt-secret=test-only-jwt-secret-0123456789abcdef0123",
+            "vixir.service-secret=test-only-service-secret-0123456789abcdef"
+        })
 class ApiIntegrationTest {
 
     @Container

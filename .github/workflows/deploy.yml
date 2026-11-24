@@ -111,17 +111,26 @@ jobs:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           VITE_VIX_AGENT_URL: ${{ secrets.VITE_VIX_AGENT_URL }}
         run: pnpm --filter @vixir/web build
+      - name: Check Firebase secrets availability
+        id: fb_check
+        env:
+          FB_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FB_PID: ${{ secrets.FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -n "$FB_SA" ] && [ -n "$FB_PID" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "FIREBASE_SERVICE_ACCOUNT or FIREBASE_PROJECT_ID secret not set — skipping Firebase upload."
+          fi
       - name: Deploy to Firebase Hosting (live)
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' && secrets.FIREBASE_PROJECT_ID != '' }}
+        if: steps.fb_check.outputs.ready == 'true'
         uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: ${{ secrets.FIREBASE_PROJECT_ID }}
           channelId: live
-      - name: Skip notice when Firebase secrets are not yet configured
-        if: ${{ secrets.FIREBASE_SERVICE_ACCOUNT == '' || secrets.FIREBASE_PROJECT_ID == '' }}
-        run: echo "FIREBASE_SERVICE_ACCOUNT or FIREBASE_PROJECT_ID secret not set — build succeeded, skipping Firebase upload."
 
   deploy-render-api:
     name: Deploy API → Render
