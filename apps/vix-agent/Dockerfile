@@ -11,6 +11,8 @@ COPY vix_agent ./vix_agent
 RUN chown -R appuser:appuser /app
 USER appuser
 
+ENV PATH="/app/.venv/bin:$PATH"
+ENV PYTHONPATH="/app"
 ENV PORT=8090
 EXPOSE 8090
-CMD ["uv", "run", "--no-dev", "python", "-m", "vix_agent.server"]
+CMD ["/app/.venv/bin/python", "-m", "vix_agent.server"]

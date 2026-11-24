@@ -50,8 +50,8 @@ jobs:
             --exclude 'dist' \
             --exclude '.venv' \
             --exclude 'build' \
-            --sarif \
-            --output semgrep.sarif \
+            --text \
+            --sarif-output=semgrep.sarif \
             .
       - name: Upload Semgrep SARIF report
         if: always()
