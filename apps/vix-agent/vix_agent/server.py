@@ -567,16 +567,19 @@ async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
     locale = request.query.get("locale") or "English"
     mode: Mode = "GRADED" if request.query.get("mode") == "GRADED" else "PRACTICE"
     experiment_title = request.query.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
+    current_route = request.query.get("route") or "/app"
 
     initial_screen_map: ScreenMap | None = None
     is_authenticated = request.query.get("isAuthenticated", "false").lower() == "true"
-    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount & auth state before greeting!
+    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount, route & auth state before greeting!
     try:
         first_msg = await asyncio.wait_for(ws.receive(), timeout=0.6)
         if first_msg.type == web.WSMsgType.TEXT:
             init_data = json.loads(first_msg.data)
             if init_data.get("screenMap"):
                 initial_screen_map = ScreenMap.parse_validated_payload(init_data["screenMap"])
+            if init_data.get("route"):
+                current_route = str(init_data["route"])
             if init_data.get("firstName"):
                 first_name = str(init_data["firstName"])
             if init_data.get("experimentTitle"):
@@ -598,6 +601,7 @@ async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
         locale=locale,
         mode=mode,
         experiment_title=experiment_title,
+        current_route=current_route,
         initial_screen_map=initial_screen_map,
     )
     bridge.is_authenticated = is_authenticated

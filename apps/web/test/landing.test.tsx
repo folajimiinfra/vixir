@@ -5,6 +5,7 @@ import { Landing } from '../src/routes/Landing';
 import { Auth } from '../src/routes/Auth';
 import { AuthProvider, RequireAuth } from '../src/context/AuthContext';
 import { DesktopOnlyGate } from '../src/components/DesktopOnlyGate';
+import { ChromeRecommendedBanner } from '../src/components/ChromeRecommendedBanner';
 import { setStoredAccessToken } from '../src/lib/api';
 import { LabWorkspace } from '../src/routes/LabWorkspace';
 import {
@@ -387,5 +388,24 @@ describe('Lab Workspaces & Core Screens', () => {
     } finally {
       setViewport(origW, origH);
     }
+  });
+
+  it('shows a dismissible Chrome recommendation badge on non-Chrome browsers and hides it on Chrome', () => {
+    window.sessionStorage.clear();
+
+    // Google Chrome desktop -> hidden
+    const { unmount: uChrome } = render(
+      <ChromeRecommendedBanner userAgentOverride="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36" />
+    );
+    expect(screen.queryByText(/please use Google Chrome/i)).not.toBeInTheDocument();
+    uChrome();
+
+    // Firefox -> shown and dismissible
+    render(
+      <ChromeRecommendedBanner userAgentOverride="Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:132.0) Gecko/20100101 Firefox/132.0" />
+    );
+    expect(screen.getByText(/For the best experience on Vixir, please use Google Chrome/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Close Chrome recommendation/i }));
+    expect(screen.queryByText(/please use Google Chrome/i)).not.toBeInTheDocument();
   });
 });

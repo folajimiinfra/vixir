@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider, RequireAuth } from './context/AuthContext';
 import { VixCallProvider } from './context/VixCallContext';
 import { DesktopOnlyGate } from './components/DesktopOnlyGate';
+import { ChromeRecommendedBanner } from './components/ChromeRecommendedBanner';
 import { Landing } from './routes/Landing';
 import { Auth } from './routes/Auth';
 import { LabWorkspace } from './routes/LabWorkspace';
@@ -111,6 +112,7 @@ function protectElement(element: React.ReactNode, code?: string) {
 export function App() {
   return (
     <DesktopOnlyGate>
+      <ChromeRecommendedBanner />
       <AuthProvider>
         <BrowserRouter>
           <VixCallProvider>
