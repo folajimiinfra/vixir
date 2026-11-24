@@ -117,6 +117,7 @@ const SUB_EXPERIMENTS_BY_LAB: Record<
   ],
   engineering: [
     { label: '3D Beam deflection', to: '/lab/engineering/beam' },
+    { label: 'Isometric drawing (30° CAD)', to: '/lab/engineering/isometric' },
   ],
 };
 
@@ -286,12 +287,13 @@ export function LabLayout({
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/labs"
+            data-vix-part="top-back"
             aria-label="Back to laboratories"
             className="w-9 h-9 rounded-xl bg-[#121A2B] hover:bg-[#192338] border border-[#22304A] flex items-center justify-center text-[#C9D3E6] hover:text-white transition-colors shrink-0"
           >
             <ChevronLeft className="w-4 h-4" />
           </Link>
-          <div className="min-w-0">
+          <div data-vix-part="top-title" className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-display text-sm sm:text-base font-bold text-[#E6EBF5] truncate">
                 {experimentTitle}
@@ -320,6 +322,7 @@ export function LabLayout({
 
         {/* Center: Lab Pill Switcher (Biology grayed out & disabled for now) */}
         <nav
+          data-vix-part="top-labs"
           aria-label="Laboratory switcher"
           className="hidden md:flex items-center bg-[#121A2B] border border-[#22304A] rounded-full p-1 gap-0.5"
         >
@@ -360,6 +363,7 @@ export function LabLayout({
           {mode !== 'exam' && (
             <button
               type="button"
+              data-vix-part="top-vix"
               onClick={handleCallVix}
               className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${
                 vixMode === 'tour'
@@ -372,15 +376,16 @@ export function LabLayout({
                   vixMode === 'tour' ? 'bg-[#0B1220] animate-ping' : 'bg-[#F97316]'
                 }`}
               />
-              {vixMode === 'tour' ? 'Vix is on · End' : 'Call Vix'}
+              <span>{vixMode === 'tour' ? 'Vix is on · End' : 'Call Vix'}</span>
             </button>
           )}
 
           {nextStepLabel && (
             <button
               type="button"
-              onClick={handleNext}
+              data-vix-part="top-next"
               disabled={nextStepDisabled}
+              onClick={handleNext}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                 nextStepDisabled
                   ? 'bg-[#1E2A42] text-[#6B778C] cursor-not-allowed'

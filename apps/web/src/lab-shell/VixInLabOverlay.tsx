@@ -1065,7 +1065,251 @@ export function VixSpotlightFloatingCard({
   // "Point Anywhere on Screen" laser pointer mode & tracked target
   const [pointModeActive, setPointModeActive] = useState(false);
   const [pointedTarget, setPointedTarget] = useState<VixPointerTarget | null>(null);
+  const [vixGuideBeacon, setVixGuideBeacon] = useState<{
+    targetId: string;
+    label: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const hoverTargetRef = useRef<VixPointerTarget | null>(null);
+  const pointedElementRef = useRef<Element | null>(null);
+  const beaconTargetIdRef = useRef<string | null>(null);
+  const beaconScrollTimersRef = useRef<number[]>([]);
+
+  const GUIDE_LABELS: Record<string, string> = {
+    'top-back': 'Back to Laboratories',
+    'top-title': 'Experiment Title & Practical Switcher',
+    'top-labs': 'Laboratory Discipline Switcher',
+    'top-vix': 'Vix Live Voice Toggle',
+    'top-next': 'Analyse Results & Plot Graph',
+    'top-bar': 'Top Navigation Bar',
+    'tool-rail': 'Left Bench Tool Rail (5 Tools)',
+    'apparatus-tray': 'Left Apparatus Tray & Conditions',
+    bench: 'Center Interactive Lab Bench',
+    'instrument-dock': 'Bottom Instrument Controls & Stopwatch',
+    'event-log': 'Timestamped Event Log',
+    'data-panel': 'Right Readings Table & Live Graph',
+  };
+
+  const findVixGuideElement = (targetId: string): Element | null => {
+    if (typeof document === 'undefined' || !targetId) return null;
+    return (
+      document.querySelector(`[data-vix-part="${targetId}"]`) ||
+      document.querySelector(`[data-vix-id="${targetId}"]`)
+    );
+  };
+
+  const isElementOffscreen = (rect: DOMRect): boolean => {
+    if (typeof window === 'undefined') return false;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const margin = 12;
+    const vertOff =
+      rect.height < vh - margin * 2
+        ? rect.top < margin || rect.bottom > vh - margin
+        : rect.bottom < margin || rect.top > vh - margin;
+    const horizOff =
+      rect.width < vw - margin * 2
+        ? rect.left < margin || rect.right > vw - margin
+        : rect.right < margin || rect.left > vw - margin;
+    return vertOff || horizOff;
+  };
+
+  const clearBeaconScrollTimers = () => {
+    for (const id of beaconScrollTimersRef.current) {
+      window.clearTimeout(id);
+    }
+    beaconScrollTimersRef.current = [];
+  };
+
+  const measureAndSetGuideBeacon = (targetId: string, label: string, el: Element) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+    setVixGuideBeacon({
+      targetId,
+      label,
+      left: Math.round(rect.left),
+      top: Math.round(rect.top),
+      width: Math.round(rect.width),
+      height: Math.round(rect.height),
+    });
+  };
+
+  const moveVixGuideBeacon = (targetId: string, customLabel?: string) => {
+    if (typeof document === 'undefined' || !targetId) return;
+    const el = findVixGuideElement(targetId);
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return;
+
+    const label = customLabel || GUIDE_LABELS[targetId] || targetId;
+    beaconTargetIdRef.current = targetId;
+    clearBeaconScrollTimers();
+    measureAndSetGuideBeacon(targetId, label, el);
+
+    if (isElementOffscreen(rect) && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+      const resync = () => {
+        if (beaconTargetIdRef.current !== targetId) return;
+        const currentEl = findVixGuideElement(targetId);
+        if (currentEl) measureAndSetGuideBeacon(targetId, label, currentEl);
+      };
+      beaconScrollTimersRef.current = [
+        window.setTimeout(resync, 180),
+        window.setTimeout(resync, 450),
+      ];
+    }
+
+    const regionKey = targetId.startsWith('top-') ? 'top-bar' : targetId;
+    const idx = VIX_TOUR_STEPS.findIndex(
+      (s) => s.id === regionKey || regionKey.startsWith(s.id)
+    );
+    if (idx !== -1) onSelectStep(idx);
+  };
+
+  useEffect(() => {
+    return () => clearBeaconScrollTimers();
+  }, []);
+
+  const hasActiveHighlight = Boolean(vixGuideBeacon) || Boolean(pointedTarget);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !hasActiveHighlight) return;
+    let rafId: number | null = null;
+
+    const syncHighlightRects = () => {
+      rafId = null;
+      setVixGuideBeacon((prev) => {
+        if (!prev) return prev;
+        const el = findVixGuideElement(prev.targetId);
+        if (!el) return prev;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return prev;
+        const left = Math.round(rect.left);
+        const top = Math.round(rect.top);
+        const width = Math.round(rect.width);
+        const height = Math.round(rect.height);
+        if (
+          prev.left === left &&
+          prev.top === top &&
+          prev.width === width &&
+          prev.height === height
+        ) {
+          return prev;
+        }
+        return { ...prev, left, top, width, height };
+      });
+
+      setPointedTarget((prev) => {
+        if (!prev) return prev;
+        const el = pointedElementRef.current;
+        if (!el || !el.isConnected) return prev;
+        const rect = el.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return prev;
+        const left = Math.round(rect.left);
+        const top = Math.round(rect.top);
+        const width = Math.max(18, Math.round(rect.width));
+        const height = Math.max(18, Math.round(rect.height));
+        const dx = left - prev.bbox[0];
+        const dy = top - prev.bbox[1];
+        if (
+          dx === 0 &&
+          dy === 0 &&
+          prev.bbox[2] === width &&
+          prev.bbox[3] === height
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          x: prev.x + dx,
+          y: prev.y + dy,
+          bbox: [left, top, width, height],
+        };
+      });
+    };
+
+    const scheduleSync = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(syncHighlightRects);
+    };
+
+    window.addEventListener('scroll', scheduleSync, { capture: true, passive: true });
+    window.addEventListener('resize', scheduleSync, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', scheduleSync, true);
+      window.removeEventListener('resize', scheduleSync);
+      if (rafId !== null) window.cancelAnimationFrame(rafId);
+    };
+  }, [hasActiveHighlight]);
+
+  /**
+   * Scan the full cumulative assistant transcript for region mentions and anchor each cue
+   * proportionally to the hardware audio clock (`(charIndex / totalChars) * totalReceivedAudioSec`)
+   * so the visual highlight glides right on the exact word Vix is speaking aloud.
+   */
+  const syncPointerFromSpokenText = (spoken: string) => {
+    turnTranscriptLengthRef.current = Math.max(turnTranscriptLengthRef.current, spoken.length);
+    const lower = spoken.toLowerCase();
+    const rules: Array<[string, RegExp]> = [
+      ['top-back', /\b(back arrow|back button|return to laboratories|left arrow)\b/g],
+      ['top-title', /\b(experiment title|practical title|practical dropdown|dropdown|switch practical)\b/g],
+      ['top-labs', /\b(lab switcher|discipline switcher|switch between physics|biology is coming soon)\b/g],
+      ['top-next', /\b(analyse results|analyse button|plot graph button|plot v|next step button)\b/g],
+      ['top-vix', /\b(call vix button|vix toggle|vix is on|end the call)\b/g],
+      ['tool-rail', /\b(tool rail|far left|five icons|column of five|vernier ruler|magnifier|loupe|bench tools)\b/g],
+      ['apparatus-tray', /\b(apparatus tray|rig setup|equipment list|simulation seed|conditions|left panel)\b/g],
+      ['bench', /\b(in the center|center is the bench|center bench|main bench|the bench|pendulum bench|circuit canvas|center canvas|interactive bench|beam rig|middle of the screen)\b/g],
+      ['instrument-dock', /\b(instrument dock|bottom controls|slider|stopwatch|record reading|record deflection|bottom dock|ammeter.*voltmeter|load on hanger|dial gauge|zero gauge)\b/g],
+      ['event-log', /\b(event log|log strip|timestamped log|bottom log)\b/g],
+      ['data-panel', /\b(readings table|load.?deflection table|data panel|live graph|live preview|right panel|right side|notebook tab)\b/g],
+    ];
+
+    const matches: Array<{ targetId: string; index: number }> = [];
+    for (const [tid, pat] of rules) {
+      let m: RegExpExecArray | null;
+      while ((m = pat.exec(lower)) !== null) {
+        matches.push({ targetId: tid, index: m.index });
+      }
+    }
+    matches.sort((a, b) => a.index - b.index);
+
+    const ctx = playbackCtxRef.current;
+    const startSec = turnAudioStartTimeRef.current;
+    const totalReceivedAudioSec =
+      ctx && startSec !== null ? Math.max(0.5, nextPlayTimeRef.current - startSec) : 0;
+    const totalChars = Math.max(1, spoken.length);
+
+    for (const m of matches) {
+      const bucket = Math.floor(m.index / 32);
+      const key = `${m.targetId}@${bucket}`;
+      if (seenSpokenMatchesRef.current.has(key)) continue;
+      seenSpokenMatchesRef.current.add(key);
+
+      const estimatedSec =
+        totalReceivedAudioSec > 0
+          ? (m.index / totalChars) * totalReceivedAudioSec
+          : Math.max(0.15, m.index / 16.5);
+
+      // Snap any earlier pre-speech RPC cue for the same target to this exact character index
+      const existingRpc = turnCueQueueRef.current.find(
+        (c) => c.targetId === m.targetId && c.source === 'rpc'
+      );
+      if (existingRpc) {
+        existingRpc.charIndex = m.index;
+        existingRpc.triggerAtSec = estimatedSec;
+        existingRpc.source = 'text';
+      } else {
+        enqueueAudioSyncedBeacon(m.targetId, undefined, estimatedSec, 'text', m.index);
+      }
+    }
+  };
+
+  // Silence follow-up & auto-end countdown timing constants
+  const SILENCE_FOLLOWUP_INTERVAL_MS = 3 * 60 * 1000; // 3 minutes between follow-up check-ins
+  const MAX_SILENCE_FOLLOWUPS = 3; // 3 follow-up check-ins before announcing session end
+  const AUTO_END_COUNTDOWN_SECONDS = 60; // 60-second cancelable countdown before auto-exit
 
   // Full-Duplex Live WebSocket + Web Audio Capture & 24kHz Playback Scheduler refs
   const liveWsRef = useRef<WebSocket | null>(null);
@@ -1078,7 +1322,273 @@ export function VixSpotlightFloatingCard({
   const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
   const isVixAudioActiveRef = useRef<boolean>(false);
 
+  // Hardware-audio-clock cue timeline (keeps visual indicator strictly locked to heard speech)
+  const turnAudioStartTimeRef = useRef<number | null>(null);
+  const turnTranscriptLengthRef = useRef<number>(0);
+  const turnCueQueueRef = useRef<
+    Array<{
+      targetId: string;
+      label?: string;
+      triggerAtSec: number;
+      source: 'rpc' | 'text';
+      charIndex?: number;
+    }>
+  >([]);
+  const seenSpokenMatchesRef = useRef<Set<string>>(new Set());
+  const turnRpcCountRef = useRef<number>(0);
+  const audioCueIntervalRef = useRef<number | null>(null);
+  const preAudioFallbackTimerRef = useRef<number | null>(null);
+
+  // Silence follow-up check-in & 60s auto-end countdown refs/state
+  const onEndCallRef = useRef(onEndCall);
+  onEndCallRef.current = onEndCall;
+  const turnFinishedRef = useRef<boolean>(false);
+  const followUpCountRef = useRef<number>(0);
+  const silenceTimerRef = useRef<number | null>(null);
+  const awaitingClosingCountdownRef = useRef<boolean>(false);
+  const closingFallbackTimerRef = useRef<number | null>(null);
+  const endCountdownIntervalRef = useRef<number | null>(null);
+  const endCountdownSecRef = useRef<number | null>(null);
+  const speechInterruptFramesRef = useRef<number>(0);
+  const [endCountdownSec, setEndCountdownSec] = useState<number | null>(null);
+  const [silenceCheckAttempt, setSilenceCheckAttempt] = useState<number>(0);
+
+  const stopAudioCueTicker = () => {
+    if (audioCueIntervalRef.current !== null) {
+      window.clearInterval(audioCueIntervalRef.current);
+      audioCueIntervalRef.current = null;
+    }
+    if (preAudioFallbackTimerRef.current !== null) {
+      window.clearTimeout(preAudioFallbackTimerRef.current);
+      preAudioFallbackTimerRef.current = null;
+    }
+  };
+
+  const clearScheduledGuideBeacons = () => {
+    stopAudioCueTicker();
+    turnCueQueueRef.current = [];
+    seenSpokenMatchesRef.current.clear();
+    turnRpcCountRef.current = 0;
+    turnTranscriptLengthRef.current = 0;
+    turnAudioStartTimeRef.current = null;
+  };
+
+  const drainDueAudioCues = () => {
+    const ctx = playbackCtxRef.current;
+    const startSec = turnAudioStartTimeRef.current;
+    if (!ctx || startSec === null || turnCueQueueRef.current.length === 0) return;
+
+    const elapsedSec = Math.max(0, ctx.currentTime - startSec);
+    const totalReceivedAudioSec = Math.max(0, nextPlayTimeRef.current - startSec);
+    const totalChars = turnTranscriptLengthRef.current;
+
+    // Continuously recalibrate text-anchored cues against Vix's actual measured speaking rate!
+    if (totalReceivedAudioSec >= 0.4 && totalChars >= 12) {
+      for (const cue of turnCueQueueRef.current) {
+        if (cue.charIndex !== undefined) {
+          cue.triggerAtSec = Math.max(0.1, (cue.charIndex / totalChars) * totalReceivedAudioSec);
+        }
+      }
+    }
+
+    turnCueQueueRef.current.sort((a, b) => a.triggerAtSec - b.triggerAtSec);
+
+    let firedLatest: { targetId: string; label?: string } | null = null;
+    while (
+      turnCueQueueRef.current.length > 0 &&
+      turnCueQueueRef.current[0]!.triggerAtSec <= elapsedSec + 0.08
+    ) {
+      const due = turnCueQueueRef.current.shift()!;
+      firedLatest = { targetId: due.targetId, label: due.label };
+    }
+    if (firedLatest) {
+      moveVixGuideBeacon(firedLatest.targetId, firedLatest.label);
+    }
+    if (turnCueQueueRef.current.length === 0 && audioCueIntervalRef.current !== null) {
+      window.clearInterval(audioCueIntervalRef.current);
+      audioCueIntervalRef.current = null;
+    }
+  };
+
+  const ensureAudioCueTicker = () => {
+    if (audioCueIntervalRef.current !== null || typeof window === 'undefined') return;
+    audioCueIntervalRef.current = window.setInterval(drainDueAudioCues, 60);
+  };
+
+  const enqueueAudioSyncedBeacon = (
+    targetId: string,
+    customLabel: string | undefined,
+    triggerAtSec: number,
+    source: 'rpc' | 'text',
+    charIndex?: number
+  ) => {
+    if (!targetId) return;
+    turnCueQueueRef.current.push({
+      targetId,
+      label: customLabel,
+      triggerAtSec,
+      source,
+      charIndex,
+    });
+    turnCueQueueRef.current.sort((a, b) => a.triggerAtSec - b.triggerAtSec);
+
+    if (isVixAudioActiveRef.current && turnAudioStartTimeRef.current !== null) {
+      ensureAudioCueTicker();
+      drainDueAudioCues();
+    } else if (preAudioFallbackTimerRef.current === null && typeof window !== 'undefined') {
+      // Safety fallback only for silent/text-only turns where no audio ever arrives
+      preAudioFallbackTimerRef.current = window.setTimeout(() => {
+        preAudioFallbackTimerRef.current = null;
+        if (!isVixAudioActiveRef.current && turnCueQueueRef.current.length > 0) {
+          const next = turnCueQueueRef.current.shift()!;
+          moveVixGuideBeacon(next.targetId, next.label);
+        }
+      }, 1500);
+    }
+  };
+
+  const scheduleGuideBeaconFromRpc = (targetId: string, customLabel?: string) => {
+    if (!targetId) return;
+    const ctx = playbackCtxRef.current;
+    const rpcIdx = turnRpcCountRef.current;
+    turnRpcCountRef.current += 1;
+
+    // If audio is already playing, schedule at the end of currently queued audio (right where Vix is about to speak).
+    // If Gemini emitted a burst of spotlight_region RPCs BEFORE audio started, hold the 1st cue for t=0.15s of
+    // audio and space extra burst cues conservatively (4.5s apart) until outputTranscription snaps them to the exact word!
+    let triggerAtSec: number;
+    if (isVixAudioActiveRef.current && ctx && turnAudioStartTimeRef.current !== null) {
+      const queuedOffsetSec = Math.max(0, nextPlayTimeRef.current - turnAudioStartTimeRef.current);
+      triggerAtSec = Math.max(0.15, queuedOffsetSec - 0.15);
+    } else {
+      triggerAtSec = rpcIdx === 0 ? 0.15 : rpcIdx * 4.5;
+    }
+
+    enqueueAudioSyncedBeacon(targetId, customLabel, triggerAtSec, 'rpc');
+  };
+
+  const clearSilenceTimers = () => {
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (closingFallbackTimerRef.current !== null) {
+      window.clearTimeout(closingFallbackTimerRef.current);
+      closingFallbackTimerRef.current = null;
+    }
+    if (endCountdownIntervalRef.current !== null) {
+      window.clearInterval(endCountdownIntervalRef.current);
+      endCountdownIntervalRef.current = null;
+    }
+  };
+
+  const resetUserActivity = () => {
+    clearSilenceTimers();
+    followUpCountRef.current = 0;
+    awaitingClosingCountdownRef.current = false;
+    endCountdownSecRef.current = null;
+    speechInterruptFramesRef.current = 0;
+    setSilenceCheckAttempt(0);
+    setEndCountdownSec(null);
+  };
+
+  const startAutoEndCountdown = () => {
+    if (endCountdownIntervalRef.current !== null) return;
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (closingFallbackTimerRef.current !== null) {
+      window.clearTimeout(closingFallbackTimerRef.current);
+      closingFallbackTimerRef.current = null;
+    }
+    awaitingClosingCountdownRef.current = false;
+    endCountdownSecRef.current = AUTO_END_COUNTDOWN_SECONDS;
+    setEndCountdownSec(AUTO_END_COUNTDOWN_SECONDS);
+
+    endCountdownIntervalRef.current = window.setInterval(() => {
+      const next = (endCountdownSecRef.current ?? 1) - 1;
+      if (next <= 0) {
+        clearSilenceTimers();
+        endCountdownSecRef.current = null;
+        setEndCountdownSec(null);
+        stopLiveSession();
+        onEndCallRef.current();
+        return;
+      }
+      endCountdownSecRef.current = next;
+      setEndCountdownSec(next);
+    }, 1000);
+  };
+
+  const armSilenceFollowUpTimer = () => {
+    const ws = liveWsRef.current;
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (
+      isVixAudioActiveRef.current ||
+      awaitingClosingCountdownRef.current ||
+      endCountdownSecRef.current !== null
+    ) {
+      return;
+    }
+    if (silenceTimerRef.current !== null) {
+      window.clearTimeout(silenceTimerRef.current);
+    }
+
+    silenceTimerRef.current = window.setTimeout(() => {
+      silenceTimerRef.current = null;
+      const activeWs = liveWsRef.current;
+      if (!activeWs || activeWs.readyState !== WebSocket.OPEN) return;
+      if (isVixAudioActiveRef.current || endCountdownSecRef.current !== null) return;
+
+      if (followUpCountRef.current < MAX_SILENCE_FOLLOWUPS) {
+        const nextAttempt = followUpCountRef.current + 1;
+        followUpCountRef.current = nextAttempt;
+        setSilenceCheckAttempt(nextAttempt);
+        turnFinishedRef.current = false;
+        activeWs.send(
+          JSON.stringify({
+            type: 'silence_checkin',
+            attempt: nextAttempt,
+            maxAttempts: MAX_SILENCE_FOLLOWUPS,
+          })
+        );
+      } else {
+        awaitingClosingCountdownRef.current = true;
+        turnFinishedRef.current = false;
+        activeWs.send(
+          JSON.stringify({
+            type: 'silence_ending',
+            countdownSeconds: AUTO_END_COUNTDOWN_SECONDS,
+          })
+        );
+        // Safety fallback so 60s countdown starts even if audio delivery stalls
+        closingFallbackTimerRef.current = window.setTimeout(() => {
+          if (awaitingClosingCountdownRef.current) {
+            startAutoEndCountdown();
+          }
+        }, 12000);
+      }
+    }, SILENCE_FOLLOWUP_INTERVAL_MS);
+  };
+
+  const handleVixAudioDrained = () => {
+    if (!turnFinishedRef.current) return;
+    // If Vix spoke slightly faster than estimated, land cleanly on the final pending cue of the turn
+    if (turnCueQueueRef.current.length > 0) {
+      const lastCue = turnCueQueueRef.current[turnCueQueueRef.current.length - 1]!;
+      moveVixGuideBeacon(lastCue.targetId, lastCue.label);
+    }
+    clearScheduledGuideBeacons();
+    if (awaitingClosingCountdownRef.current) {
+      startAutoEndCountdown();
+    } else {
+      armSilenceFollowUpTimer();
+    }
+  };
+
   const flushLiveAudioPlayback = () => {
+    clearScheduledGuideBeacons();
     for (const node of activeSourceNodesRef.current) {
       try {
         node.stop();
@@ -1121,17 +1631,30 @@ export function VixSpotlightFloatingCard({
 
     const now = ctx.currentTime;
     const startAt = Math.max(now + 0.015, nextPlayTimeRef.current);
+    const wasIdle = activeSourceNodesRef.current.size === 0 || turnAudioStartTimeRef.current === null;
+    if (wasIdle) {
+      turnAudioStartTimeRef.current = startAt;
+      if (preAudioFallbackTimerRef.current !== null) {
+        window.clearTimeout(preAudioFallbackTimerRef.current);
+        preAudioFallbackTimerRef.current = null;
+      }
+    }
     nextPlayTimeRef.current = startAt + audioBuffer.duration;
 
     activeSourceNodesRef.current.add(src);
     isVixAudioActiveRef.current = true;
     setIsSpeakingAudio(true);
 
+    if (turnCueQueueRef.current.length > 0) {
+      ensureAudioCueTicker();
+    }
+
     src.onended = () => {
       activeSourceNodesRef.current.delete(src);
       if (activeSourceNodesRef.current.size === 0) {
         isVixAudioActiveRef.current = false;
         setIsSpeakingAudio(false);
+        handleVixAudioDrained();
       }
     };
 
@@ -1139,6 +1662,7 @@ export function VixSpotlightFloatingCard({
   };
 
   const stopLiveSession = () => {
+    clearSilenceTimers();
     flushLiveAudioPlayback();
     if (liveWsRef.current) {
       try {
@@ -1240,6 +1764,19 @@ export function VixSpotlightFloatingCard({
         setMicLevel(pct);
         setIsRecordingSpeech(rms > 0.03);
 
+        // If student speaks during the 60s exit countdown or closing notice, immediately cancel exit!
+        if (
+          (endCountdownSecRef.current !== null || awaitingClosingCountdownRef.current) &&
+          rms > 0.045
+        ) {
+          speechInterruptFramesRef.current += 1;
+          if (speechInterruptFramesRef.current >= 2) {
+            resetUserActivity();
+          }
+        } else {
+          speechInterruptFramesRef.current = 0;
+        }
+
         // Smart Speaker-Echo Gate that STILL allows real barge-in!
         // When Vix is silent: stream every audio frame continuously to Gemini 3.1 Live.
         // When Vix is speaking: suppress low speaker-bleed (<0.055), but if student speaks up (>0.055),
@@ -1328,26 +1865,34 @@ export function VixSpotlightFloatingCard({
               setLiveConnected(true);
               setIsLoadingTurn(false);
             } else if (msg.type === 'interrupted') {
-              // Instant native barge-in cutoff!
+              // Instant native barge-in cutoff + cancel any silence countdown!
               flushLiveAudioPlayback();
+              resetUserActivity();
+              turnFinishedRef.current = false;
               setLastIntent('interrupted');
+            } else if (msg.type === 'turn_complete') {
+              turnFinishedRef.current = true;
+              if (activeSourceNodesRef.current.size === 0) {
+                handleVixAudioDrained();
+              }
             } else if (msg.type === 'transcript') {
               if (msg.role === 'user' && msg.text) {
+                resetUserActivity();
                 setHeardTranscript(msg.text);
               } else if (msg.role === 'assistant' && msg.text) {
+                turnFinishedRef.current = false;
                 setIsLoadingTurn(false);
                 setCustomReply(msg.text);
                 setLiveTypedCaption(msg.text);
+                syncPointerFromSpokenText(msg.text);
               }
             } else if (msg.type === 'rpc') {
               if (msg.method === 'spotlight' || msg.method === 'pointAt') {
                 const targetId = String(
                   msg.payload?.regionId || msg.payload?.elementId || ''
                 );
-                const idx = VIX_TOUR_STEPS.findIndex(
-                  (s) => s.id === targetId || targetId.startsWith(s.id)
-                );
-                if (idx !== -1) onSelectStep(idx);
+                const customLbl = msg.payload?.label ? String(msg.payload.label) : undefined;
+                scheduleGuideBeaconFromRpc(targetId, customLbl);
               } else if (msg.method === 'buildSetup') {
                 window.dispatchEvent(
                   new CustomEvent('vix:build-setup', { detail: msg.payload || {} })
@@ -1447,8 +1992,44 @@ export function VixSpotlightFloatingCard({
       if (!target) return;
       e.preventDefault();
       e.stopPropagation();
+      resetUserActivity();
+
+      const rawEl = document.elementFromPoint(e.clientX, e.clientY);
+      const focusEl =
+        rawEl?.closest('[data-vix-element]') ||
+        rawEl?.closest('button, input, select, textarea, a, label, tr, [aria-label], [title], g') ||
+        rawEl;
+      pointedElementRef.current = focusEl ?? null;
       setPointedTarget(target);
       setPointModeActive(false);
+
+      if (focusEl && typeof focusEl.scrollIntoView === 'function') {
+        const rect = focusEl.getBoundingClientRect();
+        if (isElementOffscreen(rect)) {
+          focusEl.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+          const resyncPointed = () => {
+            if (pointedElementRef.current !== focusEl || !focusEl.isConnected) return;
+            const nextRect = focusEl.getBoundingClientRect();
+            if (nextRect.width <= 0 || nextRect.height <= 0) return;
+            const left = Math.round(nextRect.left);
+            const top = Math.round(nextRect.top);
+            const width = Math.max(18, Math.round(nextRect.width));
+            const height = Math.max(18, Math.round(nextRect.height));
+            setPointedTarget((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    x: prev.x + (left - prev.bbox[0]),
+                    y: prev.y + (top - prev.bbox[1]),
+                    bbox: [left, top, width, height],
+                  }
+                : prev
+            );
+          };
+          window.setTimeout(resyncPointed, 180);
+          window.setTimeout(resyncPointed, 450);
+        }
+      }
 
       if (target.regionId) {
         const idx = VIX_TOUR_STEPS.findIndex((s) => s.id === target.regionId);
@@ -1474,6 +2055,7 @@ export function VixSpotlightFloatingCard({
   const handleAskQuestion = async (qText: string) => {
     const q = qText.trim();
     if (!q) return;
+    resetUserActivity();
     flushLiveAudioPlayback();
     setQuestion('');
     setHeardTranscript(q);
@@ -1515,6 +2097,58 @@ export function VixSpotlightFloatingCard({
 
   return (
     <>
+      {/* Animated Vix Guide Pointer & Spotlight Box that smoothly glides to each exact side & sub-component! */}
+      {vixGuideBeacon && (
+        <div
+          className="fixed inset-0 pointer-events-none z-40"
+          aria-hidden="true"
+        >
+          <div
+            style={{
+              left: Math.max(2, vixGuideBeacon.left - 3),
+              top: Math.max(2, vixGuideBeacon.top - 3),
+              width: vixGuideBeacon.width + 6,
+              height: vixGuideBeacon.height + 6,
+            }}
+            className="fixed rounded-xl border-2 border-[#F97316] bg-[#F97316]/8 shadow-[0_0_28px_rgba(249,115,22,0.55)] transition-all duration-300 ease-out"
+          />
+          {(() => {
+            const vw = typeof window !== 'undefined' ? window.innerWidth : 1440;
+            const vh = typeof window !== 'undefined' ? window.innerHeight : 900;
+            const isCompactTop = vixGuideBeacon.top < 90 && vixGuideBeacon.height < 120;
+            const isCompactBottom =
+              vixGuideBeacon.top + vixGuideBeacon.height > vh - 140 &&
+              vixGuideBeacon.height < 260;
+            const isRight = vixGuideBeacon.left > vw * 0.6;
+            const rawTop = isCompactTop
+              ? vixGuideBeacon.top + vixGuideBeacon.height + 10
+              : isCompactBottom
+                ? vixGuideBeacon.top - 38
+                : vixGuideBeacon.top + 12;
+            const badgeTop = Math.min(vh - 48, Math.max(12, rawTop));
+            const badgeLeft = isRight
+              ? Math.max(12, vixGuideBeacon.left - 240)
+              : Math.min(
+                  vw - 270,
+                  Math.max(
+                    12,
+                    vixGuideBeacon.left +
+                      (vixGuideBeacon.width < 120 ? vixGuideBeacon.width + 10 : 12)
+                  )
+                );
+            return (
+              <div
+                style={{ left: badgeLeft, top: badgeTop }}
+                className="fixed px-3 py-1.5 rounded-full bg-[#0B1220]/95 border border-[#F97316] text-xs font-semibold text-[#FDBA74] shadow-xl flex items-center gap-2 transition-all duration-300 ease-out"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-[#F97316] animate-ping shrink-0" />
+                <span className="whitespace-nowrap">Vix → {vixGuideBeacon.label}</span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Live Laser Pointer Beacon & Bounding Box when student points at any screen element */}
       {pointedTarget && (
         <div
@@ -1720,6 +2354,36 @@ export function VixSpotlightFloatingCard({
           </div>
         )}
 
+        {/* 60-Second Auto-End Countdown Banner (after 3 unanswered 3-min check-ins) */}
+        {endCountdownSec !== null && (
+          <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl bg-[#3B1219] border border-[#F97316] text-[11px]">
+            <span className="text-[#FDBA74] leading-snug">
+              Ending session in{' '}
+              <strong className="font-mono text-white">{endCountdownSec}s</strong> — speak or
+              interrupt to stay
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                resetUserActivity();
+                const ws = liveWsRef.current;
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({ type: 'text', text: "I'm still here, let's continue." }));
+                }
+              }}
+              className="px-2.5 py-1 rounded-lg bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] font-bold text-[10px] cursor-pointer shrink-0"
+            >
+              I&apos;m here
+            </button>
+          </div>
+        )}
+
+        {silenceCheckAttempt > 0 && endCountdownSec === null && (
+          <div className="px-3 py-1 rounded-lg bg-[#121A2B] border border-[#22304A] text-[10px] font-mono text-[#93A0B8]">
+            Follow-up check-in {silenceCheckAttempt}/{MAX_SILENCE_FOLLOWUPS} · waiting for your response
+          </div>
+        )}
+
         {/* Pointed Element Pill */}
         {pointedTarget && (
           <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-[#1C1613] border border-[#F97316]/50 text-[11px]">
@@ -1729,7 +2393,10 @@ export function VixSpotlightFloatingCard({
             </span>
             <button
               type="button"
-              onClick={() => setPointedTarget(null)}
+              onClick={() => {
+                pointedElementRef.current = null;
+                setPointedTarget(null);
+              }}
               className="text-[#93A0B8] hover:text-white font-mono text-[10px] cursor-pointer shrink-0"
             >
               Clear ×

@@ -77,8 +77,13 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
             {
                 "name": "spotlight_region",
                 "description": (
-                    "Highlight a specific region on the student's lab screen with an orange spotlight ring "
-                    "so they can immediately see what you are talking about."
+                    "Move Vix's animated glowing orange pointer & spotlight box directly onto ANY specific component "
+                    "or side of the student's screen so the pointer glides to match what you are explaining. "
+                    "Top-bar sub-components: 'top-back' (Back to labs arrow), 'top-title' (Experiment title & practical switcher dropdown), "
+                    "'top-labs' (Physics/Chemistry/Electronics/Engineering lab switcher), 'top-vix' (Call Vix toggle), 'top-next' (Analyse results / Plot graph button). "
+                    "Workspace sides: 'tool-rail' (far-left 5 tool icons), 'apparatus-tray' (left equipment list & conditions), "
+                    "'bench' (center interactive experiment stage), 'instrument-dock' (bottom sliders, stopwatch/meters & Record button), "
+                    "'event-log' (bottom timestamped log strip), 'data-panel' (right readings table, live graph & notebook)."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -86,10 +91,14 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                         "region_id": {
                             "type": "STRING",
                             "description": (
-                                "One of: top-bar, tool-rail, apparatus-tray, bench, "
-                                "instrument-dock, event-log, data-panel"
+                                "Exact target ID: top-back, top-title, top-labs, top-vix, top-next, "
+                                "tool-rail, apparatus-tray, bench, instrument-dock, event-log, or data-panel."
                             ),
-                        }
+                        },
+                        "label": {
+                            "type": "STRING",
+                            "description": "Short human-readable pointer badge label, e.g. 'Practical Switcher Dropdown' or 'Bottom Instrument Dock'.",
+                        },
                     },
                     "required": ["region_id"],
                 },
@@ -107,9 +116,13 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                 "description": (
                     "Enter Live Tutorial Sandbox Mode on the student's ACTUAL lab bench so you can construct and "
                     "demonstrate an analogous example from scratch while they watch (their own real saved readings "
-                    "are safely preserved and untouched). For example, on Pendulum Lab you run a Mars-gravity "
-                    "sandbox pendulum (g_demo = 3.72 m/s^2); on Electronics Lab you clear the board and wire an "
-                    "analogous 10-ohm resistor circuit from scratch."
+                    "and circuit are safely preserved and untouched). On Pendulum Lab you run a Mars-gravity "
+                    "sandbox pendulum (g_demo = 3.72 m/s^2). On Electronics Lab you have 6 curated, properly-wired "
+                    "analogous demos you can animate step by step by passing `demo_id`: "
+                    "'ohms_10ohm_analog' (10 Ω carbon resistor Ohm's law), 'series_resistors' (5 Ω + 10 Ω in series), "
+                    "'parallel_resistors' (10 Ω || 10 Ω in parallel), 'led_current_limiter' (Green LED + 10 Ω limiter), "
+                    "'diode_forward_bias' (Si diode 0.65 V + 5 Ω), 'rc_branch' (10 Ω || 100 µF capacitor). "
+                    "Omit `demo_id` only if you want an empty board to place & wire custom components one by one."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -121,6 +134,13 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                         "analog_note": {
                             "type": "STRING",
                             "description": "Brief note explaining why this analogous setup teaches the exact method without giving away their graded answer.",
+                        },
+                        "demo_id": {
+                            "type": "STRING",
+                            "description": (
+                                "Optional Electronics demo preset ID to build and wire step by step cleanly: "
+                                "ohms_10ohm_analog | series_resistors | parallel_resistors | led_current_limiter | diode_forward_bias | rc_branch."
+                            ),
                         },
                     },
                     "required": ["scenario_title"],
@@ -134,8 +154,16 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                     "Pendulum actions: 'place_protractor', 'set_length_cm' (value 30..100), 'set_release_angle' (value 5..25), "
                     "'set_eye_level' (value 1 or 0), 'toggle_swing' (value 1 or 0), 'start_stopwatch', 'stop_stopwatch', "
                     "'reset_stopwatch', 'record_demo_trial'. "
-                    "Electronics actions: 'clear_board', 'add_component' (component_kind: battery|rheostat|ammeter|voltmeter|wireX|key|resistor|led|diode|capacitor, x, y), "
-                    "'wire_components' (from_node, from_term, to_node, to_term), 'set_rheostat' (value 0..20), 'set_emf' (value 1.5..6.0), 'toggle_key' (value 1 or 0), 'record_demo_trial'."
+                    "Engineering Beam Deflection actions: 'set_material' (material: 'aluminium'|'brass'|'steel'), 'set_span' (value: 0.6|0.8|1.0), "
+                    "'zero_gauge', 'set_masses' (value 0..10, in 100g steps), 'add_mass', 'remove_mass', 'tap_bench', "
+                    "'set_phase' (phase: 'loading'|'unloading'), 'set_view' (view: 'isometric'|'elevation'), 'record_demo_trial'. "
+                    "Engineering Isometric Drawing actions: 'draw_iso_crate' (2H boxing-in crate), 'draw_iso_outlines' (HB visible outlines), "
+                    "'draw_iso_hidden' (dashed hidden edges), 'select_exercise' (exercise_id: stepped_block|slotted_block|l_bracket|cylindrical_boss), "
+                    "'set_projection_angle' (angle: first|third), 'toggle_guide' (value 1 or 0), 'check_accuracy'. "
+                    "Electronics actions: 'load_demo_circuit' (demo_id: ohms_10ohm_analog|series_resistors|parallel_resistors|led_current_limiter|diode_forward_bias|rc_branch — PREFERRED for clean animated step-by-step wiring!), "
+                    "'clear_board', 'add_component' (component_kind: battery|rheostat|ammeter|voltmeter|wireX|key|resistor|led|diode|capacitor, optional node_id, value, x, y — returns exact node_id), "
+                    "'wire_components' (from_node, from_term, to_node, to_term — ALWAYS use the exact node_id returned by add_component, e.g. battery1, rheostat1, ammeter1, resistor1, voltmeter1, key1), "
+                    "'set_rheostat' (value 0..20), 'set_emf' (value 1.5..6.0), 'toggle_key' (value 1 or 0), 'record_demo_trial'."
                 ),
                 "parameters": {
                     "type": "OBJECT",
@@ -144,20 +172,33 @@ VIX_LIVE_TOOLS: list[dict[str, Any]] = [
                             "type": "STRING",
                             "description": "The exact bench action name to execute visibly on screen.",
                         },
+                        "demo_id": {
+                            "type": "STRING",
+                            "description": "For Electronics load_demo_circuit: ohms_10ohm_analog, series_resistors, parallel_resistors, led_current_limiter, diode_forward_bias, or rc_branch.",
+                        },
                         "value": {
                             "type": "NUMBER",
-                            "description": "Optional numeric value (e.g. length in cm, angle in degrees, rheostat ohms, 1 for true / 0 for false).",
+                            "description": "Optional numeric value (e.g. length in cm, angle in degrees, resistance in ohms, EMF in volts, 1 for true / 0 for false).",
                         },
                         "component_kind": {
                             "type": "STRING",
                             "description": "For Electronics add_component: battery, rheostat, ammeter, voltmeter, wireX, key, resistor, led, diode, or capacitor.",
                         },
-                        "x": {"type": "NUMBER", "description": "Optional X coordinate on circuit board."},
-                        "y": {"type": "NUMBER", "description": "Optional Y coordinate on circuit board."},
-                        "from_node": {"type": "STRING", "description": "Source node ID for wire_components."},
+                        "node_id": {
+                            "type": "STRING",
+                            "description": "Optional deterministic node ID for add_component (e.g. battery1, resistor1, voltmeter1).",
+                        },
+                        "x": {"type": "NUMBER", "description": "Optional X coordinate on circuit board (80..565; omit to auto-place in canonical schematic slot)."},
+                        "y": {"type": "NUMBER", "description": "Optional Y coordinate on circuit board (70..330; omit to auto-place in canonical schematic slot)."},
+                        "from_node": {"type": "STRING", "description": "Source node ID for wire_components (e.g. battery1, resistor1)."},
                         "from_term": {"type": "STRING", "description": "Source terminal ('a' or 'b')."},
-                        "to_node": {"type": "STRING", "description": "Target node ID for wire_components."},
+                        "to_node": {"type": "STRING", "description": "Target node ID for wire_components (e.g. rheostat1, voltmeter1)."},
                         "to_term": {"type": "STRING", "description": "Target terminal ('a' or 'b')."},
+                        "material": {"type": "STRING", "description": "For Beam Deflection set_material: aluminium, brass, or steel."},
+                        "phase": {"type": "STRING", "description": "For Beam Deflection set_phase: loading or unloading."},
+                        "view": {"type": "STRING", "description": "For Beam Deflection set_view: isometric or elevation."},
+                        "exercise_id": {"type": "STRING", "description": "For Isometric Drawing select_exercise: stepped_block, slotted_block, l_bracket, or cylindrical_boss."},
+                        "angle": {"type": "STRING", "description": "For Isometric Drawing set_projection_angle: first or third."},
                     },
                     "required": ["action"],
                 },
@@ -246,14 +287,29 @@ def _build_live_system_instruction(
         "- Speak like a real human teacher standing right beside the student's lab bench—warm, concise (1 to 3 short sentences per turn), responsive, and conversational.\n"
         "- NEVER speak raw LaTeX (no dollar signs, no 'backslash frac', no 'backslash pi') and NEVER speak internal IDs like 'data-panel' or 'instrument-dock'. Say 'T squared', 'four pi squared over g', 'your readings table on the right', 'the controls at the bottom'.\n"
         "- Whenever the student asks about what is on their screen, what they are pointing at, or how many readings they have, ALWAYS call `inspect_student_screen` first so your answer matches their live screen 100% accurately.\n"
-        "- Whenever explaining a specific part of the bench, call `spotlight_region` so the orange highlight lights up on their screen as you talk.\n"
-        "- If the student asks for a tour of the lab studio, call `start_studio_tour` (or call `spotlight_region` sequentially as you walk them around!).\n"
+        "- Whenever explaining ANY part of the screen, ALWAYS call `spotlight_region` right before talking about it so the glowing pointer glides to that exact component!\n"
+        "- STUDIO TOUR RULE (ALL DETAILS, MOVING POINTER PER SIDE): When the student asks for a tour of the lab studio, DO NOT stay stuck on the top bar! Walk through EVERY component across all sides one section at a time, calling `spotlight_region` on each exact component:\n"
+        "  • Top bar details: `top-back` (back to laboratories), `top-title` (active practical title & dropdown to switch practicals in the discipline), `top-labs` (lab switcher pills across Physics, Chemistry, Electronics, Engineering, with Biology coming soon), `top-vix` (Vix voice toggle), and `top-next` (Analyse results / Plot graph).\n"
+        "  • Left side: `tool-rail` (5 bench tools on the far left) and `apparatus-tray` (the active lab's equipment/rig setup panel—describe what is actually on THIS lab's screen, never invent Pendulum terms like 'air drag' on Beam or Electronics!).\n"
+        "  • Center: `bench` (the active lab's live interactive experiment canvas in the center).\n"
+        "  • Bottom: `instrument-dock` (the active lab's bottom controls, meters/gauges, and Record button) and `event-log` (timestamped practical replay log).\n"
+        "  • Right side: `data-panel` (the active lab's readings table, Live graph preview, and Assistant).\n"
+        "  Cover 2–3 related components per turn, calling `spotlight_region` for each, then ask if they have questions before moving to the next side!\n"
         "LIVE BENCH TUTORIAL WALKTHROUGH (CRITICAL — NO HARDCODED 4-STEP SCRIPT!):\n"
         "- If the student asks you to walk them through an example or show them how to do the practical:\n"
-        "  1. First call `start_tutorial_sandbox` with an analogous scenario similar to their bench (e.g., on Pendulum Lab use a Mars-gravity pendulum sandbox; on Electronics Lab clear the board and wire an analogous resistor circuit from scratch).\n"
-        "  2. Construct and run the experiment LIVE ON THE REAL BENCH step by step using `operate_bench_control` (e.g., place_protractor -> set_length_cm -> set_release_angle -> set_eye_level -> start_stopwatch -> stop_stopwatch -> record_demo_trial across multiple lengths so they literally watch the live graph plot!).\n"
-        "  3. There is NO fixed step count—take as many steps as needed (5, 6, 8+) until the student fully understands! After every 1–2 actions, briefly explain WHY you did that step and invite follow-up questions before proceeding.\n"
-        "  4. If the student interrupts with a follow-up question about any step, answer it thoroughly (you can even demonstrate the concept live on the bench, like toggling parallax off/on!), then continue when they are ready.\n"
+        "  1. On Pendulum Lab: call `start_tutorial_sandbox` with a Mars-gravity pendulum sandbox, then operate controls step by step (`place_protractor` -> `set_length_cm` -> `set_release_angle` -> `set_eye_level` -> `start_stopwatch` -> `stop_stopwatch` -> `record_demo_trial`).\n"
+        "  2. On Engineering Beam Deflection Lab: call `start_tutorial_sandbox` (automatically switches to an analogous Aluminium beam at 0.800 m span with an empty hanger so their Mild Steel bench stays untouched!), then operate controls step by step: `zero_gauge` -> `set_masses(2)` -> `tap_bench` -> `record_demo_trial` -> `set_masses(4)` -> `tap_bench` -> `record_demo_trial` -> `set_phase('unloading')` -> `set_masses(2)` -> `tap_bench` -> `record_demo_trial` so they see both loading & unloading hysteresis and the live δ-vs-W plot!\n"
+        "  3. On Electronics Lab: you have SIX curated, properly-wired analogous demos! ALWAYS prefer passing `demo_id` to `start_tutorial_sandbox` or calling `operate_bench_control(action='load_demo_circuit', demo_id=...)` so the board clears and visibly places every component and orthogonal wire cleanly step by step with guaranteed closed-loop physics:\n"
+        "     • `ohms_10ohm_analog` — 10 Ω Carbon Resistor Ohm's Law verification (great first demo!)\n"
+        "     • `series_resistors` — Two Resistors in Series (5 Ω + 10 Ω = 15 Ω)\n"
+        "     • `parallel_resistors` — Two Resistors in Parallel (10 Ω || 10 Ω = 5 Ω)\n"
+        "     • `led_current_limiter` — Green LED + 10 Ω Current-Limiting Resistor\n"
+        "     • `diode_forward_bias` — Silicon Diode Forward Bias (0.65 V knee + 5 Ω)\n"
+        "     • `rc_branch` — RC Parallel Capacitor Branch (10 Ω || 100 µF)\n"
+        "     After wiring the demo, step through adjusting `set_rheostat` and `record_demo_trial` across 2–3 settings so they see the live ammeter/voltmeter needles move and the V–I graph plot! Tell the student they can also ask for ANY of the other 5 Electronics demos (or click the demo pills in the banner)!\n"
+        "     If you ever build a custom circuit manually with `add_component`, omit `x`/`y` (auto-places cleanly in the canonical slot) and wire using the exact `node_id` returned by `add_component` (e.g. `battery1`, `rheostat1`, `ammeter1`, `resistor1`, `voltmeter1`, `key1`), making sure the series loop closes back to `battery1:b` and `voltmeter1` connects across the load.\n"
+        "  3. There is NO fixed step count—take as many steps as needed until the student fully understands! After every 1–2 actions, briefly explain WHY you did that step and invite follow-up questions before proceeding.\n"
+        "  4. If the student interrupts with a follow-up question or asks for a different demo, respond immediately and switch demos seamlessly with `load_demo_circuit`.\n"
         "  5. When they are confident and ready to try themselves, call `end_tutorial_sandbox` so their own real bench and readings are restored.\n"
         "- If the student asks you to switch to another laboratory or practical (Physics Pendulum, Refraction, Moments, Chemistry Titration, Qualitative Salt Analysis, Electronics Ohm's Law, or Engineering Beam Deflection), call `switch_lab` immediately! NOTE: Biology lab is temporarily disabled (coming soon), so if they ask for Biology, kindly explain that Biology is coming soon and offer Physics, Chemistry, Electronics, or Engineering instead.\n"
         "- If the student asks you to build or draw a circuit on the Electronics board, call `build_circuit_setup` or `operate_bench_control`.\n"
@@ -296,6 +352,7 @@ class GeminiLiveVixBridge:
         self._gemini_ws: aiohttp.ClientWebSocketResponse | None = None
         self._turn_user_transcript = ""
         self._turn_assistant_transcript = ""
+        self._sandbox_kind_counts: dict[str, int] = {}
 
     async def send_browser_json(self, payload: dict[str, Any]) -> None:
         if not self.browser_ws.closed and not self._closed:
@@ -364,31 +421,35 @@ class GeminiLiveVixBridge:
 
         if name == "spotlight_region":
             rid = str(args.get("region_id") or "bench")
+            lbl = str(args.get("label") or "")
             await self.send_browser_json(
                 {
                     "type": "rpc",
                     "method": "spotlight",
-                    "payload": {"regionId": rid, "durationMs": 7000},
+                    "payload": {"regionId": rid, "label": lbl, "durationMs": 7000},
                 }
             )
-            return {"spotlighted": rid, "status": "ok"}
+            return {"spotlighted": rid, "label": lbl, "status": "ok"}
 
         if name == "start_studio_tour":
             await self.send_browser_json({"type": "ui_action", "action": "start_tour"})
             return {
                 "status": "tour_started",
-                "regions": [
-                    "top-bar (experiment title, lab switcher, Analyse results)",
-                    "tool-rail (pointer, vernier ruler, magnifier loupe, notebook, auxiliary stopwatch)",
-                    "apparatus-tray (equipment list and simulation seed)",
-                    "bench (main interactive experiment area)",
-                    "instrument-dock (sliders, stopwatch, Record reading)",
-                    "data-panel (live readings table and live graph preview)",
+                "tourPlan": [
+                    "1. Top Bar details: top-back, top-title, top-labs, top-vix, top-next",
+                    "2. Left Side: tool-rail (5 tools) & apparatus-tray (equipment & seed)",
+                    "3. Center: bench (interactive apparatus)",
+                    "4. Bottom: instrument-dock (controls & stopwatch/meters) & event-log",
+                    "5. Right Side: data-panel (readings table, delete row, live graph)",
                 ],
-                "instruction": "Walk through the regions concisely and call spotlight_region for each key region as you mention it!",
+                "instruction": (
+                    "Start with the Top Bar sub-components (calling spotlight_region on top-back, top-title, top-labs, top-next) "
+                    "and explain each clearly, then ask if they are ready to move to the Left Side (tool-rail & apparatus-tray)!"
+                ),
             }
 
         if name == "start_tutorial_sandbox":
+            self._sandbox_kind_counts.clear()
             title = str(
                 args.get("scenario_title")
                 or f"Live Tutorial Sandbox · {exp_ctx.title} (Analogous Demo)"
@@ -397,25 +458,49 @@ class GeminiLiveVixBridge:
                 args.get("analog_note")
                 or "Your own real readings are safely saved while Vix demonstrates from scratch."
             )
+            demo_id = str(args.get("demo_id") or "").strip()
+            params: dict[str, Any] = {"scenarioTitle": title, "analogNote": note}
+            if demo_id:
+                params["demo_id"] = demo_id
             await self.send_browser_json(
                 {
                     "type": "bench_control",
                     "action": "start_tutorial_sandbox",
-                    "params": {"scenarioTitle": title, "analogNote": note},
+                    "params": params,
                 }
             )
             return {
                 "status": "tutorial_sandbox_active",
                 "scenarioTitle": title,
+                "demo_id": demo_id or None,
+                "availableElectronicsDemos": [
+                    "ohms_10ohm_analog",
+                    "series_resistors",
+                    "parallel_resistors",
+                    "led_current_limiter",
+                    "diode_forward_bias",
+                    "rc_branch",
+                ],
                 "nextHint": (
-                    "The real bench is now in Tutorial Sandbox Mode starting from scratch. "
-                    "Use operate_bench_control step by step (1-2 controls per turn) and check in with the student for follow-up questions."
+                    "The circuit demo is animating step by step on the bench with clean orthogonal wiring and key closed. "
+                    "Explain the wiring, then adjust set_rheostat and call record_demo_trial to plot V–I points, or switch to another demo with load_demo_circuit."
+                    if demo_id
+                    else "The real bench is now in Tutorial Sandbox Mode. On Electronics, call operate_bench_control(action='load_demo_circuit', demo_id='ohms_10ohm_analog') for guaranteed clean step-by-step wiring, or place components with add_component."
                 ),
             }
 
         if name == "operate_bench_control":
             action = str(args.get("action") or "")
             params = {k: v for k, v in args.items() if k != "action"}
+            if action in ("clear_board", "load_demo_circuit"):
+                self._sandbox_kind_counts.clear()
+            assigned_node_id: str | None = None
+            if action == "add_component":
+                kind = str(params.get("component_kind") or "resistor")
+                next_idx = self._sandbox_kind_counts.get(kind, 0) + 1
+                self._sandbox_kind_counts[kind] = next_idx
+                assigned_node_id = str(params.get("node_id") or f"{kind}{next_idx}")
+                params["node_id"] = assigned_node_id
             await self.send_browser_json(
                 {
                     "type": "bench_control",
@@ -423,13 +508,20 @@ class GeminiLiveVixBridge:
                     "params": params,
                 }
             )
-            return {
+            resp: dict[str, Any] = {
                 "status": "executed_on_live_bench",
                 "action": action,
                 "params": params,
             }
+            if assigned_node_id:
+                resp["node_id"] = assigned_node_id
+                resp["wiringHint"] = (
+                    f"Use '{assigned_node_id}' as from_node/to_node in wire_components."
+                )
+            return resp
 
         if name == "end_tutorial_sandbox":
+            self._sandbox_kind_counts.clear()
             await self.send_browser_json(
                 {
                     "type": "bench_control",
@@ -458,6 +550,7 @@ class GeminiLiveVixBridge:
                 "/lab/chemistry/qualitative-analysis",
                 "/lab/electronics/ohms-law",
                 "/lab/engineering/beam",
+                "/lab/engineering/isometric",
             }
             if "biology" in raw_route.lower():
                 return {
@@ -709,6 +802,26 @@ class GeminiLiveVixBridge:
                             {"type": "transcript", "role": "user", "text": txt, "final": True}
                         )
                         await g_ws.send_str(json.dumps({"realtimeInput": {"text": txt}}))
+
+                elif mtype == "silence_checkin":
+                    attempt = int(data.get("attempt") or 1)
+                    max_attempts = int(data.get("maxAttempts") or 3)
+                    prompt = (
+                        f"[SYSTEM CHECK-IN {attempt} of {max_attempts}: {self.first_name} has not responded "
+                        "for 3 minutes after you expected a reply. Gently check in by name in 1-2 warm, concise "
+                        "sentences to be sure they are still following along or ask if they need help.]"
+                    )
+                    await g_ws.send_str(json.dumps({"realtimeInput": {"text": prompt}}))
+
+                elif mtype == "silence_ending":
+                    countdown = int(data.get("countdownSeconds") or 60)
+                    prompt = (
+                        f"[SYSTEM SESSION TIMEOUT: {self.first_name} has not responded after 3 check-ins "
+                        f"at 3-minute intervals. Politely tell {self.first_name} in 1-2 concise sentences that "
+                        f"you will be ending the session now with a {countdown}-second countdown unless they "
+                        "speak up or interrupt you to keep going.]"
+                    )
+                    await g_ws.send_str(json.dumps({"realtimeInput": {"text": prompt}}))
 
                 elif mtype == "end":
                     break
