@@ -27,6 +27,7 @@ from .graph.state import DEFAULT_PENDULUM_CONTEXT
 from .llm import create_llm_brain, list_supported_brains, split_into_sentences
 from .main import process_user_query
 from .pipeline import PipecatDuplexSession
+from .realtime_live import GeminiLiveVixBridge
 from .session import HEALTH_REGISTRY, VixSessionRunner, log_worker_startup
 from .tts import GLOBAL_TTS_SERVICE
 
@@ -543,12 +544,58 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
     )
 
 
+async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
+    """GET /vix/live — True Full-Duplex Native Gemini 3.1 Flash Live Audio-to-Audio WebSocket."""
+    ws = web.WebSocketResponse(heartbeat=25.0)
+    await ws.prepare(request)
+
+    session_id = request.query.get("sessionId") or f"live-{uuid.uuid4().hex[:8]}"
+    first_name = request.query.get("firstName") or "Student"
+    voice_id = request.query.get("voice") or "ada"
+    locale = request.query.get("locale") or "English"
+    mode: Mode = "GRADED" if request.query.get("mode") == "GRADED" else "PRACTICE"
+    experiment_title = request.query.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
+
+    initial_screen_map: ScreenMap | None = None
+    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount before greeting!
+    try:
+        first_msg = await asyncio.wait_for(ws.receive(), timeout=0.6)
+        if first_msg.type == web.WSMsgType.TEXT:
+            init_data = json.loads(first_msg.data)
+            if init_data.get("screenMap"):
+                initial_screen_map = ScreenMap.parse_validated_payload(init_data["screenMap"])
+            if init_data.get("firstName"):
+                first_name = str(init_data["firstName"])
+            if init_data.get("experimentTitle"):
+                experiment_title = str(init_data["experimentTitle"])
+            if init_data.get("voice"):
+                voice_id = str(init_data["voice"])
+            if init_data.get("locale"):
+                locale = str(init_data["locale"])
+    except (TimeoutError, Exception) as exc:
+        logger.debug("No initial screenmap frame received before live boot: %s", exc)
+
+    bridge = GeminiLiveVixBridge(
+        ws,
+        session_id=session_id,
+        first_name=first_name,
+        voice_id=voice_id,
+        locale=locale,
+        mode=mode,
+        experiment_title=experiment_title,
+        initial_screen_map=initial_screen_map,
+    )
+    await bridge.run()
+    return ws
+
+
 def create_http_app() -> web.Application:
     app = web.Application()
     app.router.add_route("OPTIONS", "/{tail:.*}", handle_options)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/vix/brains", handle_list_brains)
     app.router.add_get("/vix/ws", handle_ws)
+    app.router.add_get("/vix/live", handle_live_ws)
     app.router.add_post("/vix/session/start", handle_session_start)
     app.router.add_post("/vix/turn", handle_turn)
     app.router.add_post("/vix/voice-turn", handle_voice_turn)

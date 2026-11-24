@@ -30,9 +30,9 @@ export interface VixPointerTarget {
 }
 
 export const VIX_BRAIN_OPTIONS = [
+  { id: 'gemini/gemini-3.1-flash-live-preview', label: 'Gemini 3.1 Flash Live (Realtime Audio)' },
   { id: 'gemini/gemini-3.8-flash', label: 'Gemini 3.8 Flash (Google)' },
   { id: 'gemini/gemini-4-argon', label: 'Gemini 4 Argon (Google)' },
-  { id: 'gemini/gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite (Ultra-Fast)' },
   { id: 'anthropic/claude-3-5-sonnet-latest', label: 'Claude 3.5 Sonnet (Anthropic)' },
   { id: 'openai/gpt-4o', label: 'GPT-4o (OpenAI)' },
   { id: 'groq/llama-3.3-70b-versatile', label: 'Llama 3.3 70B (Groq)' },
@@ -43,54 +43,6 @@ export const VIX_BRAIN_OPTIONS = [
 const VIX_AGENT_URL =
   (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_VIX_AGENT_URL ||
   'http://localhost:8090';
-
-/**
- * Downsample mono Float32 PCM chunks to 16 kHz 16-bit signed PCM and wrap in a standard 44-byte RIFF/WAVE header.
- * Pure uncompressed `audio/wav` works identically across Zen Browser, Firefox, Chrome, and Safari with 100% Gemini STT fidelity.
- */
-function encodePcmChunksToWavBlob(chunks: Float32Array[], inputSampleRate: number): Blob {
-  const totalInSamples = chunks.reduce((acc, c) => acc + c.length, 0);
-  const merged = new Float32Array(totalInSamples);
-  let offset = 0;
-  for (const c of chunks) {
-    merged.set(c, offset);
-    offset += c.length;
-  }
-
-  const targetRate = 16000;
-  const ratio = inputSampleRate / targetRate;
-  const outLen = Math.max(1, Math.floor(totalInSamples / ratio));
-  const buffer = new ArrayBuffer(44 + outLen * 2);
-  const view = new DataView(buffer);
-
-  const writeStr = (pos: number, str: string) => {
-    for (let i = 0; i < str.length; i++) {
-      view.setUint8(pos + i, str.charCodeAt(i));
-    }
-  };
-
-  writeStr(0, 'RIFF');
-  view.setUint32(4, 36 + outLen * 2, true);
-  writeStr(8, 'WAVE');
-  writeStr(12, 'fmt ');
-  view.setUint32(16, 16, true); // PCM subchunk size
-  view.setUint16(20, 1, true); // PCM format
-  view.setUint16(22, 1, true); // Mono
-  view.setUint32(24, targetRate, true);
-  view.setUint32(28, targetRate * 2, true); // ByteRate
-  view.setUint16(32, 2, true); // BlockAlign
-  view.setUint16(34, 16, true); // BitsPerSample
-  writeStr(36, 'data');
-  view.setUint32(40, outLen * 2, true);
-
-  for (let i = 0; i < outLen; i++) {
-    const srcIdx = Math.min(totalInSamples - 1, Math.floor(i * ratio));
-    const s = Math.max(-1, Math.min(1, merged[srcIdx] || 0));
-    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
-  }
-
-  return new Blob([buffer], { type: 'audio/wav' });
-}
 
 // =============================================================================
 // Real-Time Synchronized Neural Audio + Word-by-Word Live Typewriter Engine
@@ -1059,6 +1011,22 @@ interface VixSpotlightFloatingCardProps {
   onEndCall: () => void;
 }
 
+const VIX_WS_URL = VIX_AGENT_URL.replace(/^http/, 'ws');
+
+/** Convert a Float32 mic buffer from inputSampleRate (e.g. 48kHz) to 16kHz Int16 PCM ArrayBuffer for Gemini Live. */
+function downsampleFloat32ToPcm16k(input: Float32Array, inputSampleRate: number): ArrayBuffer {
+  const targetRate = 16000;
+  const ratio = inputSampleRate / targetRate;
+  const outLen = Math.max(1, Math.floor(input.length / ratio));
+  const out = new Int16Array(outLen);
+  for (let i = 0; i < outLen; i++) {
+    const srcIdx = Math.min(input.length - 1, Math.floor(i * ratio));
+    const s = Math.max(-1, Math.min(1, input[srcIdx] || 0));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out.buffer;
+}
+
 export function VixSpotlightFloatingCard({
   activeLab,
   experimentTitle,
@@ -1073,11 +1041,7 @@ export function VixSpotlightFloatingCard({
   const { user } = useAuth();
   const studentFirstName = user?.firstName || 'Student';
   const [lang, setLang] = useState<VixLanguage>('English');
-  const [brain, setBrain] = useState<string>(() =>
-    typeof window !== 'undefined'
-      ? window.sessionStorage.getItem('vix_brain') || 'gemini/gemini-3.8-flash'
-      : 'gemini/gemini-3.8-flash'
-  );
+  const [brain, setBrain] = useState<string>('gemini/gemini-3.1-flash-live-preview');
   const [question, setQuestion] = useState('');
   const [customReply, setCustomReply] = useState<string | null>(null);
   const [liveTypedCaption, setLiveTypedCaption] = useState<string | null>(null);
@@ -1088,8 +1052,9 @@ export function VixSpotlightFloatingCard({
   const [micLevel, setMicLevel] = useState(0);
   const [heardTranscript, setHeardTranscript] = useState<string | null>(null);
   const [isSpeakingAudio, setIsSpeakingAudio] = useState(false);
+  const [liveConnected, setLiveConnected] = useState(false);
 
-  // Interactive Animated Worked Example Visual Walkthrough (shows an analogous DIFFERENT lab step by step!)
+  // Interactive Animated Worked Example Visual Walkthrough
   const [workedExampleOpen, setWorkedExampleOpen] = useState(false);
   const [workedStepIdx, setWorkedStepIdx] = useState(0);
 
@@ -1097,50 +1062,343 @@ export function VixSpotlightFloatingCard({
   const [pointModeActive, setPointModeActive] = useState(false);
   const [pointedTarget, setPointedTarget] = useState<VixPointerTarget | null>(null);
   const hoverTargetRef = useRef<VixPointerTarget | null>(null);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const isGreetingRef = useRef<boolean>(true);
-  const isProcessingTurnRef = useRef<boolean>(false);
-  const autoWalkCancelRef = useRef<boolean>(false);
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+
+  // Full-Duplex Live WebSocket + Web Audio Capture & 24kHz Playback Scheduler refs
+  const liveWsRef = useRef<WebSocket | null>(null);
+  const micMutedRef = useRef<boolean>(false);
   const mediaStreamRef = useRef<MediaStream | null>(null);
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-  const forceFlushSpeechRef = useRef<(() => void) | null>(null);
+  const captureCtxRef = useRef<AudioContext | null>(null);
+  const processorRef = useRef<ScriptProcessorNode | null>(null);
+  const playbackCtxRef = useRef<AudioContext | null>(null);
+  const nextPlayTimeRef = useRef<number>(0);
+  const activeSourceNodesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
+  const isVixAudioActiveRef = useRef<boolean>(false);
 
-  const [showTrace, setShowTrace] = useState(false);
-  const [agentMeta, setAgentMeta] = useState<{
-    criticScore?: number;
-    kgFacts?: string[];
-    agentTrace?: Array<{ sender: string; recipient: string; phase: string; content: string }>;
-    selfNotes?: string;
-    reflexionPlans?: string[];
-    llmMs?: number;
-  } | null>(null);
+  const flushLiveAudioPlayback = () => {
+    for (const node of activeSourceNodesRef.current) {
+      try {
+        node.stop();
+        node.disconnect();
+      } catch {
+        // ignore already stopped
+      }
+    }
+    activeSourceNodesRef.current.clear();
+    nextPlayTimeRef.current = 0;
+    isVixAudioActiveRef.current = false;
+    setIsSpeakingAudio(false);
+  };
 
+  const schedulePcm24kChunk = (pcmArrayBuffer: ArrayBuffer) => {
+    if (typeof window === 'undefined' || pcmArrayBuffer.byteLength < 2) return;
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!playbackCtxRef.current || playbackCtxRef.current.state === 'closed') {
+      playbackCtxRef.current = new AudioCtx({ sampleRate: 24000 });
+    }
+    const ctx = playbackCtxRef.current;
+    if (ctx.state === 'suspended') {
+      void ctx.resume().catch(() => {});
+    }
+
+    const int16 = new Int16Array(pcmArrayBuffer);
+    const float32 = new Float32Array(int16.length);
+    for (let i = 0; i < int16.length; i++) {
+      float32[i] = int16[i]! / 32768;
+    }
+
+    const audioBuffer = ctx.createBuffer(1, float32.length, 24000);
+    audioBuffer.getChannelData(0).set(float32);
+
+    const src = ctx.createBufferSource();
+    src.buffer = audioBuffer;
+    src.connect(ctx.destination);
+
+    const now = ctx.currentTime;
+    const startAt = Math.max(now + 0.015, nextPlayTimeRef.current);
+    nextPlayTimeRef.current = startAt + audioBuffer.duration;
+
+    activeSourceNodesRef.current.add(src);
+    isVixAudioActiveRef.current = true;
+    setIsSpeakingAudio(true);
+
+    src.onended = () => {
+      activeSourceNodesRef.current.delete(src);
+      if (activeSourceNodesRef.current.size === 0) {
+        isVixAudioActiveRef.current = false;
+        setIsSpeakingAudio(false);
+      }
+    };
+
+    src.start(startAt);
+  };
+
+  const stopLiveSession = () => {
+    flushLiveAudioPlayback();
+    if (liveWsRef.current) {
+      try {
+        if (liveWsRef.current.readyState === WebSocket.OPEN) {
+          liveWsRef.current.send(JSON.stringify({ type: 'end' }));
+        }
+        liveWsRef.current.close();
+      } catch {
+        // ignore
+      }
+      liveWsRef.current = null;
+    }
+    if (processorRef.current) {
+      try {
+        processorRef.current.disconnect();
+        processorRef.current.onaudioprocess = null;
+      } catch {
+        // ignore
+      }
+      processorRef.current = null;
+    }
+    if (mediaStreamRef.current) {
+      for (const track of mediaStreamRef.current.getTracks()) {
+        track.stop();
+      }
+      mediaStreamRef.current = null;
+    }
+    if (captureCtxRef.current) {
+      captureCtxRef.current.close().catch(() => {});
+      captureCtxRef.current = null;
+    }
+    if (playbackCtxRef.current) {
+      playbackCtxRef.current.close().catch(() => {});
+      playbackCtxRef.current = null;
+    }
+    setLiveConnected(false);
+    setIsListening(false);
+    setIsRecordingSpeech(false);
+    setMicLevel(0);
+  };
+
+  const startLiveMicrophoneStream = async () => {
+    if (
+      typeof window === 'undefined' ||
+      typeof navigator === 'undefined' ||
+      !navigator.mediaDevices?.getUserMedia
+    ) {
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          channelCount: 1,
+        },
+      });
+      mediaStreamRef.current = stream;
+
+      const AudioCtx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const capCtx = new AudioCtx();
+      captureCtxRef.current = capCtx;
+      if (capCtx.state === 'suspended') {
+        await capCtx.resume().catch(() => {});
+      }
+
+      const source = capCtx.createMediaStreamSource(stream);
+      const processor = capCtx.createScriptProcessor(2048, 1, 1);
+      processorRef.current = processor;
+      const silentGain = capCtx.createGain();
+      silentGain.gain.value = 0;
+
+      source.connect(processor);
+      processor.connect(silentGain);
+      silentGain.connect(capCtx.destination);
+
+      setIsListening(true);
+      micMutedRef.current = false;
+
+      processor.onaudioprocess = (ev) => {
+        if (micMutedRef.current) {
+          setMicLevel(0);
+          return;
+        }
+        const ws = liveWsRef.current;
+        if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+        const input = ev.inputBuffer.getChannelData(0);
+        let sumSq = 0;
+        for (let i = 0; i < input.length; i++) {
+          const v = input[i]!;
+          sumSq += v * v;
+        }
+        const rms = Math.sqrt(sumSq / input.length);
+        const pct = Math.min(100, Math.round(rms * 420));
+        setMicLevel(pct);
+        setIsRecordingSpeech(rms > 0.03);
+
+        // Smart Speaker-Echo Gate that STILL allows real barge-in!
+        // When Vix is silent: stream every audio frame continuously to Gemini 3.1 Live.
+        // When Vix is speaking: suppress low speaker-bleed (<0.055), but if student speaks up (>0.055),
+        // stream it straight through so Gemini 3.1 Live triggers native mid-sentence interruption!
+        if (isVixAudioActiveRef.current && rms < 0.055) {
+          return;
+        }
+
+        const pcm16k = downsampleFloat32ToPcm16k(input, capCtx.sampleRate);
+        ws.send(pcm16k);
+      };
+    } catch {
+      setIsListening(false);
+    }
+  };
+
+  // Connect full-duplex Gemini 3.1 Flash Live WebSocket on mount (and reconnect if voice or language changes)
   useEffect(() => {
-    return subscribeVixSpeaking((speaking) => {
-      setIsSpeakingAudio(speaking);
-    });
-  }, []);
+    if (typeof window === 'undefined' || typeof WebSocket === 'undefined') return;
+    let cancelled = false;
+    let screenSyncTimer: number | null = null;
 
-  // Track live cursor hover across the lab bench so deictic "What is this?" always knows what the mouse is over
+    const bootTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      const params = new URLSearchParams({
+        firstName: studentFirstName,
+        voice,
+        locale: lang,
+        mode: 'PRACTICE',
+        experimentTitle,
+      });
+      const ws = new WebSocket(`${VIX_WS_URL}/vix/live?${params.toString()}`);
+      ws.binaryType = 'arraybuffer';
+      liveWsRef.current = ws;
+      setIsLoadingTurn(true);
+
+      ws.onopen = () => {
+        if (cancelled) {
+          ws.close();
+          return;
+        }
+        const liveMap = collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE');
+        ws.send(
+          JSON.stringify({
+            type: 'init',
+            firstName: studentFirstName,
+            voice,
+            locale: lang,
+            experimentTitle,
+            screenMap: liveMap,
+          })
+        );
+        void startLiveMicrophoneStream();
+
+        // Periodically sync fresh ScreenMap (so Vix always knows updated readingsCount!)
+        screenSyncTimer = window.setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(
+              JSON.stringify({
+                type: 'screenmap',
+                screenMap: collectLiveDomScreenMap(
+                  activeLab,
+                  experimentTitle,
+                  'PRACTICE',
+                  pointedTarget ?? hoverTargetRef.current
+                ),
+              })
+            );
+          }
+        }, 2500);
+      };
+
+      ws.onmessage = (ev) => {
+        if (cancelled) return;
+        if (ev.data instanceof ArrayBuffer) {
+          setIsLoadingTurn(false);
+          schedulePcm24kChunk(ev.data);
+          return;
+        }
+        if (typeof ev.data === 'string') {
+          try {
+            const msg = JSON.parse(ev.data);
+            if (msg.type === 'live_ready') {
+              setLiveConnected(true);
+              setIsLoadingTurn(false);
+            } else if (msg.type === 'interrupted') {
+              // Instant native barge-in cutoff!
+              flushLiveAudioPlayback();
+              setLastIntent('interrupted');
+            } else if (msg.type === 'transcript') {
+              if (msg.role === 'user' && msg.text) {
+                setHeardTranscript(msg.text);
+              } else if (msg.role === 'assistant' && msg.text) {
+                setIsLoadingTurn(false);
+                setCustomReply(msg.text);
+                setLiveTypedCaption(msg.text);
+              }
+            } else if (msg.type === 'rpc') {
+              if (msg.method === 'spotlight' || msg.method === 'pointAt') {
+                const targetId = String(
+                  msg.payload?.regionId || msg.payload?.elementId || ''
+                );
+                const idx = VIX_TOUR_STEPS.findIndex(
+                  (s) => s.id === targetId || targetId.startsWith(s.id)
+                );
+                if (idx !== -1) onSelectStep(idx);
+              } else if (msg.method === 'buildSetup') {
+                window.dispatchEvent(
+                  new CustomEvent('vix:build-setup', { detail: msg.payload || {} })
+                );
+              }
+            } else if (msg.type === 'ui_action') {
+              if (msg.action === 'worked_example') {
+                setWorkedExampleOpen(true);
+                setWorkedStepIdx(Number(msg.stepIndex || 0));
+                setLastIntent('worked_example');
+              } else if (msg.action === 'start_tour') {
+                if (!dimNonActive) onToggleDim();
+                onSelectStep(0);
+                setLastIntent('studio_tour');
+              }
+            } else if (msg.type === 'error') {
+              setIsLoadingTurn(false);
+              setCustomReply(msg.detail || 'Live voice connection error.');
+            }
+          } catch {
+            // ignore non-json
+          }
+        }
+      };
+
+      ws.onclose = () => {
+        if (!cancelled) {
+          setLiveConnected(false);
+          setIsLoadingTurn(false);
+        }
+      };
+    }, 80);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(bootTimer);
+      if (screenSyncTimer !== null) window.clearInterval(screenSyncTimer);
+      stopLiveSession();
+    };
+  }, [voice, lang, activeLab, experimentTitle]);
+
+  // Track live cursor hover across the lab bench
   useEffect(() => {
     if (typeof window === 'undefined') return;
     let lastSample = 0;
     const onPointerMove = (e: PointerEvent) => {
       const now = performance.now();
-      if (now - lastSample < 100) return;
+      if (now - lastSample < 120) return;
       lastSample = now;
       const target = inspectDomElementAt(e.clientX, e.clientY);
-      if (target) {
-        hoverTargetRef.current = target;
-      }
+      if (target) hoverTargetRef.current = target;
     };
     window.addEventListener('pointermove', onPointerMove, { passive: true });
     return () => window.removeEventListener('pointermove', onPointerMove);
   }, []);
 
-  // When "Point" mode is active (or Alt+Click anywhere on screen), clicking any component/pin/slider pins the beacon & asks Vix!
+  // "Point" mode (or Alt+Click anywhere on screen) pins the laser beacon & asks Vix live over WebSocket!
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const onWindowClick = (e: MouseEvent) => {
@@ -1157,10 +1415,11 @@ export function VixSpotlightFloatingCard({
         if (idx !== -1) onSelectStep(idx);
       }
 
-      void handleAskQuestion(
-        `Explain this specific component or terminal pin I clicked on: "${target.label}". What is its exact role in ${experimentTitle} and how do I use it?`,
-        target
-      );
+      flushLiveAudioPlayback();
+      const ws = liveWsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'pointer', pointerTarget: target, askNow: true }));
+      }
     };
 
     window.addEventListener('click', onWindowClick, true);
@@ -1172,43 +1431,13 @@ export function VixSpotlightFloatingCard({
   const displayedCaption =
     liveTypedCaption ?? customReply ?? stepDefaultCaption;
 
-  /** Natural voice barge-in interruption (also stops any running autonomous tour/example) */
-  const handleNaturalBargeIn = () => {
-    autoWalkCancelRef.current = true;
-    stopVixNeuralAudio();
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-      abortControllerRef.current = null;
-    }
-    setIsLoadingTurn(false);
-  };
-
-  /** Speak text AND type it out word-by-word simultaneously as the voice plays! */
-  const speakAndTypeSimultaneously = async (
-    text: string,
-    sentences?: string[],
-    inlineAudio?: { audio: string; mimeType?: string } | null
-  ) => {
-    await playVixNeuralAudio(
-      text,
-      voice,
-      lang,
-      sentences,
-      (typedSoFar) => {
-        setLiveTypedCaption(typedSoFar);
-      },
-      inlineAudio
-    );
-  };
-
-  // Interactive 4-step analogous lab walkthrough (Hooke's Law Spiral Spring when on Pendulum; Pendulum when on Electronics/Chemistry/etc.)
   const isAnalogousSpring = activeLab === 'physics';
   const WORKED_EXAMPLE_STEPS = isAnalogousSpring
     ? [
         {
           title: 'Step 1 · Vary the independent variable cleanly',
           caption:
-            'In this analogous Hookes Law spring lab, hang slotted masses one by one (50 g, 100 g, 150 g, 200 g) and wait for the spring to settle before reading.',
+            'In this analogous Hookes Law spring lab, hang slotted masses one by one and wait for the spring to settle before reading.',
           loadG: 100,
           extCm: 4.0,
           pts: [{ x: 0.5, y: 2.0 }],
@@ -1241,9 +1470,9 @@ export function VixSpotlightFloatingCard({
           ],
         },
         {
-          title: 'Step 4 · Use a large slope triangle to find the physical constant',
+          title: 'Step 4 · Use a large slope triangle to find the constant',
           caption:
-            'Choose two well-separated vertices A and B on the best-fit line, compute change in y over change in x to obtain the spring constant k, then apply this exact method on your own pendulum bench!',
+            'Choose two well-separated vertices A and B on the best-fit line, compute change in y over change in x to obtain spring constant k, then apply this exact method on your own bench.',
           loadG: 300,
           extCm: 12.0,
           pts: [
@@ -1268,7 +1497,7 @@ export function VixSpotlightFloatingCard({
         {
           title: 'Step 2 · Take repeated measurements across 5–6 values',
           caption:
-            'Time 20 complete small-angle oscillations twice at each length, average t1 and t2, and tabulate your derived columns to consistent decimal places.',
+            'Time 20 complete small-angle oscillations twice at each length, average t1 and t2, and tabulate derived columns to consistent decimal places.',
           loadG: 200,
           extCm: 8.0,
           pts: [
@@ -1293,9 +1522,9 @@ export function VixSpotlightFloatingCard({
           ],
         },
         {
-          title: 'Step 4 · Extract slope from a large triangle & apply to your bench',
+          title: 'Step 4 · Extract slope from a large triangle',
           caption:
-            'Read two wide vertices A and B directly off the best-fit line to calculate the gradient and physical constant, then repeat this exact discipline on your own lab bench!',
+            'Read two wide vertices A and B directly off the best-fit line to calculate the gradient and physical constant, then repeat this discipline on your own lab bench.',
           loadG: 300,
           extCm: 12.0,
           pts: [
@@ -1309,567 +1538,46 @@ export function VixSpotlightFloatingCard({
         },
       ];
 
-  /** 100% Autonomous 4-Step Animated Worked Example — advances automatically with zero clicks! */
-  const runAutonomousWorkedExample = async () => {
-    handleNaturalBargeIn();
-    autoWalkCancelRef.current = false;
-    isProcessingTurnRef.current = true;
-    setWorkedExampleOpen(true);
-
-    for (let i = 0; i < WORKED_EXAMPLE_STEPS.length; i++) {
-      if (autoWalkCancelRef.current) break;
-      setWorkedStepIdx(i);
-      const stepObj = WORKED_EXAMPLE_STEPS[i]!;
-      setCustomReply(stepObj.caption);
-      setLastIntent('worked_example');
-      await speakAndTypeSimultaneously(stepObj.caption);
-      if (autoWalkCancelRef.current) break;
-      await new Promise((r) => window.setTimeout(r, 450));
-    }
-
-    isProcessingTurnRef.current = false;
-  };
-
-  /** 100% Autonomous 7-Region Studio Tour — moves spotlight & narrates every region automatically with zero clicks! */
-  const runAutonomousStudioTour = async () => {
-    handleNaturalBargeIn();
-    autoWalkCancelRef.current = false;
-    isProcessingTurnRef.current = true;
-    setWorkedExampleOpen(false);
-    if (!dimNonActive) onToggleDim();
-
-    for (let i = 0; i < VIX_TOUR_STEPS.length; i++) {
-      if (autoWalkCancelRef.current) break;
-      onSelectStep(i);
-      const stepObj = VIX_TOUR_STEPS[i]!;
-      const cap = stepObj.getCaption(activeLab, experimentTitle, lang);
-      setCustomReply(null);
-      setLastIntent('studio_tour');
-      await speakAndTypeSimultaneously(cap);
-      if (autoWalkCancelRef.current) break;
-      await new Promise((r) => window.setTimeout(r, 450));
-    }
-
-    if (!autoWalkCancelRef.current) {
-      const outro =
-        'That completes our quick tour of the lab studio. Just speak naturally or point at anything whenever you want help!';
-      setCustomReply(outro);
-      await speakAndTypeSimultaneously(outro);
-    }
-    isProcessingTurnRef.current = false;
-  };
-
-  const handleAskQuestion = async (
-    qText: string,
-    explicitPointer?: VixPointerTarget | null
-  ) => {
+  const handleAskQuestion = async (qText: string) => {
     const q = qText.trim();
     if (!q) return;
-
-    // 1. Preempt any in-flight speech or turn (Natural Barge-In)
-    handleNaturalBargeIn();
-
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-
-    setIsLoadingTurn(true);
-    setLiveTypedCaption(null);
+    flushLiveAudioPlayback();
     setQuestion('');
+    setHeardTranscript(q);
 
-    const activePointer = explicitPointer ?? pointedTarget ?? hoverTargetRef.current;
-
-    try {
-      const screenMap = collectLiveDomScreenMap(
-        activeLab,
-        experimentTitle,
-        'PRACTICE',
-        activePointer
+    const ws = liveWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      // Send latest ScreenMap first so Gemini Live has exact counts, then send the text turn!
+      ws.send(
+        JSON.stringify({
+          type: 'screenmap',
+          screenMap: collectLiveDomScreenMap(
+            activeLab,
+            experimentTitle,
+            'PRACTICE',
+            pointedTarget ?? hoverTargetRef.current
+          ),
+        })
       );
-      const sessionId =
-        typeof window !== 'undefined'
-          ? window.sessionStorage.getItem('vix_session_id') || 'live-web-session'
-          : 'live-web-session';
-
-      const t0 = performance.now();
-      const resp = await fetch(`${VIX_AGENT_URL}/vix/turn`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          sessionId,
-          firstName: studentFirstName,
-          query: q,
-          mode: 'PRACTICE',
-          locale: lang,
-          voice,
-          brain,
-          includeAudio: true,
-          screenMap,
-          pointerTarget: activePointer,
-        }),
-      });
-
-      if (resp.ok) {
-        const data = await resp.json();
-        const llmMs = Math.round(performance.now() - t0);
-        const reply: string = data.reply || 'Let us examine that step on your bench.';
-        setLastIntent(data.intent || null);
-        setAgentMeta({
-          criticScore: data.criticScore,
-          kgFacts: data.kgFacts,
-          agentTrace: data.agentTrace,
-          selfNotes: data.selfNotes,
-          reflexionPlans: data.reflexionPlans,
-          llmMs,
-        });
-
-        // Execute autonomous live UI workflows returned by Vix (no clicking required!)
-        if (data.uiAction === 'open_worked_example') {
-          setIsLoadingTurn(false);
-          void runAutonomousWorkedExample();
-          return;
-        }
-        if (data.uiAction === 'start_tour') {
-          setIsLoadingTurn(false);
-          void runAutonomousStudioTour();
-          return;
-        }
-
-        // Execute any spotlight/pointAt/buildSetup RPC returned by the Vix LangGraph
-        const rpcs: Array<{ method: string; payload?: Record<string, unknown> }> =
-          data.rpcPlan || [];
-        for (const call of rpcs) {
-          if (call.method === 'buildSetup' && typeof window !== 'undefined') {
-            window.dispatchEvent(
-              new CustomEvent('vix:build-setup', { detail: call.payload || {} })
-            );
-          }
-          if (call.method === 'spotlight' || call.method === 'pointAt') {
-            const targetId = String(
-              call.payload?.regionId || call.payload?.elementId || ''
-            );
-            const matchedStepIdx = VIX_TOUR_STEPS.findIndex(
-              (s) => s.id === targetId || targetId.startsWith(s.id)
-            );
-            if (matchedStepIdx !== -1) {
-              onSelectStep(matchedStepIdx);
-            }
-          }
-        }
-
-        // Start speaking + typing word-for-word IMMEDIATELY using the inline audio (0ms extra fetch!)
-        setCustomReply(reply);
-        setLiveTypedCaption('...');
-        setIsLoadingTurn(false);
-        await speakAndTypeSimultaneously(
-          reply,
-          data.sentences,
-          data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
-        );
-        return;
-      }
-    } catch (err) {
-      if ((err as { name?: string })?.name === 'AbortError') {
-        return;
-      }
+      ws.send(JSON.stringify({ type: 'text', text: q }));
+      setIsLoadingTurn(true);
     }
-
-    setIsLoadingTurn(false);
-    setCustomReply(
-      'Vix agent server (:8090) could not be reached. Ensure vix-agent is running to query Gemini live.'
-    );
   };
 
-  const sendRecordedVoiceBlobToVix = async (blob: Blob, mimeType: string) => {
-    // Reject tiny clicks, breaths, or < 4 KB noise bursts
-    if (blob.size < 4000 || isProcessingTurnRef.current) return;
-
-    isProcessingTurnRef.current = true;
-    const base64Audio = await new Promise<string>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const res = typeof reader.result === 'string' ? reader.result : '';
-        resolve(res.split(',', 2)[1] || '');
-      };
-      reader.readAsDataURL(blob);
-    });
-    if (!base64Audio) {
-      isProcessingTurnRef.current = false;
-      return;
-    }
-
-    handleNaturalBargeIn();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
-    setIsLoadingTurn(true);
-    setLiveTypedCaption(null);
-
-    const activePointer = pointedTarget ?? hoverTargetRef.current;
-
-    try {
-      const screenMap = collectLiveDomScreenMap(
-        activeLab,
-        experimentTitle,
-        'PRACTICE',
-        activePointer
-      );
-      const sessionId =
-        typeof window !== 'undefined'
-          ? window.sessionStorage.getItem('vix_session_id') || 'live-web-session'
-          : 'live-web-session';
-
-      const t0 = performance.now();
-      const resp = await fetch(`${VIX_AGENT_URL}/vix/voice-turn`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        signal: controller.signal,
-        body: JSON.stringify({
-          sessionId,
-          firstName: studentFirstName,
-          audio: base64Audio,
-          mimeType,
-          mode: 'PRACTICE',
-          locale: lang,
-          voice,
-          brain,
-          includeAudio: true,
-          screenMap,
-          pointerTarget: activePointer,
-        }),
-      });
-
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.silence || !data.reply) {
-          setIsLoadingTurn(false);
-          isProcessingTurnRef.current = false;
-          return;
-        }
-        const llmMs = Math.round(performance.now() - t0);
-        if (data.transcript) {
-          setHeardTranscript(data.transcript);
-        }
-        const reply: string = data.reply;
-        setLastIntent(data.intent || null);
-        setAgentMeta({
-          criticScore: data.criticScore,
-          kgFacts: data.kgFacts,
-          agentTrace: data.agentTrace,
-          selfNotes: data.selfNotes,
-          reflexionPlans: data.reflexionPlans,
-          llmMs,
-        });
-
-        if (data.uiAction === 'open_worked_example') {
-          setIsLoadingTurn(false);
-          isProcessingTurnRef.current = false;
-          void runAutonomousWorkedExample();
-          return;
-        }
-        if (data.uiAction === 'start_tour') {
-          setIsLoadingTurn(false);
-          isProcessingTurnRef.current = false;
-          void runAutonomousStudioTour();
-          return;
-        }
-
-        const rpcs: Array<{ method: string; payload?: Record<string, unknown> }> =
-          data.rpcPlan || [];
-        for (const call of rpcs) {
-          if (call.method === 'buildSetup' && typeof window !== 'undefined') {
-            window.dispatchEvent(
-              new CustomEvent('vix:build-setup', { detail: call.payload || {} })
-            );
-          }
-          if (call.method === 'spotlight' || call.method === 'pointAt') {
-            const targetId = String(
-              call.payload?.regionId || call.payload?.elementId || ''
-            );
-            const matchedStepIdx = VIX_TOUR_STEPS.findIndex(
-              (s) => s.id === targetId || targetId.startsWith(s.id)
-            );
-            if (matchedStepIdx !== -1) {
-              onSelectStep(matchedStepIdx);
-            }
-          }
-        }
-
-        setCustomReply(reply);
-        setLiveTypedCaption('...');
-        setIsLoadingTurn(false);
-        await speakAndTypeSimultaneously(
-          reply,
-          data.sentences,
-          data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
-        );
-        isProcessingTurnRef.current = false;
-        return;
-      }
-    } catch {
-      // ignore abort or transient error
-    }
-    setIsLoadingTurn(false);
-    isProcessingTurnRef.current = false;
+  const handleNaturalBargeIn = () => {
+    flushLiveAudioPlayback();
   };
 
   const stopHardwareMicrophone = () => {
-    forceFlushSpeechRef.current = null;
-    if (scriptProcessorRef.current) {
-      try {
-        scriptProcessorRef.current.disconnect();
-        scriptProcessorRef.current.onaudioprocess = null;
-      } catch {
-        // ignore
-      }
-      scriptProcessorRef.current = null;
-    }
-    if (mediaStreamRef.current) {
-      for (const track of mediaStreamRef.current.getTracks()) {
-        track.stop();
-      }
-      mediaStreamRef.current = null;
-    }
-    if (audioCtxRef.current) {
-      audioCtxRef.current.close().catch(() => {});
-      audioCtxRef.current = null;
-    }
-    recognitionRef.current?.stop();
-    setIsListening(false);
-    setIsRecordingSpeech(false);
-    setMicLevel(0);
+    stopLiveSession();
   };
 
-  const startHardwareMicrophoneWithVAD = async () => {
-    if (
-      typeof window === 'undefined' ||
-      typeof navigator === 'undefined' ||
-      !navigator.mediaDevices?.getUserMedia
-    ) {
-      return false;
-    }
-
-    try {
-      stopHardwareMicrophone();
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          channelCount: 1,
-        },
-      });
-      mediaStreamRef.current = stream;
-
-      const AudioCtx =
-        window.AudioContext ||
-        (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const audioCtx = new AudioCtx();
-      audioCtxRef.current = audioCtx;
-      if (audioCtx.state === 'suspended') {
-        await audioCtx.resume().catch(() => {});
-      }
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      // Capture raw mono Float32 PCM frames (4096 samples ≈ 85ms at 48kHz) so we encode crystal-clear 16kHz WAV!
-      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-      scriptProcessorRef.current = processor;
-      const silentGain = audioCtx.createGain();
-      silentGain.gain.value = 0;
-
-      source.connect(processor);
-      processor.connect(silentGain);
-      silentGain.connect(audioCtx.destination);
-
-      const preRingBuffer: Float32Array[] = [];
-      let speechChunks: Float32Array[] = [];
-      let isCapturing = false;
-      let speakingFrames = 0;
-      let silenceFrames = 0;
-      let peakDuringCapture = 0;
-
-      const flushCapturedSpeech = () => {
-        if (!isCapturing) return;
-        isCapturing = false;
-        setIsRecordingSpeech(false);
-        const captured = speechChunks;
-        const peak = peakDuringCapture;
-        speechChunks = [];
-        speakingFrames = 0;
-        silenceFrames = 0;
-        peakDuringCapture = 0;
-
-        const totalSamples = captured.reduce((acc, c) => acc + c.length, 0);
-        const durationSec = totalSamples / Math.max(8000, audioCtx.sampleRate);
-        // Require at least 0.45s of clear audible speech above noise floor
-        if (durationSec >= 0.45 && peak >= 0.05) {
-          const wavBlob = encodePcmChunksToWavBlob(captured, audioCtx.sampleRate);
-          void sendRecordedVoiceBlobToVix(wavBlob, 'audio/wav');
-        }
-      };
-
-      forceFlushSpeechRef.current = flushCapturedSpeech;
-      setIsListening(true);
-
-      processor.onaudioprocess = (ev) => {
-        const input = ev.inputBuffer.getChannelData(0);
-        const frameCopy = new Float32Array(input.length);
-        frameCopy.set(input);
-
-        let sumSq = 0;
-        let framePeak = 0;
-        for (let i = 0; i < frameCopy.length; i++) {
-          const v = frameCopy[i]!;
-          sumSq += v * v;
-          const absV = Math.abs(v);
-          if (absV > framePeak) framePeak = absV;
-        }
-        const rms = Math.sqrt(sumSq / frameCopy.length);
-
-        // Echo-Shield, Greeting Guard & In-Flight Turn Lock
-        const inGuard =
-          isGreetingRef.current ||
-          isProcessingTurnRef.current ||
-          Boolean(activeNeuralAudio) ||
-          performance.now() - lastAudioEndedAt < 650;
-        if (inGuard) {
-          speakingFrames = 0;
-          silenceFrames = 0;
-          if (isCapturing) {
-            isCapturing = false;
-            speechChunks = [];
-            setIsRecordingSpeech(false);
-          }
-          setMicLevel(0);
-          return;
-        }
-
-        const pct = Math.min(100, Math.round(rms * 420));
-        setMicLevel(pct);
-
-        // Maintain 4-frame (~340ms) pre-speech ring buffer so the first syllable is never clipped!
-        if (!isCapturing) {
-          preRingBuffer.push(frameCopy);
-          if (preRingBuffer.length > 4) preRingBuffer.shift();
-        }
-
-        const speechThreshold = 0.032;
-
-        if (rms > speechThreshold) {
-          speakingFrames += 1;
-          silenceFrames = 0;
-
-          if (!isCapturing && speakingFrames >= 2) {
-            isCapturing = true;
-            peakDuringCapture = framePeak;
-            speechChunks = [...preRingBuffer, frameCopy];
-            setIsRecordingSpeech(true);
-          } else if (isCapturing) {
-            if (framePeak > peakDuringCapture) peakDuringCapture = framePeak;
-            speechChunks.push(frameCopy);
-          }
-        } else {
-          speakingFrames = 0;
-          if (isCapturing) {
-            speechChunks.push(frameCopy);
-            silenceFrames += 1;
-            const totalSamples = speechChunks.reduce((acc, c) => acc + c.length, 0);
-            const durSec = totalSamples / Math.max(8000, audioCtx.sampleRate);
-            // ~750ms of silence (9 frames of 85ms) or max 14s utterance -> encode WAV and send!
-            if (silenceFrames >= 9 || durSec >= 14.0) {
-              flushCapturedSpeech();
-            }
-          }
-        }
-      };
-
-      return true;
-    } catch {
-      return false;
-    }
-  };
-
-  // Debounce mount by 80ms so React StrictMode dev double-mount never fires TWO duplicate greetings or VAD loops!
-  useEffect(() => {
-    let cancelled = false;
-    isGreetingRef.current = true;
-
-    const bootTimer = window.setTimeout(() => {
-      if (cancelled) return;
-      void startHardwareMicrophoneWithVAD();
-
-      const greetImmediately = async () => {
-        try {
-          const liveMap = collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE');
-          const resp = await fetch(`${VIX_AGENT_URL}/vix/session/start`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              firstName: studentFirstName,
-              mode: 'PRACTICE',
-              locale: lang,
-              voice,
-              brain,
-              includeAudio: true,
-              experimentTitle,
-              screenMap: liveMap,
-            }),
-          });
-          if (!cancelled && resp.ok) {
-            const data = await resp.json();
-            if (typeof window !== 'undefined' && data.sessionId) {
-              window.sessionStorage.setItem('vix_session_id', data.sessionId);
-            }
-            if (data.greeting) {
-              setCustomReply(data.greeting);
-              await speakAndTypeSimultaneously(
-                data.greeting,
-                data.sentences,
-                data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
-              );
-            }
-          }
-        } catch {
-          // Keep bench explanation visible if offline
-        } finally {
-          isGreetingRef.current = false;
-        }
-      };
-      void greetImmediately();
-    }, 80);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(bootTimer);
-      isGreetingRef.current = false;
-      isProcessingTurnRef.current = false;
-      stopVixNeuralAudio();
-      stopHardwareMicrophone();
-    };
-  }, []);
-
-  const handleToggleConversationalMic = async () => {
-    if (typeof window === 'undefined') return;
-
+  const handleToggleConversationalMic = () => {
     if (isSpeakingAudio) {
-      handleNaturalBargeIn();
+      flushLiveAudioPlayback();
     }
-
-    // If currently recording a speech segment and user taps mic, finalize and send WAV immediately
-    if (isListening && isRecordingSpeech && forceFlushSpeechRef.current) {
-      forceFlushSpeechRef.current();
-      return;
-    }
-
-    if (isListening) {
-      stopHardwareMicrophone();
-      return;
-    }
-
-    const started = await startHardwareMicrophoneWithVAD();
-    if (!started) {
-      setIsListening((prev) => !prev);
-      void handleAskQuestion('What should I do next on this bench?');
-    }
+    micMutedRef.current = !micMutedRef.current;
+    setIsListening(!micMutedRef.current);
   };
 
   return (
@@ -2119,8 +1827,8 @@ export function VixSpotlightFloatingCard({
                   {isSpeakingAudio ? 'SPEAKING' : isListening ? 'LISTENING' : 'LIVE'}
                 </span>
               </div>
-              <div className="text-[11px] text-[#4ADE80] font-mono truncate max-w-[160px]">
-                {brain} {agentMeta?.llmMs ? `· ${agentMeta.llmMs}ms` : ''}
+              <div className="text-[11px] text-[#4ADE80] font-mono truncate max-w-[175px]">
+                {liveConnected ? 'LIVE STREAM · 3.1 Flash' : brain}
               </div>
             </div>
           </div>
