@@ -19,6 +19,7 @@ import {
   VIX_TOUR_STEPS,
   type VixTargetRegion,
 } from './VixInLabOverlay';
+import { useVixCall } from '../context/VixCallContext';
 
 export type SubjectLab = 'physics' | 'chemistry' | 'biology' | 'electronics' | 'engineering';
 
@@ -52,7 +53,13 @@ export interface LabLayoutProps {
   dotGrid?: boolean;
 }
 
-const LAB_TABS: { id: SubjectLab; label: string; to: string; activeClass: string }[] = [
+const LAB_TABS: {
+  id: SubjectLab;
+  label: string;
+  to: string;
+  activeClass: string;
+  disabled?: boolean;
+}[] = [
   {
     id: 'physics',
     label: 'Physics',
@@ -70,6 +77,7 @@ const LAB_TABS: { id: SubjectLab; label: string; to: string; activeClass: string
     label: 'Biology',
     to: '/lab/biology/digestion',
     activeClass: 'bg-[#122D1F] text-[#4ADE80]',
+    disabled: true,
   },
   {
     id: 'electronics',
@@ -109,6 +117,7 @@ const SUB_EXPERIMENTS_BY_LAB: Record<
   ],
   engineering: [
     { label: '3D Beam deflection', to: '/lab/engineering/beam' },
+    { label: 'Isometric drawing (30° CAD)', to: '/lab/engineering/isometric' },
   ],
 };
 
@@ -159,12 +168,23 @@ export function LabLayout({
 }: LabLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const globalVix = useVixCall();
 
-  // In-Lab Vix state: 'closed' | 'connect' | 'tour'
-  const [vixMode, setVixMode] = useState<'closed' | 'connect' | 'tour'>('closed');
-  const [vixVoice, setVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
-  const [vixStepIdx, setVixStepIdx] = useState(3); // Default to Bench
-  const [dimNonActive, setDimNonActive] = useState(true);
+  // Local fallback state only used when LabLayout is rendered outside VixCallProvider (e.g. isolated unit tests)
+  const [localVixMode, setLocalVixMode] = useState<'closed' | 'connect' | 'tour'>('closed');
+  const [localVixVoice, setLocalVixVoice] = useState<'ada' | 'tunde' | 'grace'>('ada');
+  const [localVixStepIdx, setLocalVixStepIdx] = useState(3);
+  const [localDimNonActive, setLocalDimNonActive] = useState(false);
+
+  const isGlobalManaged = Boolean(globalVix);
+  const vixMode: 'closed' | 'connect' | 'tour' = isGlobalManaged
+    ? globalVix!.isCallActive
+      ? 'tour'
+      : 'closed'
+    : localVixMode;
+  const vixVoice = isGlobalManaged ? globalVix!.voice : localVixVoice;
+  const vixStepIdx = isGlobalManaged ? globalVix!.stepIdx : localVixStepIdx;
+  const dimNonActive = isGlobalManaged ? globalVix!.dimNonActive : localDimNonActive;
 
   // Global Laboratory Right-Click Context Menu
   const [labContextMenu, setLabContextMenu] = useState<{
@@ -222,10 +242,14 @@ export function LabLayout({
       onCallVix();
       return;
     }
-    if (vixMode === 'tour') {
-      setVixMode('closed');
+    if (isGlobalManaged) {
+      globalVix!.toggleCall();
+      return;
+    }
+    if (localVixMode === 'tour') {
+      setLocalVixMode('closed');
     } else {
-      setVixMode('connect');
+      setLocalVixMode('tour');
     }
   };
 
@@ -263,12 +287,13 @@ export function LabLayout({
         <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/labs"
+            data-vix-part="top-back"
             aria-label="Back to laboratories"
             className="w-9 h-9 rounded-xl bg-[#121A2B] hover:bg-[#192338] border border-[#22304A] flex items-center justify-center text-[#C9D3E6] hover:text-white transition-colors shrink-0"
           >
             <ChevronLeft className="w-4 h-4" />
           </Link>
-          <div className="min-w-0">
+          <div data-vix-part="top-title" className="min-w-0">
             <div className="flex items-center gap-2">
               <h1 className="font-display text-sm sm:text-base font-bold text-[#E6EBF5] truncate">
                 {experimentTitle}
@@ -295,13 +320,26 @@ export function LabLayout({
           </div>
         </div>
 
-        {/* Center: 5-Lab Pill Switcher */}
+        {/* Center: Lab Pill Switcher (Biology grayed out & disabled for now) */}
         <nav
+          data-vix-part="top-labs"
           aria-label="Laboratory switcher"
-          className="hidden xl:flex items-center bg-[#121A2B] border border-[#22304A] rounded-full p-1 gap-0.5"
+          className="hidden md:flex items-center bg-[#121A2B] border border-[#22304A] rounded-full p-1 gap-0.5"
         >
           {LAB_TABS.map((tab) => {
             const isActive = tab.id === activeLab;
+            if (tab.disabled) {
+              return (
+                <span
+                  key={tab.id}
+                  aria-disabled="true"
+                  title="Biology lab is coming soon"
+                  className="px-3.5 py-1 rounded-full text-xs font-semibold text-[#4B5563] opacity-45 cursor-not-allowed select-none"
+                >
+                  {tab.label}
+                </span>
+              );
+            }
             return (
               <Link
                 key={tab.id}
@@ -325,6 +363,7 @@ export function LabLayout({
           {mode !== 'exam' && (
             <button
               type="button"
+              data-vix-part="top-vix"
               onClick={handleCallVix}
               className={`px-3.5 py-1.5 rounded-full border text-xs font-semibold inline-flex items-center gap-2 transition-colors cursor-pointer ${
                 vixMode === 'tour'
@@ -337,15 +376,16 @@ export function LabLayout({
                   vixMode === 'tour' ? 'bg-[#0B1220] animate-ping' : 'bg-[#F97316]'
                 }`}
               />
-              {vixMode === 'tour' ? 'Vix is on · End' : 'Call Vix'}
+              <span>{vixMode === 'tour' ? 'Vix is on · End' : 'Call Vix'}</span>
             </button>
           )}
 
           {nextStepLabel && (
             <button
               type="button"
-              onClick={handleNext}
+              data-vix-part="top-next"
               disabled={nextStepDisabled}
+              onClick={handleNext}
               className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
                 nextStepDisabled
                   ? 'bg-[#1E2A42] text-[#6B778C] cursor-not-allowed'
@@ -684,30 +724,30 @@ export function LabLayout({
         )}
       </div>
 
-      {/* In-Lab E1 Vix Connect Modal */}
-      {vixMode === 'connect' && (
+      {/* Local fallback Vix overlay (only when rendered outside global VixCallProvider, e.g. isolated unit tests) */}
+      {!isGlobalManaged && localVixMode === 'connect' && (
         <VixConnectModal
           experimentTitle={experimentTitle}
-          onClose={() => setVixMode('closed')}
+          onClose={() => setLocalVixMode('closed')}
           onStartTour={(selectedVoice) => {
-            setVixVoice(selectedVoice);
-            setVixStepIdx(3); // Point at Bench first
-            setVixMode('tour');
+            setLocalVixVoice(selectedVoice);
+            setLocalVixStepIdx(3);
+            setLocalVixMode('tour');
           }}
         />
       )}
 
-      {/* In-Lab E2 Live Spotlight Tour Floating Card */}
-      {vixMode === 'tour' && (
+      {!isGlobalManaged && localVixMode === 'tour' && (
         <VixSpotlightFloatingCard
           activeLab={activeLab}
           experimentTitle={experimentTitle}
           voice={vixVoice}
+          onChangeVoice={(v) => setLocalVixVoice(v)}
           stepIdx={vixStepIdx}
-          onSelectStep={(idx) => setVixStepIdx(idx)}
+          onSelectStep={(idx) => setLocalVixStepIdx(idx)}
           dimNonActive={dimNonActive}
-          onToggleDim={() => setDimNonActive((d) => !d)}
-          onEndCall={() => setVixMode('closed')}
+          onToggleDim={() => setLocalDimNonActive((d) => !d)}
+          onEndCall={() => setLocalVixMode('closed')}
         />
       )}
 
@@ -736,7 +776,8 @@ export function LabLayout({
                 role="menuitem"
                 onClick={() => {
                   setLabContextMenu(null);
-                  setVixMode('connect');
+                  if (isGlobalManaged) globalVix!.openCall();
+                  else setLocalVixMode('tour');
                 }}
                 className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-[#192845] flex items-center justify-between text-[#FDBA74] font-semibold cursor-pointer"
               >

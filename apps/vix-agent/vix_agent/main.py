@@ -79,6 +79,7 @@ def process_user_query(
         session_id=kwargs.get("session_id", "session-default"),
         experiment_id=kwargs.get("experiment_id", "phy.pendulum.g"),
         locale=kwargs.get("locale", "en"),
+        first_name=kwargs.get("first_name", "Student"),
         brain=active_brain.identifier,
     )
 

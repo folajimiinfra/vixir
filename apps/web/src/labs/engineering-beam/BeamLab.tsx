@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { RotateCcw, RotateCw, Compass } from 'lucide-react';
 import { LabLayout } from '../../lab-shell/LabLayout';
@@ -45,13 +45,7 @@ const MATERIALS: Record<
   },
 };
 
-const INITIAL_ROWS: BeamRow[] = [
-  { id: 1, masses: 0, loadN: 0.0, deltaLoad: 0.0, deltaUnload: 0.0, meanMm: 0.0 },
-  { id: 2, masses: 1, loadN: 0.98, deltaLoad: 0.23, deltaUnload: 0.23, meanMm: 0.23 },
-  { id: 3, masses: 2, loadN: 1.96, deltaLoad: 0.45, deltaUnload: 0.46, meanMm: 0.455 },
-  { id: 4, masses: 3, loadN: 2.94, deltaLoad: 0.68, deltaUnload: null, meanMm: 0.68 },
-  { id: 5, masses: 4, loadN: 3.92, deltaLoad: 0.91, deltaUnload: null, meanMm: 0.91 },
-];
+const INITIAL_ROWS: BeamRow[] = [];
 
 interface Vec3 {
   x: number;
@@ -92,6 +86,23 @@ export function BeamLab() {
     'log > Gauge zeroed with empty hanger. Loading in 100 g steps.'
   );
 
+  // Vix Live Tutorial Sandbox Mode (analogous Aluminium/Brass beam at 0.800 m so student's real steel bench is untouched)
+  const [tutorialSandbox, setTutorialSandbox] = useState<{
+    title: string;
+    note: string;
+  } | null>(null);
+  const [demoRows, setDemoRows] = useState<BeamRow[]>([]);
+  const savedRealBeamRef = useRef<{
+    material: MaterialKey;
+    span: SpanM;
+    masses: number;
+    phase: 'loading' | 'unloading';
+    zeroOffset: number;
+    view: RigView;
+  } | null>(null);
+
+  const activeRows = tutorialSandbox ? demoRows : rows;
+
   // Interactive 3D Orbit Camera State (default yaw=30°, pitch=30° matches D7-engineering-beam-rig-isometric.svg)
   const [yawDeg, setYawDeg] = useState(30);
   const [pitchDeg, setPitchDeg] = useState(30);
@@ -131,7 +142,7 @@ export function BeamLab() {
   };
 
   const handleRecordDeflection = () => {
-    setRows((prev) => {
+    const updater = (prev: BeamRow[]) => {
       const existing = prev.find((r) => r.masses === masses);
       if (existing) {
         return prev.map((r) => {
@@ -161,11 +172,104 @@ export function BeamLab() {
           meanMm: gaugeReading,
         },
       ].sort((a, b) => a.masses - b.masses);
-    });
+    };
+    if (tutorialSandbox) {
+      setDemoRows(updater);
+    } else {
+      setRows(updater);
+    }
     setLogMsg(
-      `log > Recorded ${phase} deflection at W = ${loadN.toFixed(2)} N: δ = ${gaugeReading.toFixed(2)} mm.`
+      `log > ${tutorialSandbox ? '[Vix Demo] ' : ''}Recorded ${phase} deflection at W = ${loadN.toFixed(2)} N: δ = ${gaugeReading.toFixed(2)} mm.`
     );
   };
+
+  const exitBeamTutorialSandbox = () => {
+    const saved = savedRealBeamRef.current;
+    savedRealBeamRef.current = null;
+    setTutorialSandbox(null);
+    setDemoRows([]);
+    if (saved) {
+      setMaterial(saved.material);
+      setSpan(saved.span);
+      setMasses(saved.masses);
+      setPhase(saved.phase);
+      setZeroOffset(saved.zeroOffset);
+      setView(saved.view);
+    }
+    setPlungerStuckOffset(0);
+    setLogMsg('log > Exited Tutorial Sandbox and restored your real Mild Steel beam rig & readings.');
+  };
+
+  // Listen for Vix Live Bench Control RPCs so Vix can run a full step-by-step Beam Deflection tutorial live!
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onBenchControl = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ action: string; params?: Record<string, unknown> }>).detail;
+      if (!detail?.action) return;
+      const { action, params = {} } = detail;
+
+      if (action === 'start_tutorial_sandbox') {
+        if (!savedRealBeamRef.current) {
+          savedRealBeamRef.current = { material, span, masses, phase, zeroOffset, view };
+        }
+        setTutorialSandbox({
+          title: String(params.scenarioTitle || 'Tutorial Demo: Aluminium Beam (E = 70 GPa, L = 0.800 m)'),
+          note: String(
+            params.analogNote ||
+              'Using an analogous Aluminium beam at 0.800 m span so your Mild Steel practical readings stay untouched.'
+          ),
+        });
+        setDemoRows([]);
+        setMaterial('aluminium');
+        setSpan(0.8);
+        setMasses(0);
+        setPhase('loading');
+        setZeroOffset(0);
+        setPlungerStuckOffset(0);
+        setLogMsg('log > [Vix Tutorial Sandbox] Loaded analogous Aluminium beam (0.800 m) with empty hanger.');
+      } else if (action === 'set_material') {
+        const m = String(params.material || params.value || 'aluminium').toLowerCase();
+        const nextMat: MaterialKey =
+          m.includes('brass') ? 'brass' : m.includes('steel') ? 'steel' : 'aluminium';
+        setMaterial(nextMat);
+        setZeroOffset(0);
+        setLogMsg(`log > [Vix Demo] Switched test beam to ${MATERIALS[nextMat].label}.`);
+      } else if (action === 'set_span') {
+        const v = Number(params.value);
+        const nextSpan: SpanM = v <= 0.65 ? 0.6 : v <= 0.85 ? 0.8 : 1.0;
+        setSpan(nextSpan);
+        setLogMsg(`log > [Vix Demo] Set knife-edge span L = ${nextSpan.toFixed(3)} m.`);
+      } else if (action === 'zero_gauge') {
+        handleZeroGauge();
+      } else if (action === 'set_masses') {
+        const next = Math.max(0, Math.min(10, Math.round(Number(params.value) || 0)));
+        setMasses(next);
+        setPlungerStuckOffset(next > masses ? -0.01 : 0.01);
+        setLogMsg(`log > [Vix Demo] Placed ${next} × 100 g on hanger (W = ${(next * 0.98).toFixed(2)} N).`);
+      } else if (action === 'add_mass') {
+        handleAdjustMass(Math.max(1, Math.round(Number(params.value) || 1)));
+      } else if (action === 'remove_mass') {
+        handleAdjustMass(-Math.max(1, Math.round(Number(params.value) || 1)));
+      } else if (action === 'tap_bench') {
+        handleTapBench();
+      } else if (action === 'set_phase') {
+        const p = String(params.phase || params.value || 'loading').toLowerCase();
+        const nextPhase: 'loading' | 'unloading' = p.includes('unload') ? 'unloading' : 'loading';
+        setPhase(nextPhase);
+        setLogMsg(`log > [Vix Demo] Switched to ${nextPhase} phase.`);
+      } else if (action === 'set_view') {
+        const vw = String(params.view || params.value || 'isometric').toLowerCase();
+        setView(vw.includes('elev') || vw.includes('front') ? 'elevation' : 'isometric');
+      } else if (action === 'record_demo_trial' || action === 'record_deflection') {
+        handleRecordDeflection();
+      } else if (action === 'end_tutorial_sandbox') {
+        exitBeamTutorialSandbox();
+      }
+    };
+
+    window.addEventListener('vix:bench-control', onBenchControl);
+    return () => window.removeEventListener('vix:bench-control', onBenchControl);
+  });
 
   // Pointer drag handlers for 3D orbit rotation
   const handlePointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
@@ -648,7 +752,7 @@ export function BeamLab() {
         <div className="space-y-3.5">
           <div>
             <h2 className="font-display text-sm font-bold text-[#E6EBF5] mb-2">
-              Load–deflection table
+              {tutorialSandbox ? 'Demo Load–deflection table' : 'Load–deflection table'}
             </h2>
             <div className="bg-[#121A2B] border border-[#22304A] rounded-xl overflow-hidden">
               <table className="w-full text-xs font-mono">
@@ -661,7 +765,7 @@ export function BeamLab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {activeRows.map((r) => (
                     <tr
                       key={r.id}
                       className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
@@ -696,10 +800,18 @@ export function BeamLab() {
                 strokeWidth="1.2"
                 strokeDasharray="3 3"
               />
-              {rows.map((r) => {
+              {activeRows.map((r) => {
                 const cx = 35 + (r.loadN / 10) * 200;
-                const cy = 115 - (Math.min(r.meanMm, 2.5) / 2.5) * 95;
-                return <circle key={r.id} cx={cx} cy={cy} r="3.5" fill="#D8B4FE" />;
+                const cy = 115 - Math.min(95, (r.meanMm / 3.5) * 95);
+                return (
+                  <circle
+                    key={r.id}
+                    cx={cx}
+                    cy={cy}
+                    r="3.5"
+                    fill={tutorialSandbox ? '#38BDF8' : '#D8B4FE'}
+                  />
+                );
               })}
               <text
                 x="138"
@@ -747,6 +859,26 @@ export function BeamLab() {
         </div>
       }
     >
+      {/* Vix Live Tutorial Sandbox Banner */}
+      {tutorialSandbox && (
+        <div className="mb-2 px-4 py-2.5 rounded-xl bg-[#0F2942] border border-[#38BDF8] flex flex-wrap items-center justify-between gap-2 text-xs z-20">
+          <div>
+            <span className="font-mono font-bold text-[#38BDF8] mr-2">
+              VIX LIVE TUTORIAL SANDBOX
+            </span>
+            <span className="text-white font-semibold">{tutorialSandbox.title}</span>
+            <span className="text-[#93C5FD] ml-2">({tutorialSandbox.note})</span>
+          </div>
+          <button
+            type="button"
+            onClick={exitBeamTutorialSandbox}
+            className="px-3 py-1 rounded-lg bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0B1220] font-bold text-[11px] cursor-pointer shrink-0"
+          >
+            Exit Demo &amp; Restore My Bench
+          </button>
+        </div>
+      )}
+
       {/* Top Bench Overlays */}
       <div className="flex flex-wrap items-center justify-between gap-2 z-10">
         <span className="px-3 py-1 rounded-full bg-[#291A42] border border-[#6B21A8] text-xs font-semibold text-[#D8B4FE]">

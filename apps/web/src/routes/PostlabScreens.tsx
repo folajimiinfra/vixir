@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { Check, AlertCircle } from 'lucide-react';
 import {
@@ -6,11 +6,15 @@ import {
   computeAutoMark,
   computeRegressionForRows,
 } from '../store/labSessionStore';
+import { useAuth } from '../context/AuthContext';
+import { vixirApi, type MarkReportResponse } from '../lib/api';
 
 // F1 — Results table, graph & calculations
 export function ResultsGraphScreen() {
   const navigate = useNavigate();
   const rows = useLabSessionStore((s) => s.pendulumRows);
+  const hydrateFromBackend = useLabSessionStore((s) => s.hydrateFromBackend);
+  const removePendulumRow = useLabSessionStore((s) => s.removePendulumRow);
   const updateResultCell = useLabSessionStore((s) => s.updateResultCell);
   const fixAllDecimalPlaces = useLabSessionStore((s) => s.fixAllDecimalPlaces);
   const gValue = useLabSessionStore((s) => s.gValue);
@@ -19,15 +23,84 @@ export function ResultsGraphScreen() {
   const setPrecautions = useLabSessionStore((s) => s.setPrecautions);
 
   const [showBestFit, setShowBestFit] = useState(true);
+  const [newPrecautionText, setNewPrecautionText] = useState('');
+
+  useEffect(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
 
   const fit = computeRegressionForRows(rows);
-  const slopeDisplay = fit.slope.toFixed(2);
-  const pctDiff = (
-    (Math.abs((Number(gValue) || 9.82) - 9.81) / 9.81) *
-    100
-  ).toFixed(1);
+  const hasFit = rows.length >= 2 && Number.isFinite(fit.slope) && Math.abs(fit.slope) > 0.01;
+  const slopeDisplay = hasFit ? fit.slope.toFixed(2) : '0.00';
+
+  // Exact mathematical clipping of OLS line y = m*x + c against plot box [0..1.0] × [0..4.0]
+  const computeGraphLineGeometry = () => {
+    if (!hasFit) return null;
+    let lineX1 = 0.0;
+    let lineY1 = fit.slope * lineX1 + fit.intercept;
+    let lineX2 = 1.0;
+    let lineY2 = fit.slope * lineX2 + fit.intercept;
+
+    if (Math.abs(fit.slope) > 1e-6) {
+      if (lineY1 < 0) {
+        lineY1 = 0;
+        lineX1 = (0 - fit.intercept) / fit.slope;
+      } else if (lineY1 > 4.0) {
+        lineY1 = 4.0;
+        lineX1 = (4.0 - fit.intercept) / fit.slope;
+      }
+      if (lineY2 > 4.0) {
+        lineY2 = 4.0;
+        lineX2 = (4.0 - fit.intercept) / fit.slope;
+      } else if (lineY2 < 0) {
+        lineY2 = 0;
+        lineX2 = (0 - fit.intercept) / fit.slope;
+      }
+    }
+    lineX1 = Math.max(0, Math.min(1.0, lineX1));
+    lineX2 = Math.max(0, Math.min(1.0, lineX2));
+    lineY1 = fit.slope * lineX1 + fit.intercept;
+    lineY2 = fit.slope * lineX2 + fit.intercept;
+
+    // Large slope triangle vertices A and B spanning > 60% of the visible best-fit line
+    const sorted = [...rows].sort((a, b) => a.lengthM - b.lengthM);
+    let xA = Math.max(lineX1 + 0.05, Math.min(sorted[0]!.lengthM, lineX2 - 0.1));
+    let xB = Math.min(lineX2 - 0.05, Math.max(sorted[sorted.length - 1]!.lengthM, xA + 0.1));
+    if (xB - xA < 0.35 && lineX2 - lineX1 >= 0.45) {
+      const span = lineX2 - lineX1;
+      xA = lineX1 + span * 0.18;
+      xB = lineX1 + span * 0.85;
+    }
+    const yA = fit.slope * xA + fit.intercept;
+    const yB = fit.slope * xB + fit.intercept;
+
+    return { lineX1, lineY1, lineX2, lineY2, xA, yA, xB, yB };
+  };
+
+  const lineGeom = computeGraphLineGeometry();
+  const parsedG = Number(gValue);
+  const hasValidG = Number.isFinite(parsedG) && parsedG > 0;
+  const pctDiffNum = hasValidG ? (Math.abs(parsedG - 9.81) / 9.81) * 100 : null;
+  const pctDiff = pctDiffNum !== null ? pctDiffNum.toFixed(1) : '—';
 
   const hasDpWarning = rows.some((r) => (r.periodT2.split('.')[1] || '').length !== 3);
+
+  const handleAddCustomPrecaution = () => {
+    const trimmed = newPrecautionText.trim();
+    if (!trimmed) return;
+    setPrecautions((p) => ({
+      ...p,
+      customPrecautions: [...(p.customPrecautions || []), trimmed],
+    }));
+    setNewPrecautionText('');
+  };
+
+  const handleRemoveCustomPrecaution = (idx: number) => {
+    setPrecautions((p) => ({
+      ...p,
+      customPrecautions: (p.customPrecautions || []).filter((_, i) => i !== idx),
+    }));
+  };
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
@@ -90,76 +163,107 @@ export function ResultsGraphScreen() {
             )}
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead>
-                <tr className="bg-[#F5F7FA] border-b border-[#E3E8EF] text-[#0E1726] font-bold">
-                  <th className="py-2.5 px-3 text-left">S/N</th>
-                  <th className="py-2.5 px-3 text-left">L / m</th>
-                  <th className="py-2.5 px-3 text-left">t₁ / s</th>
-                  <th className="py-2.5 px-3 text-left">t₂ / s</th>
-                  <th className="py-2.5 px-3 text-left">t̄ / s</th>
-                  <th className="py-2.5 px-3 text-left">T = t̄/20 / s</th>
-                  <th className="py-2.5 px-3 text-left">T² / s²</th>
-                  <th className="py-2.5 px-3 text-left">Check</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#E3E8EF] font-mono">
-                {rows.map((r) => {
-                  const decimals = (r.periodT2.split('.')[1] || '').length;
-                  const dpOk = decimals === 3;
-                  return (
-                    <tr key={r.sn}>
-                      <td className="py-2 px-3">{r.sn}</td>
-                      <td className="py-2 px-3">{r.lengthM.toFixed(3)}</td>
-                      <td className="py-2 px-3">{r.t1.toFixed(2)}</td>
-                      <td className="py-2 px-3">{r.t2.toFixed(2)}</td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Mean time row ${r.sn}`}
-                          value={r.tMean}
-                          onChange={(e) => updateResultCell(r.sn, 'tMean', e.target.value)}
-                          className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
-                        />
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Period T row ${r.sn}`}
-                          value={r.periodT}
-                          onChange={(e) => updateResultCell(r.sn, 'periodT', e.target.value)}
-                          className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
-                        />
-                      </td>
-                      <td className="py-2 px-3">
-                        <input
-                          type="text"
-                          aria-label={`Period squared row ${r.sn}`}
-                          value={r.periodT2}
-                          onChange={(e) => updateResultCell(r.sn, 'periodT2', e.target.value)}
-                          className={`w-20 px-2 py-1 rounded border text-xs font-mono ${
-                            dpOk
-                              ? 'border-[#D0D7E2] bg-white'
-                              : 'border-[#B54708] bg-[#FEF5EE] text-[#9A3412]'
-                          }`}
-                        />
-                      </td>
-                      <td className="py-2 px-3 font-sans">
-                        {dpOk ? (
-                          <span className="text-[#0F7B45] font-semibold">✓ 3 d.p.</span>
-                        ) : (
-                          <span className="text-[#B54708] font-semibold">
-                            ! {decimals} d.p.
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+          {rows.length === 0 ? (
+            <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-7 text-center space-y-3">
+              <div className="font-display text-base font-bold text-[#0E1726]">
+                No readings recorded on the bench yet
+              </div>
+              <p className="text-xs text-[#475467] max-w-md mx-auto leading-relaxed">
+                Return to the pendulum bench, adjust length L across at least 5–6 positions,
+                time 20 oscillations with the stopwatch, and click Record reading to populate
+                your table and plot your graph.
+              </p>
+              <Link
+                to="/lab/physics/pendulum"
+                className="inline-block px-4 py-2.5 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold"
+              >
+                ← Go to bench to record readings
+              </Link>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-[#F5F7FA] border-b border-[#E3E8EF] text-[#0E1726] font-bold">
+                    <th className="py-2.5 px-3 text-left">S/N</th>
+                    <th className="py-2.5 px-3 text-left">L / m</th>
+                    <th className="py-2.5 px-3 text-left">t₁ / s</th>
+                    <th className="py-2.5 px-3 text-left">t₂ / s</th>
+                    <th className="py-2.5 px-3 text-left">t̄ / s</th>
+                    <th className="py-2.5 px-3 text-left">T = t̄/20 / s</th>
+                    <th className="py-2.5 px-3 text-left">T² / s²</th>
+                    <th className="py-2.5 px-3 text-left">Check</th>
+                    <th className="py-2.5 px-2 text-right" aria-label="Remove row" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#E3E8EF] font-mono">
+                  {rows.map((r) => {
+                    const decimals = (r.periodT2.split('.')[1] || '').length;
+                    const dpOk = decimals === 3;
+                    return (
+                      <tr key={r.sn}>
+                        <td className="py-2 px-3">{r.sn}</td>
+                        <td className="py-2 px-3">{r.lengthM.toFixed(3)}</td>
+                        <td className="py-2 px-3">{r.t1.toFixed(2)}</td>
+                        <td className="py-2 px-3">{r.t2.toFixed(2)}</td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Mean time row ${r.sn}`}
+                            value={r.tMean}
+                            onChange={(e) => updateResultCell(r.sn, 'tMean', e.target.value)}
+                            className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Period T row ${r.sn}`}
+                            value={r.periodT}
+                            onChange={(e) => updateResultCell(r.sn, 'periodT', e.target.value)}
+                            className="w-20 px-2 py-1 rounded border border-[#D0D7E2] bg-white text-xs font-mono"
+                          />
+                        </td>
+                        <td className="py-2 px-3">
+                          <input
+                            type="text"
+                            aria-label={`Period squared row ${r.sn}`}
+                            value={r.periodT2}
+                            onChange={(e) => updateResultCell(r.sn, 'periodT2', e.target.value)}
+                            className={`w-20 px-2 py-1 rounded border text-xs font-mono ${
+                              dpOk
+                                ? 'border-[#D0D7E2] bg-white'
+                                : 'border-[#B54708] bg-[#FEF5EE] text-[#9A3412]'
+                            }`}
+                          />
+                        </td>
+                        <td className="py-2 px-3 font-sans">
+                          {dpOk ? (
+                            <span className="text-[#0F7B45] font-semibold">✓ 3 d.p.</span>
+                          ) : (
+                            <span className="text-[#B54708] font-semibold">
+                              ! {decimals} d.p.
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-right">
+                          <button
+                            type="button"
+                            aria-label={`Remove row ${r.sn}`}
+                            title="Remove this reading"
+                            onClick={() => removePendulumRow(r.sn)}
+                            className="px-2 py-0.5 rounded text-[#6B778C] hover:text-[#C4321C] hover:bg-[#FEF2F2] cursor-pointer"
+                          >
+                            ×
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* Bottom 2-Column Grid: Graph + Calculation & Precautions */}
@@ -282,93 +386,117 @@ export function ResultsGraphScreen() {
                 T² / s²
               </text>
 
-              {/* Best-fit Line & Large Slope Triangle */}
-              {showBestFit && (
+              {/* Exact Mathematically Clipped OLS Best-fit Line & Large Slope Triangle */}
+              {showBestFit && lineGeom && (
                 <>
-                  {/* Dashed coordinate lines for A (0.275, 1.10) and B (0.850, 3.41) */}
+                  {/* Right-angled large slope triangle legs (ΔL horizontal & ΔT² vertical) */}
                   <line
-                    x1="70"
-                    y1={330 - (1.1 / 4) * 300}
-                    x2={70 + 0.275 * 520}
-                    y2={330 - (1.1 / 4) * 300}
+                    x1={70 + lineGeom.xA * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yA / 4) * 300}
                     stroke="#B54708"
-                    strokeWidth="1.3"
+                    strokeWidth="1.4"
                     strokeDasharray="4 4"
                   />
                   <line
-                    x1={70 + 0.275 * 520}
-                    y1={330 - (1.1 / 4) * 300}
-                    x2={70 + 0.275 * 520}
-                    y2="330"
+                    x1={70 + lineGeom.xB * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yB / 4) * 300}
                     stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
-
-                  <line
-                    x1="70"
-                    y1={330 - (3.41 / 4) * 300}
-                    x2={70 + 0.85 * 520}
-                    y2={330 - (3.41 / 4) * 300}
-                    stroke="#B54708"
-                    strokeWidth="1.3"
-                    strokeDasharray="4 4"
-                  />
-                  <line
-                    x1={70 + 0.85 * 520}
-                    y1={330 - (3.41 / 4) * 300}
-                    x2={70 + 0.85 * 520}
-                    y2="330"
-                    stroke="#B54708"
-                    strokeWidth="1.3"
+                    strokeWidth="1.4"
                     strokeDasharray="4 4"
                   />
 
-                  {/* Blue Best-Fit Line */}
+                  {/* Axis projection guides for A and B */}
                   <line
-                    x1={70 + 0.05 * 520}
-                    y1={330 - (0.201 / 4) * 300}
-                    x2={70 + 0.94 * 520}
-                    y2={330 - (3.78 / 4) * 300}
+                    x1="70"
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xA * 520}
+                    y2={330 - (lineGeom.yA / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1={70 + lineGeom.xA * 520}
+                    y1={330 - (lineGeom.yA / 4) * 300}
+                    x2={70 + lineGeom.xA * 520}
+                    y2="330"
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1="70"
+                    y1={330 - (lineGeom.yB / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2={330 - (lineGeom.yB / 4) * 300}
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+                  <line
+                    x1={70 + lineGeom.xB * 520}
+                    y1={330 - (lineGeom.yB / 4) * 300}
+                    x2={70 + lineGeom.xB * 520}
+                    y2="330"
+                    stroke="#B54708"
+                    strokeWidth="1"
+                    strokeDasharray="3 4"
+                    opacity="0.6"
+                  />
+
+                  {/* True OLS Best-Fit Line */}
+                  <line
+                    x1={70 + lineGeom.lineX1 * 520}
+                    y1={330 - (lineGeom.lineY1 / 4) * 300}
+                    x2={70 + lineGeom.lineX2 * 520}
+                    y2={330 - (lineGeom.lineY2 / 4) * 300}
                     stroke="#1D4ED8"
-                    strokeWidth="2"
+                    strokeWidth="2.2"
                   />
 
-                  {/* Triangle vertices A and B */}
+                  {/* Vertex A */}
                   <circle
-                    cx={70 + 0.275 * 520}
-                    cy={330 - (1.1 / 4) * 300}
+                    cx={70 + lineGeom.xA * 520}
+                    cy={330 - (lineGeom.yA / 4) * 300}
                     r="4.5"
                     fill="#FFFFFF"
                     stroke="#B54708"
                     strokeWidth="2"
                   />
                   <text
-                    x={70 + 0.275 * 520 + 8}
-                    y={330 - (1.1 / 4) * 300 - 8}
+                    x={70 + lineGeom.xA * 520 + 8}
+                    y={330 - (lineGeom.yA / 4) * 300 - 8}
                     fill="#B54708"
                     fontSize="11"
                     fontFamily="JetBrains Mono, monospace"
                   >
-                    A (0.275, 1.10)
+                    A ({lineGeom.xA.toFixed(3)}, {lineGeom.yA.toFixed(2)})
                   </text>
 
+                  {/* Vertex B */}
                   <circle
-                    cx={70 + 0.85 * 520}
-                    cy={330 - (3.41 / 4) * 300}
+                    cx={70 + lineGeom.xB * 520}
+                    cy={330 - (lineGeom.yB / 4) * 300}
                     r="4.5"
                     fill="#FFFFFF"
                     stroke="#B54708"
                     strokeWidth="2"
                   />
                   <text
-                    x={70 + 0.85 * 520 - 115}
-                    y={330 - (3.41 / 4) * 300 - 8}
+                    x={Math.min(480, Math.max(80, 70 + lineGeom.xB * 520 - 110))}
+                    y={330 - (lineGeom.yB / 4) * 300 - 10}
                     fill="#B54708"
                     fontSize="11"
                     fontFamily="JetBrains Mono, monospace"
                   >
-                    B (0.850, 3.41)
+                    B ({lineGeom.xB.toFixed(3)}, {lineGeom.yB.toFixed(2)})
                   </text>
                 </>
               )}
@@ -401,10 +529,26 @@ export function ResultsGraphScreen() {
 
               <div className="bg-[#F5F7FA] rounded-xl p-4 font-mono text-xs space-y-1.5 text-[#0E1726]">
                 <div>slope = ΔT² / ΔL</div>
-                <div>= (3.41 - 1.10) / (0.850 - 0.275)</div>
-                <div>= 2.31 / 0.575</div>
-                <div className="text-[#2448D8] font-bold">= {slopeDisplay} s² m⁻¹</div>
-                <div className="pt-1">g = 4π² / slope = 39.48 / {slopeDisplay}</div>
+                {lineGeom ? (
+                  <>
+                    <div>
+                      = ({lineGeom.yB.toFixed(2)} - {lineGeom.yA.toFixed(2)}) / (
+                      {lineGeom.xB.toFixed(3)} - {lineGeom.xA.toFixed(3)})
+                    </div>
+                    <div>
+                      = {(lineGeom.yB - lineGeom.yA).toFixed(2)} /{' '}
+                      {(lineGeom.xB - lineGeom.xA).toFixed(3)}
+                    </div>
+                    <div className="text-[#2448D8] font-bold">= {slopeDisplay} s² m⁻¹</div>
+                    <div className="pt-1">
+                      g = 4π² / slope = 39.48 / {slopeDisplay}
+                    </div>
+                  </>
+                ) : (
+                  <div className="text-[#6B778C]">
+                    Record at least 2 distinct lengths on the bench to compute the slope.
+                  </div>
+                )}
               </div>
 
               <div>
@@ -420,23 +564,43 @@ export function ResultsGraphScreen() {
                     type="text"
                     value={gValue}
                     onChange={(e) => setGValue(e.target.value)}
+                    placeholder="e.g. 9.81"
                     className="flex-1 px-3.5 py-2.5 rounded-xl bg-white border border-[#D0D7E2] font-mono text-sm text-[#0E1726]"
                   />
                   <span className="font-mono text-xs text-[#475467]">m s⁻²</span>
                 </div>
               </div>
 
-              <div className="bg-[#E6F6EE] rounded-xl p-3.5 text-xs text-[#0F7B45] leading-relaxed">
-                Consistent with your own data. Percentage difference from 9.81 m s⁻²:{' '}
-                <strong>{pctDiff}%</strong>
-              </div>
+              {pctDiffNum !== null && (
+                <div
+                  className={`rounded-xl p-3.5 text-xs leading-relaxed ${
+                    pctDiffNum <= 5 && fit.slope > 0
+                      ? 'bg-[#E6F6EE] text-[#0F7B45]'
+                      : 'bg-[#FEF5EE] border border-[#F9D7C4] text-[#9A3412]'
+                  }`}
+                >
+                  {pctDiffNum <= 5 && fit.slope > 0
+                    ? `Consistent with standard gravity. Percentage difference from 9.81 m s⁻²: `
+                    : `Check your outlier readings or slope — percentage difference from 9.81 m s⁻² is high: `}
+                  <strong>{pctDiff}%</strong>
+                </div>
+              )}
             </div>
 
-            {/* Precautions taken */}
+            {/* Precautions taken (Checkboxes + Dynamic Addable Custom Precautions List) */}
             <div className="bg-white rounded-2xl border border-[#E3E8EF] p-6 space-y-3">
-              <h2 className="font-display text-base font-bold text-[#0E1726]">
-                Precautions taken
-              </h2>
+              <div className="flex items-center justify-between">
+                <h2 className="font-display text-base font-bold text-[#0E1726]">
+                  Precautions taken
+                </h2>
+                <span className="font-mono text-[11px] text-[#6B778C]">
+                  {(precautions.parallax ? 1 : 0) +
+                    (precautions.smallAngle ? 1 : 0) +
+                    (precautions.centreSwing ? 1 : 0) +
+                    (precautions.customPrecautions?.length || 0)}{' '}
+                  stated
+                </span>
+              </div>
 
               <div className="space-y-2 text-xs text-[#0E1726]">
                 <label className="flex items-center gap-2.5 cursor-pointer">
@@ -474,15 +638,53 @@ export function ResultsGraphScreen() {
                 </label>
               </div>
 
-              <textarea
-                rows={3}
-                value={precautions.extra}
-                onChange={(e) =>
-                  setPrecautions((p) => ({ ...p, extra: e.target.value }))
-                }
-                placeholder="Other precautions or sources of error..."
-                className="w-full px-3 py-2 rounded-xl border border-[#D0D7E2] text-xs placeholder:text-[#6B778C]"
-              />
+              {/* Added Custom Precautions List */}
+              {(precautions.customPrecautions || []).length > 0 && (
+                <ul className="space-y-1.5 pt-1">
+                  {(precautions.customPrecautions || []).map((item, idx) => (
+                    <li
+                      key={`${item}-${idx}`}
+                      className="flex items-start justify-between gap-2 px-3 py-2 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] text-xs text-[#0E1726]"
+                    >
+                      <span className="leading-snug">• {item}</span>
+                      <button
+                        type="button"
+                        aria-label={`Remove precaution ${idx + 1}`}
+                        onClick={() => handleRemoveCustomPrecaution(idx)}
+                        className="text-[#6B778C] hover:text-[#C4321C] font-bold px-1 cursor-pointer shrink-0"
+                      >
+                        ×
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Add New Precaution Input + Button */}
+              <div className="flex items-center gap-2 pt-1">
+                <input
+                  type="text"
+                  aria-label="Add another precaution"
+                  value={newPrecautionText}
+                  onChange={(e) => setNewPrecautionText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleAddCustomPrecaution();
+                    }
+                  }}
+                  placeholder="Add another precaution (e.g. switched off fans)..."
+                  className="flex-1 px-3 py-2 rounded-xl border border-[#D0D7E2] text-xs placeholder:text-[#6B778C] focus:outline-none focus:border-[#2448D8]"
+                />
+                <button
+                  type="button"
+                  disabled={!newPrecautionText.trim()}
+                  onClick={handleAddCustomPrecaution}
+                  className="px-3.5 py-2 rounded-xl bg-[#EAEFFE] hover:bg-[#DBEAFE] disabled:opacity-50 text-[#1D4ED8] text-xs font-semibold shrink-0 cursor-pointer"
+                >
+                  + Add
+                </button>
+              </div>
             </div>
 
             <button
@@ -763,12 +965,126 @@ export function ReviewSubmitScreen() {
 // F3 — Marked Report & Feedback (/attempt/:id/report)
 export function MarkedReportScreen() {
   const navigate = useNavigate();
+  const attemptId = useLabSessionStore((s) => s.attemptId);
+  const submittedAt = useLabSessionStore((s) => s.submittedAt);
   const rows = useLabSessionStore((s) => s.pendulumRows);
   const precautions = useLabSessionStore((s) => s.precautions);
   const gValue = useLabSessionStore((s) => s.gValue);
 
+  const [isLoadingReport, setIsLoadingReport] = useState<boolean>(false);
+  const [apiReport, setApiReport] = useState<MarkReportResponse | null>(null);
+  const [hasApiSubmittedAttempt, setHasApiSubmittedAttempt] = useState<boolean>(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const isUuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(attemptId);
+
+    const checkReport = async () => {
+      setIsLoadingReport(true);
+      try {
+        if (isUuid) {
+          const rep = await vixirApi.getMarkReport(attemptId).catch(() => null);
+          if (!cancelled && rep) {
+            setApiReport(rep);
+            setHasApiSubmittedAttempt(true);
+            setIsLoadingReport(false);
+            return;
+          }
+        }
+        // Check if user has any submitted attempt on the API
+        const attempts = await vixirApi.listMyAttempts().catch(() => []);
+        const latestSubmitted = attempts.find((a) => a.state === 'SUBMITTED');
+        if (!cancelled && latestSubmitted) {
+          setHasApiSubmittedAttempt(true);
+          const rep = await vixirApi.getMarkReport(latestSubmitted.id).catch(() => null);
+          if (!cancelled && rep) setApiReport(rep);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingReport(false);
+      }
+    };
+
+    void checkReport();
+    return () => {
+      cancelled = true;
+    };
+  }, [attemptId]);
+
+  const hasAnySubmissionOrReadings = Boolean(
+    submittedAt || apiReport || hasApiSubmittedAttempt || rows.length > 0
+  );
+
+  if (isLoadingReport) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] p-8">
+        <div className="max-w-[960px] mx-auto bg-white rounded-2xl border border-[#E3E8EF] p-8 animate-pulse space-y-4">
+          <div className="h-24 bg-[#F1F4F9] rounded-xl" />
+          <div className="h-48 bg-[#F1F4F9] rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasAnySubmissionOrReadings) {
+    return (
+      <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
+        <header className="bg-white border-b border-[#E3E8EF]">
+          <div className="max-w-[1140px] mx-auto px-6 h-14 flex items-center justify-between text-xs">
+            <div>
+              <Link to="/app" className="underline text-[#475467] hover:text-[#0E1726]">
+                Dashboard
+              </Link>{' '}
+              / <strong className="text-[#0E1726]">Lab notebook &amp; Marked Reports</strong>
+            </div>
+            <Link
+              to="/labs"
+              className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white font-semibold"
+            >
+              Open Virtual Laboratories →
+            </Link>
+          </div>
+        </header>
+
+        <main className="max-w-[780px] mx-auto px-6 py-16">
+          <div className="bg-white rounded-3xl border border-[#E3E8EF] p-10 text-center space-y-4">
+            <div className="inline-block px-3 py-1 rounded-full bg-[#EAEFFE] text-[#1D4ED8] text-[11px] font-bold uppercase tracking-wider">
+              LAB NOTEBOOK &amp; GRADES · EMPTY
+            </div>
+            <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
+              No submitted practical reports yet
+            </h1>
+            <p className="text-sm text-[#475467] max-w-lg mx-auto leading-relaxed">
+              You have not recorded readings or submitted a practical attempt for marking
+              yet. Open a laboratory bench, record your experimental readings, plot your
+              graph, and submit your practical to view your auto-marked score breakdown,
+              teacher comments, and viva questions here.
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              <Link
+                to="/lab/physics/pendulum"
+                className="px-5 py-3 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold"
+              >
+                Start Simple Pendulum Practical →
+              </Link>
+              <Link
+                to="/app"
+                className="px-5 py-3 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   const autoMark = computeAutoMark(rows, precautions, gValue);
-  const scoreRatio = autoMark.total / autoMark.maxTotal;
+  const totalScore = apiReport ? apiReport.mark.total : autoMark.total;
+  const maxTotalScore = apiReport ? apiReport.mark.maxTotal : autoMark.maxTotal;
+  const isReviewedByTeacher = apiReport ? Boolean(apiReport.mark.reviewed) : false;
+  const scoreRatio = totalScore / Math.max(1, maxTotalScore);
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726]">
@@ -828,17 +1144,18 @@ export function MarkedReportScreen() {
                 </svg>
                 <div className="absolute inset-0 flex flex-col items-center justify-center">
                   <span className="font-display text-2xl font-bold text-white">
-                    {autoMark.total}
+                    {totalScore}
                   </span>
                   <span className="text-[10px] text-[#93A0B8]">
-                    out of {autoMark.maxTotal}
+                    out of {maxTotalScore}
                   </span>
                 </div>
               </div>
 
               <div>
                 <div className="text-[11px] font-bold tracking-wider uppercase text-[#34D399] mb-1">
-                  MARKED · GRADE {autoMark.grade}
+                  {isReviewedByTeacher ? 'REVIEWED BY TEACHER' : 'AUTO-MARKED'} · GRADE{' '}
+                  {autoMark.grade}
                 </div>
                 <h1 className="font-display text-2xl sm:text-3xl font-bold text-white mb-1.5">
                   Simple pendulum — determination of g
@@ -894,12 +1211,15 @@ export function MarkedReportScreen() {
               <div>
                 <div className="text-xs mb-1">
                   <strong className="text-[#0E1726]">Mr. Bello</strong>{' '}
-                  <span className="text-[#6B778C]">· teacher comment</span>
+                  <span className="text-[#6B778C]">
+                    · {isReviewedByTeacher ? 'reviewed teacher comment' : 'auto-marker feedback'}
+                  </span>
                 </div>
                 <p className="text-xs text-[#0E1726] leading-relaxed">
-                  {autoMark.total === 20
-                    ? 'Full marks! Every derived column is formatted to 3 decimal places, your large slope triangle is well chosen, and all three physical precautions are clearly stated.'
-                    : 'Excellent graph and a good large triangle for the slope. Watch your decimal places — one T² value was given to 2 d.p. when the rest were 3. Remember to state a precaution about timing from the centre of the swing.'}
+                  {apiReport?.mark.teacherComment ||
+                    (totalScore === maxTotalScore
+                      ? 'Full marks! Every derived column is formatted to 3 decimal places, your large slope triangle is well chosen, and all three physical precautions are clearly stated.'
+                      : 'Excellent graph and a good large triangle for the slope. Watch your decimal places — one T² value was given to 2 d.p. when the rest were 3. Remember to state a precaution about timing from the centre of the swing.')}
                 </p>
               </div>
             </section>
@@ -979,9 +1299,21 @@ export function MarkedReportScreen() {
 
 // F4 — Bench Replay (/attempt/:id/replay)
 export function BenchReplayScreen() {
+  const { user } = useAuth();
   const replayEvents = useLabSessionStore((s) => s.replayEvents);
-  const [activeIndex, setActiveIndex] = useState(6); // Action 7 (06:30 Changed length -> 50 cm)
-  const ev = replayEvents[activeIndex] ?? replayEvents[0]!;
+  const studentDisplayName = user
+    ? `${user.firstName} ${user.lastName}`.trim()
+    : 'Student';
+  const [activeIndex, setActiveIndex] = useState(0);
+  const fallbackEv = {
+    time: '00:00',
+    label: 'No bench actions recorded yet — record readings on the bench to populate replay.',
+    lengthCm: 40,
+    stopwatchS: '0.00 s',
+    angleDeg: 0,
+    flagged: false,
+  };
+  const ev = replayEvents[activeIndex] ?? replayEvents[0] ?? fallbackEv;
   const flagCount = replayEvents.filter((e) => e.flagged).length;
 
   const pivotX = 285;
@@ -1004,7 +1336,7 @@ export function BenchReplayScreen() {
           </Link>
           <div>
             <h1 className="font-display text-sm sm:text-base font-bold text-white">
-              Bench replay · Adaeze Okafor
+              Bench replay · {studentDisplayName}
             </h1>
             <p className="text-xs text-[#93A0B8]">
               Simple pendulum · attempt 1 · {Math.max(46, replayEvents.length)} actions · 38 min

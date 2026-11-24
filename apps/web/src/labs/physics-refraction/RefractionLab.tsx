@@ -12,11 +12,7 @@ interface RefractionReading {
   dispCm: number;
 }
 
-const INITIAL_READINGS: RefractionReading[] = [
-  { id: 1, iDeg: 20, rDeg: 13.2, sinI: 0.342, sinR: 0.228, nCalc: 1.5, dispCm: 0.88 },
-  { id: 2, iDeg: 30, rDeg: 19.5, sinI: 0.5, sinR: 0.334, nCalc: 1.497, dispCm: 1.39 },
-  { id: 3, iDeg: 40, rDeg: 25.4, sinI: 0.643, sinR: 0.429, nCalc: 1.499, dispCm: 1.98 },
-];
+const INITIAL_READINGS: RefractionReading[] = [];
 
 type GlassMaterial = {
   id: 'crown' | 'flint' | 'perspex';

@@ -10,11 +10,7 @@ interface MomentsReading {
   calcUnknownG: number;
 }
 
-const INITIAL_MOMENTS_READINGS: MomentsReading[] = [
-  { id: 1, knownMassG: 50, d1Cm: 20.0, d2Cm: 15.4, calcUnknownG: 64.9 },
-  { id: 2, knownMassG: 50, d1Cm: 30.0, d2Cm: 23.1, calcUnknownG: 64.9 },
-  { id: 3, knownMassG: 50, d1Cm: 40.0, d2Cm: 30.8, calcUnknownG: 64.9 },
-];
+const INITIAL_MOMENTS_READINGS: MomentsReading[] = [];
 
 export function MomentsLab() {
   const navigate = useNavigate();

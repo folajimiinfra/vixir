@@ -10,6 +10,7 @@ import { BodySystemsLab } from '../labs/biology-body-systems/BodySystemsLab';
 import { FoodTestsLab } from '../labs/biology-food-tests/FoodTestsLab';
 import { OhmsLawLab } from '../labs/electronics-ohms-law/OhmsLawLab';
 import { BeamLab } from '../labs/engineering-beam/BeamLab';
+import { IsometricDrawingLab } from '../labs/engineering-isometric/IsometricDrawingLab';
 
 export type LabCode =
   | 'D1'
@@ -22,7 +23,8 @@ export type LabCode =
   | 'refraction'
   | 'moments'
   | 'qualitative-analysis'
-  | 'food-tests';
+  | 'food-tests'
+  | 'isometric';
 
 interface LabWorkspaceProps {
   labCode: LabCode;
@@ -56,6 +58,8 @@ export function LabWorkspace({ labCode }: LabWorkspaceProps) {
       case 'beam-deflection':
       case 'bernoulli-apparatus':
         return <BeamLab />;
+      case 'isometric-drawing':
+        return <IsometricDrawingLab />;
       default:
         return <PendulumLab />;
     }
@@ -84,6 +88,8 @@ export function LabWorkspace({ labCode }: LabWorkspaceProps) {
       return <OhmsLawLab />;
     case 'D7':
       return <BeamLab />;
+    case 'isometric':
+      return <IsometricDrawingLab />;
     default:
       return <PendulumLab />;
   }

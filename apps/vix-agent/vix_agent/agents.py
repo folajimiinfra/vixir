@@ -250,31 +250,119 @@ class BenchArchitectSpecialist:
         ]
         summary = "Standard Ohm's law circuit with series ammeter and parallel voltmeter"
 
-        if "parallel" in q or "two resistor" in q or "branch" in q:
-            nodes.append({"id": "res-par", "kind": "resistor", "label": "R2", "x": 350, "y": 210, "rotation": 90, "value": 5.0, "unit": "Ω"})
-            wires.append({"id": "w-par1", "fromNode": "wire1", "fromTerm": "a", "toNode": "res-par", "toTerm": "a", "parallel": True})
-            wires.append({"id": "w-par2", "fromNode": "wire1", "fromTerm": "b", "toNode": "res-par", "toTerm": "b", "parallel": True})
-            summary = "Parallel resistor branch (R2 || Wire X) with series ammeter and parallel voltmeter"
+        if "series" in q and ("resistor" in q or "two" in q):
+            nodes = [
+                {"id": "battery1", "kind": "battery", "label": "E1", "x": 80, "y": 200, "rotation": 90, "value": 6.0, "unit": "V"},
+                {"id": "rheostat1", "kind": "rheostat", "label": "Rh1", "x": 205, "y": 70, "rotation": 0, "value": 5.0, "unit": "Ω"},
+                {"id": "ammeter1", "kind": "ammeter", "label": "A1", "x": 355, "y": 70, "rotation": 0, "value": 0.05, "unit": "Ω"},
+                {"id": "resistor1", "kind": "resistor", "label": "R1", "x": 455, "y": 145, "rotation": 90, "value": 5.0, "unit": "Ω"},
+                {"id": "resistor2", "kind": "resistor", "label": "R2", "x": 455, "y": 265, "rotation": 90, "value": 10.0, "unit": "Ω"},
+                {"id": "voltmeter1", "kind": "voltmeter", "label": "V1", "x": 565, "y": 205, "rotation": 90, "value": 10000, "unit": "Ω"},
+                {"id": "key1", "kind": "key", "label": "K1", "x": 265, "y": 335, "rotation": 0, "value": 1, "unit": ""},
+            ]
+            wires = [
+                {"id": "w1", "fromNode": "battery1", "fromTerm": "a", "toNode": "rheostat1", "toTerm": "a"},
+                {"id": "w2", "fromNode": "rheostat1", "fromTerm": "b", "toNode": "ammeter1", "toTerm": "a"},
+                {"id": "w3", "fromNode": "ammeter1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "a"},
+                {"id": "w4", "fromNode": "resistor1", "fromTerm": "b", "toNode": "resistor2", "toTerm": "a"},
+                {"id": "w5", "fromNode": "resistor2", "fromTerm": "b", "toNode": "key1", "toTerm": "b"},
+                {"id": "w6", "fromNode": "key1", "fromTerm": "a", "toNode": "battery1", "toTerm": "b"},
+                {"id": "w7", "fromNode": "resistor1", "fromTerm": "a", "toNode": "voltmeter1", "toTerm": "a", "parallel": True},
+                {"id": "w8", "fromNode": "voltmeter1", "fromTerm": "b", "toNode": "resistor2", "toTerm": "b", "parallel": True},
+            ]
+            summary = "Two resistors in series (R1 = 5 Ω + R2 = 10 Ω) with series ammeter and parallel voltmeter"
 
-        if "led" in q:
-            nodes.append({"id": "led1", "kind": "led", "label": "LED1", "x": 280, "y": 210, "rotation": 0, "value": 1.8, "unit": "V"})
-            wires.append({"id": "w-led1", "fromNode": "rh1", "fromTerm": "b", "toNode": "led1", "toTerm": "a"})
-            wires.append({"id": "w-led2", "fromNode": "led1", "fromTerm": "b", "toNode": "key1", "toTerm": "b"})
-            summary = "Indicator LED branch wired with current-limiting rheostat"
+        elif "parallel" in q or "two resistor" in q or "branch" in q:
+            nodes = [
+                {"id": "battery1", "kind": "battery", "label": "E1", "x": 80, "y": 200, "rotation": 90, "value": 4.5, "unit": "V"},
+                {"id": "rheostat1", "kind": "rheostat", "label": "Rh1", "x": 200, "y": 75, "rotation": 0, "value": 4.0, "unit": "Ω"},
+                {"id": "ammeter1", "kind": "ammeter", "label": "A1", "x": 345, "y": 75, "rotation": 0, "value": 0.05, "unit": "Ω"},
+                {"id": "resistor1", "kind": "resistor", "label": "R1", "x": 400, "y": 200, "rotation": 90, "value": 10.0, "unit": "Ω"},
+                {"id": "resistor2", "kind": "resistor", "label": "R2", "x": 485, "y": 200, "rotation": 90, "value": 10.0, "unit": "Ω"},
+                {"id": "voltmeter1", "kind": "voltmeter", "label": "V1", "x": 575, "y": 200, "rotation": 90, "value": 10000, "unit": "Ω"},
+                {"id": "key1", "kind": "key", "label": "K1", "x": 255, "y": 325, "rotation": 0, "value": 1, "unit": ""},
+            ]
+            wires = [
+                {"id": "w1", "fromNode": "battery1", "fromTerm": "a", "toNode": "rheostat1", "toTerm": "a"},
+                {"id": "w2", "fromNode": "rheostat1", "fromTerm": "b", "toNode": "ammeter1", "toTerm": "a"},
+                {"id": "w3", "fromNode": "ammeter1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "a"},
+                {"id": "w4", "fromNode": "resistor1", "fromTerm": "b", "toNode": "key1", "toTerm": "b"},
+                {"id": "w5", "fromNode": "key1", "fromTerm": "a", "toNode": "battery1", "toTerm": "b"},
+                {"id": "w6", "fromNode": "resistor1", "fromTerm": "a", "toNode": "resistor2", "toTerm": "a", "parallel": True},
+                {"id": "w7", "fromNode": "resistor1", "fromTerm": "b", "toNode": "resistor2", "toTerm": "b", "parallel": True},
+                {"id": "w8", "fromNode": "resistor2", "fromTerm": "a", "toNode": "voltmeter1", "toTerm": "a", "parallel": True},
+                {"id": "w9", "fromNode": "voltmeter1", "fromTerm": "b", "toNode": "resistor2", "toTerm": "b", "parallel": True},
+            ]
+            summary = "Parallel resistor branch (10 Ω || 10 Ω = 5 Ω) with series ammeter and parallel voltmeter"
 
-        if "diode" in q or "rectifier" in q:
-            nodes.append({"id": "diode1", "kind": "diode", "label": "D1", "x": 310, "y": 145, "rotation": 0, "value": 0.65, "unit": "V"})
-            wires.append({"id": "w-d1", "fromNode": "rh1", "fromTerm": "b", "toNode": "diode1", "toTerm": "a"})
-            wires.append({"id": "w-d2", "fromNode": "diode1", "fromTerm": "b", "toNode": "amm1", "toTerm": "a"})
-            summary = "Forward-biased silicon diode (D1) series characteristic circuit"
+        elif "led" in q:
+            nodes = [
+                {"id": "battery1", "kind": "battery", "label": "E1", "x": 80, "y": 200, "rotation": 90, "value": 4.5, "unit": "V"},
+                {"id": "rheostat1", "kind": "rheostat", "label": "Rh1", "x": 205, "y": 75, "rotation": 0, "value": 6.0, "unit": "Ω"},
+                {"id": "ammeter1", "kind": "ammeter", "label": "A1", "x": 355, "y": 75, "rotation": 0, "value": 0.05, "unit": "Ω"},
+                {"id": "resistor1", "kind": "resistor", "label": "R1", "x": 460, "y": 145, "rotation": 90, "value": 10.0, "unit": "Ω"},
+                {"id": "led1", "kind": "led", "label": "LED1", "x": 460, "y": 260, "rotation": 90, "value": 1.8, "unit": "V"},
+                {"id": "voltmeter1", "kind": "voltmeter", "label": "V1", "x": 565, "y": 205, "rotation": 90, "value": 10000, "unit": "Ω"},
+                {"id": "key1", "kind": "key", "label": "K1", "x": 265, "y": 330, "rotation": 0, "value": 1, "unit": ""},
+            ]
+            wires = [
+                {"id": "w1", "fromNode": "battery1", "fromTerm": "a", "toNode": "rheostat1", "toTerm": "a"},
+                {"id": "w2", "fromNode": "rheostat1", "fromTerm": "b", "toNode": "ammeter1", "toTerm": "a"},
+                {"id": "w3", "fromNode": "ammeter1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "a"},
+                {"id": "w4", "fromNode": "resistor1", "fromTerm": "b", "toNode": "led1", "toTerm": "a"},
+                {"id": "w5", "fromNode": "led1", "fromTerm": "b", "toNode": "key1", "toTerm": "b"},
+                {"id": "w6", "fromNode": "key1", "fromTerm": "a", "toNode": "battery1", "toTerm": "b"},
+                {"id": "w7", "fromNode": "resistor1", "fromTerm": "a", "toNode": "voltmeter1", "toTerm": "a", "parallel": True},
+                {"id": "w8", "fromNode": "voltmeter1", "fromTerm": "b", "toNode": "led1", "toTerm": "b", "parallel": True},
+            ]
+            summary = "Green LED with 10 Ω current-limiting resistor, series ammeter, and parallel voltmeter"
 
-        if "capacitor" in q or re.search(r"\brc\b", q):
-            nodes.append({"id": "cap1", "kind": "capacitor", "label": "C1", "x": 360, "y": 210, "rotation": 0, "value": 100, "unit": "µF"})
-            wires.append({"id": "w-c1", "fromNode": "wire1", "fromTerm": "a", "toNode": "cap1", "toTerm": "a", "parallel": True})
-            wires.append({"id": "w-c2", "fromNode": "wire1", "fromTerm": "b", "toNode": "cap1", "toTerm": "b", "parallel": True})
-            summary = "RC parallel smoothing capacitor (100 µF) across load"
+        elif "diode" in q or "rectifier" in q:
+            nodes = [
+                {"id": "battery1", "kind": "battery", "label": "E1", "x": 80, "y": 200, "rotation": 90, "value": 3.0, "unit": "V"},
+                {"id": "rheostat1", "kind": "rheostat", "label": "Rh1", "x": 205, "y": 75, "rotation": 0, "value": 8.0, "unit": "Ω"},
+                {"id": "ammeter1", "kind": "ammeter", "label": "A1", "x": 355, "y": 75, "rotation": 0, "value": 0.05, "unit": "Ω"},
+                {"id": "diode1", "kind": "diode", "label": "D1", "x": 460, "y": 145, "rotation": 90, "value": 0.65, "unit": "V"},
+                {"id": "resistor1", "kind": "resistor", "label": "R1", "x": 460, "y": 260, "rotation": 90, "value": 5.0, "unit": "Ω"},
+                {"id": "voltmeter1", "kind": "voltmeter", "label": "V1", "x": 565, "y": 205, "rotation": 90, "value": 10000, "unit": "Ω"},
+                {"id": "key1", "kind": "key", "label": "K1", "x": 265, "y": 330, "rotation": 0, "value": 1, "unit": ""},
+            ]
+            wires = [
+                {"id": "w1", "fromNode": "battery1", "fromTerm": "a", "toNode": "rheostat1", "toTerm": "a"},
+                {"id": "w2", "fromNode": "rheostat1", "fromTerm": "b", "toNode": "ammeter1", "toTerm": "a"},
+                {"id": "w3", "fromNode": "ammeter1", "fromTerm": "b", "toNode": "diode1", "toTerm": "a"},
+                {"id": "w4", "fromNode": "diode1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "a"},
+                {"id": "w5", "fromNode": "resistor1", "fromTerm": "b", "toNode": "key1", "toTerm": "b"},
+                {"id": "w6", "fromNode": "key1", "fromTerm": "a", "toNode": "battery1", "toTerm": "b"},
+                {"id": "w7", "fromNode": "diode1", "fromTerm": "a", "toNode": "voltmeter1", "toTerm": "a", "parallel": True},
+                {"id": "w8", "fromNode": "voltmeter1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "b", "parallel": True},
+            ]
+            summary = "Forward-biased silicon diode (D1, 0.65 V) + 5 Ω series load circuit"
 
-        if "ammeter" in q and ("second" in q or "two" in q or "another" in q):
+        elif "capacitor" in q or re.search(r"\brc\b", q):
+            nodes = [
+                {"id": "battery1", "kind": "battery", "label": "E1", "x": 80, "y": 200, "rotation": 90, "value": 4.5, "unit": "V"},
+                {"id": "rheostat1", "kind": "rheostat", "label": "Rh1", "x": 200, "y": 75, "rotation": 0, "value": 6.0, "unit": "Ω"},
+                {"id": "ammeter1", "kind": "ammeter", "label": "A1", "x": 345, "y": 75, "rotation": 0, "value": 0.05, "unit": "Ω"},
+                {"id": "resistor1", "kind": "resistor", "label": "R1", "x": 400, "y": 200, "rotation": 90, "value": 10.0, "unit": "Ω"},
+                {"id": "capacitor1", "kind": "capacitor", "label": "C1", "x": 485, "y": 200, "rotation": 90, "value": 100, "unit": "µF"},
+                {"id": "voltmeter1", "kind": "voltmeter", "label": "V1", "x": 575, "y": 200, "rotation": 90, "value": 10000, "unit": "Ω"},
+                {"id": "key1", "kind": "key", "label": "K1", "x": 255, "y": 325, "rotation": 0, "value": 1, "unit": ""},
+            ]
+            wires = [
+                {"id": "w1", "fromNode": "battery1", "fromTerm": "a", "toNode": "rheostat1", "toTerm": "a"},
+                {"id": "w2", "fromNode": "rheostat1", "fromTerm": "b", "toNode": "ammeter1", "toTerm": "a"},
+                {"id": "w3", "fromNode": "ammeter1", "fromTerm": "b", "toNode": "resistor1", "toTerm": "a"},
+                {"id": "w4", "fromNode": "resistor1", "fromTerm": "b", "toNode": "key1", "toTerm": "b"},
+                {"id": "w5", "fromNode": "key1", "fromTerm": "a", "toNode": "battery1", "toTerm": "b"},
+                {"id": "w6", "fromNode": "resistor1", "fromTerm": "a", "toNode": "capacitor1", "toTerm": "a", "parallel": True},
+                {"id": "w7", "fromNode": "resistor1", "fromTerm": "b", "toNode": "capacitor1", "toTerm": "b", "parallel": True},
+                {"id": "w8", "fromNode": "capacitor1", "fromTerm": "a", "toNode": "voltmeter1", "toTerm": "a", "parallel": True},
+                {"id": "w9", "fromNode": "voltmeter1", "fromTerm": "b", "toNode": "capacitor1", "toTerm": "b", "parallel": True},
+            ]
+            summary = "RC parallel smoothing capacitor (100 µF) across 10 Ω load"
+
+        elif "ammeter" in q and ("second" in q or "two" in q or "another" in q):
             nodes.append({"id": "amm2", "kind": "ammeter", "label": "A2", "x": 180, "y": 330, "rotation": 0, "value": 0.05, "unit": "Ω"})
             wires = [w for w in wires if w["id"] != "w5"]
             wires.append({"id": "w5a", "fromNode": "key1", "fromTerm": "a", "toNode": "amm2", "toTerm": "b"})

@@ -50,6 +50,7 @@ VALID_INTENTS: tuple[Intent, ...] = (
     "safety",
     "tour_nav",
     "build_setup",
+    "worked_example",
     "off_topic",
     "forbidden",
 )
@@ -104,6 +105,44 @@ def _format_screen_context(screen: ScreenMap | None) -> str:
     )
 
 
+def _clean_spoken_text(text: str) -> str:
+    """Remove raw LaTeX, markdown, and internal region IDs so Vix speaks and types natural human language."""
+    if not text:
+        return ""
+    out = text
+    # Convert LaTeX fractions \frac{a}{b} -> a over b
+    out = re.sub(r"\\frac\{([^}]+)\}\{([^}]+)\}", r"\1 over \2", out)
+    out = out.replace("\\pi", "pi").replace("\\cdot", "times").replace("\\times", "times")
+    out = out.replace("\\theta", "theta").replace("\\Delta", "delta ").replace("\\approx", "approximately ")
+    out = re.sub(r"T\^2", "T squared", out)
+    out = re.sub(r"L\^3", "L cubed", out)
+    out = out.replace("$", "").replace("`", "").replace("**", "")
+    # Replace internal kebab-case DOM region IDs with natural spoken names
+    replacements = {
+        "'data-panel'": "readings panel on the right",
+        '"data-panel"': "readings panel on the right",
+        "data-panel": "readings panel",
+        "'instrument-dock'": "instrument controls at the bottom",
+        '"instrument-dock"': "instrument controls at the bottom",
+        "instrument-dock": "instrument controls",
+        "'apparatus-tray'": "apparatus tray on the left",
+        '"apparatus-tray"': "apparatus tray on the left",
+        "apparatus-tray": "apparatus tray",
+        "'tool-rail'": "left tool rail",
+        '"tool-rail"': "left tool rail",
+        "tool-rail": "left tool rail",
+        "'top-bar'": "top bar",
+        '"top-bar"': "top bar",
+        "top-bar": "top bar",
+        "'bench'": "lab bench",
+        '"bench"': "lab bench",
+    }
+    for k, v in replacements.items():
+        out = out.replace(k, v)
+    out = re.sub(r"\s{2,}", " ", out)
+    return out.strip()
+
+
 def _build_system_prompt(state: VixState) -> str:
     """Build system prompt enriched with Ch. 6 Working Memory, Self-Notes, and Ch. 7 Reflexion/ExpeL rules (strictly non-PII per Req 8 AC1)."""
     base = _read_prompt("system.txt")
@@ -120,6 +159,10 @@ def _build_system_prompt(state: VixState) -> str:
 
     return (
         f"{base}\n\n"
+        "SPOKEN STYLE RULE (CRITICAL):\n"
+        "- Speak naturally like a real human lab partner. NEVER output LaTeX syntax (no $, no \\frac, no \\cdot, no \\pi) and NEVER quote internal region IDs like 'data-panel' or 'bench'.\n"
+        "- Say 'T squared equals four pi squared over g times L' and 'your readings panel on the right'.\n"
+        "- Always trust the live readingsCount and ScreenMap telemetry provided in the Self-Notes; never invent how many trials the student has recorded.\n\n"
         f"Session Context (strictly non-PII per safety rules):\n"
         f"- Student first name: {first_name}\n"
         f"- Mode: {mode}\n"
@@ -266,6 +309,13 @@ def _classify_intent_fast(user_text: str, screen: ScreenMap | None) -> tuple[Int
     )
     if any(re.search(pat, q) for pat in build_patterns):
         return ("build_setup", 0.98)
+
+    # 1c. Worked Analogous Example (student asks Vix to demonstrate the practical method using a DIFFERENT lab/example)
+    example_patterns = (
+        r"\b(another example|different example|worked example|similar example|live example|show me (?:how|an example)|demonstrate with|practice myself|walk me through|walkthrough|yes.*example|an example)\b",
+    )
+    if any(re.search(pat, q) for pat in example_patterns):
+        return ("worked_example", 0.97)
 
     # 2. If student is actively pointing at an element on screen and asks a deictic question ("what is this?", "how do I adjust this?", "why does this show...")
     if screen is not None and screen.pointerTarget is not None and any(
@@ -936,6 +986,56 @@ def build_setup_node(state: VixState) -> VixState:
     )
 
 
+def worked_example_node(state: VixState) -> VixState:
+    """Walk the student through how to handle the practical using an ANALOGOUS DIFFERENT LAB so they can practice themselves."""
+    screen = state.get("screen")
+    exp = state.get("experiment") or DEFAULT_PENDULUM_CONTEXT
+    user_text = state.get("user_text") or ""
+    mode = state.get("mode") or "PRACTICE"
+    brain = _get_brain(state)
+
+    # Pick a clearly different analogous laboratory so we teach the experimental skill without leaking their current lab's answer
+    exp_lower = f"{exp.id} {exp.title}".lower()
+    if "pendulum" in exp_lower or "phy." in exp_lower:
+        analogous_lab = "Hooke's Law spiral spring extension experiment (plotting load Force F against extension e to find spring constant k from the slope)"
+    elif "ohm" in exp_lower or "elec." in exp_lower:
+        analogous_lab = "Simple Pendulum experiment (varying length L, taking repeated timings, plotting T² against L, and finding the gradient from a large triangle)"
+    elif "titration" in exp_lower or "chem." in exp_lower:
+        analogous_lab = "Qualitative salt analysis & neutralization check (rinsing glassware, reading the meniscus at eye level, and taking concordant repeat runs)"
+    else:
+        analogous_lab = "Verifying Ohm's Law (varying rheostat resistance, reading meters at eye level without parallax, recording a table, and finding the slope of a straight-line graph)"
+
+    trace_msgs, kg_facts, _ = _AUTOGEN_TEAM.run_consultation(
+        intent="concept",
+        user_text=user_text,
+        screen=screen,
+        experiment=exp,
+        bm25_passages=[],
+    )
+
+    prompt = (
+        f'Student asked: "{user_text}"\n'
+        f"Student's current lab: {exp.title} (Mode: {mode})\n"
+        f"Chosen DIFFERENT analogous lab example: {analogous_lab}\n\n"
+        "Instructions:\n"
+        "1. Teach the student HOW to handle the practical technique step-by-step using the DIFFERENT analogous lab above (setting the independent variable, taking clean repeated readings, plotting the line of best fit with a large slope triangle, and stating physical precautions) so they can transfer the method and practice their own lab themselves.\n"
+        "2. Do NOT give away any readings, slopes, or answers for their current lab. Keep it warm, vivid, and concise (3 sentences max), ending with a Socratic prompt inviting them to try Step 1 on their own bench.\n"
+        "3. If Mode is GRADED, describe the analogous method conceptually without writing raw measured numbers with units."
+    )
+    draft = brain.generate_sync(
+        prompt,
+        system=_build_system_prompt(state),
+        fast=True,
+        max_tokens=240,
+    )
+    return _update_vix(
+        state,
+        kg_facts=kg_facts or list(state.get("kg_facts") or []),
+        agent_trace=[m.to_dict() for m in trace_msgs],
+        draft=draft,
+    )
+
+
 def redirect_node(state: VixState) -> VixState:
     """Steer off-topic questions back to the practical in ONE sentence via LLM without elaborating (Req 5 AC5)."""
     exp = state.get("experiment") or DEFAULT_PENDULUM_CONTEXT
@@ -1104,9 +1204,10 @@ def safe_question_node(state: VixState) -> VixState:
 
 
 def act_node(state: VixState) -> VixState:
-    """Validate all planned RPC IDs against the current ScreenMap, update WorkingMemory, and append showCaption RPC."""
+    """Validate all planned RPC IDs against the current ScreenMap, clean spoken text, update WorkingMemory, and append showCaption RPC."""
     screen = state.get("screen")
-    reply = state.get("reply") or state.get("draft") or ""
+    raw_reply = state.get("reply") or state.get("draft") or ""
+    reply = _clean_spoken_text(raw_reply)
     raw_plan = list(state.get("rpc_plan") or [])
     session_id = state.get("session_id") or "session-default"
     wm, _ = get_session_memories(session_id)
@@ -1377,6 +1478,7 @@ def process_user_query(
     session_id: str = "session-default",
     experiment_id: str = "phy.pendulum.g",
     locale: str = "en",
+    first_name: str = "Student",
     brain: str | None = None,
 ) -> dict[str, Any]:
     """Process a user query through the canonical Vix LangGraph powered by the real LLM + Ch. 5–8 Multi-Agent System."""
@@ -1395,6 +1497,7 @@ def process_user_query(
         mode="GRADED" if mode == "GRADED" else "PRACTICE",
         screen=parsed_screen,
         session_id=session_id,
+        first_name=first_name,
         locale=locale,
         llm_brain=active_brain.identifier,
     )

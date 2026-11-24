@@ -13,10 +13,7 @@ interface TitreRow {
   concordant?: boolean;
 }
 
-const INITIAL_TITRATIONS: TitreRow[] = [
-  { id: 1, label: 'Rough', initial: 0.0, final: 24.65, titre: 24.65, concordant: false },
-  { id: 2, label: '1st', initial: 0.2, final: 24.4, titre: 24.2, concordant: true },
-];
+const INITIAL_TITRATIONS: TitreRow[] = [];
 
 export function TitrationLab() {
   const navigate = useNavigate();

@@ -3,6 +3,9 @@ import { MemoryRouter } from 'react-router';
 import { describe, expect, it } from 'vitest';
 import { Landing } from '../src/routes/Landing';
 import { Auth } from '../src/routes/Auth';
+import { AuthProvider, RequireAuth } from '../src/context/AuthContext';
+import { DesktopOnlyGate } from '../src/components/DesktopOnlyGate';
+import { setStoredAccessToken } from '../src/lib/api';
 import { LabWorkspace } from '../src/routes/LabWorkspace';
 import {
   StudentDashboardScreen,
@@ -65,7 +68,7 @@ describe('Lab Workspaces & Core Screens', () => {
     }
   });
 
-  it('opens the in-lab Vix Connect modal and transitions to the live spotlight tour over the active bench', () => {
+  it('opens the live conversational Vix floating guide immediately over the active bench on Call Vix', () => {
     render(
       <MemoryRouter>
         <LabWorkspace labCode="D1" />
@@ -75,37 +78,43 @@ describe('Lab Workspaces & Core Screens', () => {
     const callBtn = screen.getByRole('button', { name: /Call Vix/i });
     fireEvent.click(callBtn);
 
-    // E1 Connect modal appears over the bench
-    expect(
-      screen.getByRole('dialog', { name: /Connect to Vix lab guide/i })
-    ).toBeInTheDocument();
-
-    const connectBtn = screen.getByRole('button', { name: /Connect Vix to bench/i });
-    fireEvent.click(connectBtn);
-
-    const startTourBtn = screen.getByRole('button', { name: /Start live spotlight tour/i });
-    fireEvent.click(startTourBtn);
-
-    // E2 Live spotlight floating card is now active over the bench
+    // Live conversational Vix floating card opens immediately without a blocking modal wall or cluttered tour pills
     expect(
       screen.getByRole('complementary', { name: /Vix live in-lab guide/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/POINTING AT · LAB BENCH/i)).toBeInTheDocument();
+    expect(
+      screen.getByPlaceholderText(/Speak naturally, point anywhere, or type/i)
+    ).toBeInTheDocument();
   });
 
-  it('syncs deterministic seeded RNG readings and auto-marking between labSessionStore and F1–F4 screens', () => {
+  it('starts with an empty readings table (0/20) and reaches 20/20 as trials and precautions are recorded', () => {
     const store = useLabSessionStore.getState();
+    store.clearPendulumRows();
     const initialMark = computeAutoMark(
-      store.pendulumRows,
-      store.precautions,
-      store.gValue
+      useLabSessionStore.getState().pendulumRows,
+      useLabSessionStore.getState().precautions,
+      useLabSessionStore.getState().gValue
     );
-    expect(initialMark.total).toBe(18);
+    expect(initialMark.total).toBe(0);
     expect(initialMark.maxTotal).toBe(20);
 
-    // Fix the 2 d.p. warning and add 3rd precaution -> reaches 20 / 20
+    // Record 6 trials dynamically on the bench (40..90 cm) and check all 3 precautions -> reaches 20 / 20
+    for (const lengthCm of [40, 50, 60, 70, 80, 90]) {
+      store.recordPendulumTrial({
+        lengthCm,
+        theta0Deg: 8,
+        oscillations: 20,
+        eyeLevel: true,
+      });
+    }
     store.fixAllDecimalPlaces();
-    store.setPrecautions((p) => ({ ...p, centreSwing: true }));
+    store.setPrecautions(() => ({
+      parallax: true,
+      smallAngle: true,
+      centreSwing: true,
+      extra: '',
+    }));
 
     const updatedState = useLabSessionStore.getState();
     const fullMark = computeAutoMark(
@@ -288,5 +297,95 @@ describe('Lab Workspaces & Core Screens', () => {
     fireEvent.contextMenu(canvasSvg, { clientX: 250, clientY: 200 });
     expect(screen.getByRole('menu', { name: /Circuit workbench context menu/i })).toBeInTheDocument();
     expect(screen.getByText(/CIRCUIT WORKBENCH MENU/i)).toBeInTheDocument();
+  });
+
+  it('displays the authenticated user name from AuthProvider and guards protected routes with RequireAuth', () => {
+    setStoredAccessToken('mock-jwt-token');
+    const { unmount } = render(
+      <AuthProvider
+        initialUser={{
+          id: 'u-1',
+          email: 'student@demo.vixir.org',
+          firstName: 'Chidi',
+          lastName: 'Eze',
+          role: 'STUDENT',
+          status: 'ACTIVE',
+          locale: 'en',
+          institutionId: 'inst-1',
+        }}
+      >
+        <MemoryRouter>
+          <RequireAuth>
+            <StudentDashboardScreen />
+          </RequireAuth>
+        </MemoryRouter>
+      </AuthProvider>
+    );
+
+    expect(screen.getByText(/Good evening, Chidi Eze/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Adaeze/i)).not.toBeInTheDocument();
+    unmount();
+    setStoredAccessToken(null);
+  });
+
+  it('renders Engineering Isometric Drawing 30° CAD studio with 2H crate builder and 1st/3rd-angle views', () => {
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="isometric" />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole('img', { name: /Interactive 30-degree isometric technical drawing board/i })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Box-in 2H Crate/i }));
+    expect(screen.getByText('12')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /3rd ∠/i }));
+    expect(screen.getByText(/3rd Angle/i)).toBeInTheDocument();
+  });
+
+  it('blocks phone screens in portrait and rotated landscape while allowing desktop viewports', () => {
+    const origW = window.innerWidth;
+    const origH = window.innerHeight;
+    const setViewport = (w: number, h: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: h });
+    };
+
+    try {
+      // Portrait phone
+      setViewport(390, 844);
+      const { unmount: u1 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Please use your computer to view this page.')).toBeInTheDocument();
+      expect(screen.queryByText('Desktop Content')).not.toBeInTheDocument();
+      u1();
+
+      // Rotated landscape phone (even wide viewport with short height)
+      setViewport(1100, 430);
+      const { unmount: u2 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Please use your computer to view this page.')).toBeInTheDocument();
+      expect(screen.queryByText('Desktop Content')).not.toBeInTheDocument();
+      u2();
+
+      // Desktop screen
+      setViewport(1280, 800);
+      const { unmount: u3 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Desktop Content')).toBeInTheDocument();
+      u3();
+    } finally {
+      setViewport(origW, origH);
+    }
   });
 });

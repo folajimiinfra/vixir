@@ -17,8 +17,8 @@ services:
 
   api:
     build:
-      context: apps/api
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/api/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -29,8 +29,9 @@ services:
       VIXIR_DB_URL: jdbc:postgresql://postgres:5432/vixir
       VIXIR_WEB_ORIGINS: http://localhost:5173
       SPRING_PROFILES_ACTIVE: demo
+      PORT: 8081
     ports:
-      - "8080:8080"
+      - "8081:8081"
 
 volumes:
   pgdata:

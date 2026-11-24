@@ -1,4 +1,8 @@
+import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
+import { AuthProvider, RequireAuth } from './context/AuthContext';
+import { VixCallProvider } from './context/VixCallContext';
+import { DesktopOnlyGate } from './components/DesktopOnlyGate';
 import { Landing } from './routes/Landing';
 import { Auth } from './routes/Auth';
 import { LabWorkspace } from './routes/LabWorkspace';
@@ -91,53 +95,146 @@ export function renderScreenByCode(code: string) {
   }
 }
 
+/**
+ * Only Landing (A1), Auth (A2), and the public Pendulum Demo (D1 & C2) are public.
+ * All other student, laboratory, teacher, and admin routes require authentication.
+ */
+const PUBLIC_SCREEN_CODES = new Set(['A1', 'A2', 'D1', 'C2']);
+
+function protectElement(element: React.ReactNode, code?: string) {
+  if (code && PUBLIC_SCREEN_CODES.has(code)) {
+    return element;
+  }
+  return <RequireAuth>{element}</RequireAuth>;
+}
+
 export function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* All 28 Canonical Screen Routes (A1–I2) */}
-        {screens.map((s) => (
-          <Route key={s.code} path={s.path} element={renderScreenByCode(s.code)} />
-        ))}
+    <DesktopOnlyGate>
+      <AuthProvider>
+        <BrowserRouter>
+          <VixCallProvider>
+            <Routes>
+          {/* Canonical Screen Routes (A1, A2, D1, C2 are public; all others require auth) */}
+          {screens.map((s) => (
+            <Route
+              key={s.code}
+              path={s.path}
+              element={protectElement(renderScreenByCode(s.code), s.code)}
+            />
+          ))}
 
-        {/* Dynamic Parameterized Routes & Alias Paths */}
-        <Route path="/lab/physics/refraction" element={<LabWorkspace labCode="refraction" />} />
-        <Route path="/lab/physics/moments" element={<LabWorkspace labCode="moments" />} />
-        <Route
-          path="/lab/chemistry/qualitative-analysis"
-          element={<LabWorkspace labCode="qualitative-analysis" />}
-        />
-        <Route path="/lab/biology/food-tests" element={<LabWorkspace labCode="food-tests" />} />
-        <Route path="/experiments/:slug" element={<ExperimentBriefingScreen />} />
-        <Route path="/attempt/:id/results" element={<ResultsGraphScreen />} />
-        <Route path="/attempt/:id/submit" element={<ReviewSubmitScreen />} />
-        <Route path="/attempt/:id/report" element={<MarkedReportScreen />} />
-        <Route path="/attempt/:id/replay" element={<BenchReplayScreen />} />
-        <Route path="/exam/:id/start" element={<ExamStartScreen />} />
-        <Route path="/teacher/assignments/:id/results" element={<ClassResultsScreen />} />
+          {/* Protected Dynamic Parameterized Routes & Secondary Labs */}
+          <Route
+            path="/lab/physics/refraction"
+            element={protectElement(<LabWorkspace labCode="refraction" />)}
+          />
+          <Route
+            path="/lab/physics/moments"
+            element={protectElement(<LabWorkspace labCode="moments" />)}
+          />
+          <Route
+            path="/lab/chemistry/qualitative-analysis"
+            element={protectElement(<LabWorkspace labCode="qualitative-analysis" />)}
+          />
+          <Route
+            path="/lab/biology/food-tests"
+            element={protectElement(<LabWorkspace labCode="food-tests" />)}
+          />
+          <Route
+            path="/lab/engineering/isometric"
+            element={protectElement(<LabWorkspace labCode="isometric" />)}
+          />
+          <Route
+            path="/experiments/:slug"
+            element={protectElement(<ExperimentBriefingScreen />)}
+          />
+          <Route
+            path="/attempt/:id/results"
+            element={protectElement(<ResultsGraphScreen />)}
+          />
+          <Route
+            path="/attempt/:id/submit"
+            element={protectElement(<ReviewSubmitScreen />)}
+          />
+          <Route
+            path="/attempt/:id/report"
+            element={protectElement(<MarkedReportScreen />)}
+          />
+          <Route
+            path="/attempt/:id/replay"
+            element={protectElement(<BenchReplayScreen />)}
+          />
+          <Route path="/exam/:id/start" element={protectElement(<ExamStartScreen />)} />
+          <Route
+            path="/teacher/assignments/:id/results"
+            element={protectElement(<ClassResultsScreen />)}
+          />
 
-        {/* Alias Routes from structure.md */}
-        <Route path="/app/labs" element={<LabsHubScreen />} />
-        <Route path="/app/library" element={<ExperimentLibraryScreen />} />
-        <Route path="/app/apparatus" element={<ApparatusEncyclopediaScreen />} />
-        <Route path="/app/x/:slug" element={<ExperimentBriefingScreen />} />
-        <Route path="/app/x/:slug/prelab" element={<SafetyCheckScreen />} />
-        <Route path="/app/x/:slug/setup" element={<ApparatusSetupScreen />} />
-        <Route path="/app/x/:slug/exam" element={<ExamStartScreen />} />
-        <Route path="/app/x/:slug/lab" element={<LabWorkspace labCode="D1" />} />
-        <Route path="/app/x/:slug/results" element={<ResultsGraphScreen />} />
-        <Route path="/app/x/:slug/submit" element={<ReviewSubmitScreen />} />
-        <Route path="/app/attempts/:attemptId" element={<MarkedReportScreen />} />
-        <Route path="/app/attempts/:attemptId/replay" element={<BenchReplayScreen />} />
-        <Route path="/teach" element={<TeacherDashboardScreen />} />
-        <Route path="/teach/assign" element={<AssignExperimentScreen />} />
-        <Route path="/teach/classes/:classId" element={<ClassResultsScreen />} />
-        <Route path="/teach/builder" element={<ExperimentBuilderScreen />} />
+          {/* Protected Alias Routes */}
+          <Route path="/app/labs" element={protectElement(<LabsHubScreen />)} />
+          <Route
+            path="/app/library"
+            element={protectElement(<ExperimentLibraryScreen />)}
+          />
+          <Route
+            path="/app/apparatus"
+            element={protectElement(<ApparatusEncyclopediaScreen />)}
+          />
+          <Route
+            path="/app/x/:slug"
+            element={protectElement(<ExperimentBriefingScreen />)}
+          />
+          <Route
+            path="/app/x/:slug/prelab"
+            element={protectElement(<SafetyCheckScreen />)}
+          />
+          <Route
+            path="/app/x/:slug/setup"
+            element={protectElement(<ApparatusSetupScreen />)}
+          />
+          <Route path="/app/x/:slug/exam" element={protectElement(<ExamStartScreen />)} />
+          <Route
+            path="/app/x/:slug/lab"
+            element={protectElement(<LabWorkspace labCode="D1" />)}
+          />
+          <Route
+            path="/app/x/:slug/results"
+            element={protectElement(<ResultsGraphScreen />)}
+          />
+          <Route
+            path="/app/x/:slug/submit"
+            element={protectElement(<ReviewSubmitScreen />)}
+          />
+          <Route
+            path="/app/attempts/:attemptId"
+            element={protectElement(<MarkedReportScreen />)}
+          />
+          <Route
+            path="/app/attempts/:attemptId/replay"
+            element={protectElement(<BenchReplayScreen />)}
+          />
+          <Route path="/teach" element={protectElement(<TeacherDashboardScreen />)} />
+          <Route
+            path="/teach/assign"
+            element={protectElement(<AssignExperimentScreen />)}
+          />
+          <Route
+            path="/teach/classes/:classId"
+            element={protectElement(<ClassResultsScreen />)}
+          />
+          <Route
+            path="/teach/builder"
+            element={protectElement(<ExperimentBuilderScreen />)}
+          />
 
-        {/* 404 Not Found */}
-        <Route path="/404" element={<NotFound />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </BrowserRouter>
+          {/* 404 Not Found */}
+          <Route path="/404" element={<NotFound />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+        </VixCallProvider>
+      </BrowserRouter>
+    </AuthProvider>
+    </DesktopOnlyGate>
   );
 }

@@ -1,9 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router';
 import {
   APPARATUS_CATALOG,
   type EncyclopediaItem,
 } from './apparatusCatalog';
+import { useAuth } from '../context/AuthContext';
+import {
+  getStoredAccessToken,
+  getStoredAttempt,
+  vixirApi,
+  type AssignmentSummary,
+  type AttemptSummary,
+  type ClassSummary,
+  type MarkReportResponse,
+} from '../lib/api';
+import { useLabSessionStore, computeAutoMark } from '../store/labSessionStore';
 
 type StudentNavKey =
   | 'dashboard'
@@ -15,7 +26,17 @@ type StudentNavKey =
   | 'grades'
   | 'settings';
 
-function StudentSidebar({ active }: { active: StudentNavKey }) {
+function StudentSidebar({
+  active,
+  syncStatus = 'synced',
+  onRetrySync,
+}: {
+  active: StudentNavKey;
+  syncStatus?: 'loading' | 'synced' | 'error';
+  onRetrySync?: () => void;
+}) {
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const navItems: { id: StudentNavKey; label: string; to: string }[] = [
     { id: 'dashboard', label: 'Dashboard', to: '/app' },
     { id: 'labs', label: 'Laboratories (5 labs)', to: '/labs' },
@@ -55,148 +76,458 @@ function StudentSidebar({ active }: { active: StudentNavKey }) {
         </nav>
       </div>
 
-      <div className="mt-6 md:mt-0 px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
-        <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
-        <span>All results synced · 2 min ago</span>
+      <div className="mt-6 md:mt-0 space-y-2.5">
+        {user && (
+          <div className="px-3 py-2.5 rounded-xl bg-[#F5F7FA] border border-[#E3E8EF] text-xs">
+            <div className="font-bold text-[#0E1726] truncate">
+              {user.firstName} {user.lastName}
+            </div>
+            <div className="text-[11px] text-[#6B778C] truncate">{user.email}</div>
+            <button
+              type="button"
+              onClick={async () => {
+                await logout();
+                navigate('/auth');
+              }}
+              className="mt-2 text-[11px] font-semibold text-[#C4321C] hover:underline cursor-pointer"
+            >
+              Sign out
+            </button>
+          </div>
+        )}
+        {syncStatus === 'loading' ? (
+          <div className="px-3 py-2.5 rounded-xl bg-[#EAEFFE] text-[#1D4ED8] text-[11px] font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#2448D8] animate-ping shrink-0" />
+            <span>Syncing with Vixir API...</span>
+          </div>
+        ) : syncStatus === 'error' ? (
+          <div className="px-3 py-2.5 rounded-xl bg-[#FEF2F2] border border-[#FECACA] text-[#C4321C] text-[11px] font-medium flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#C4321C] shrink-0" />
+              <span>API offline</span>
+            </div>
+            {onRetrySync && (
+              <button
+                type="button"
+                onClick={onRetrySync}
+                className="font-bold underline cursor-pointer"
+              >
+                Retry
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="px-3 py-2.5 rounded-xl bg-[#E6F6EE] text-[#0F7B45] text-[11px] font-medium flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-[#0F7B45] shrink-0" />
+            <span>Connected   </span>
+          </div>
+        )}
       </div>
     </aside>
   );
 }
 
-// B1 — Student Dashboard
+const EXPERIMENT_META_BY_ID: Record<
+  string,
+  { title: string; subject: string; badgeClass: string; route: string }
+> = {
+  'phy.pendulum.g': {
+    title: 'Simple pendulum — determination of g',
+    subject: 'PHYSICS',
+    badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+    route: '/lab/physics/pendulum',
+  },
+  'chem.titration': {
+    title: 'Acid–base titration: HCl vs Na₂CO₃',
+    subject: 'CHEMISTRY',
+    badgeClass: 'bg-[#FEF0E6] text-[#B45309]',
+    route: '/lab/chemistry/titration/safety',
+  },
+  'elec.ohms-law': {
+    title: 'Verifying Ohm’s law',
+    subject: 'ELECTRONICS',
+    badgeClass: 'bg-[#E0F8F5] text-[#0F766E]',
+    route: '/lab/electronics/ohms-law',
+  },
+};
+
+// B1 — Student Dashboard (with explicit Loading, Error/Offline, Empty, and Success states)
 export function StudentDashboardScreen() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
+  const { user, refreshProfile } = useAuth();
+
+  const [isLoading, setIsLoading] = useState<boolean>(() => Boolean(getStoredAccessToken()));
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [apiAssignments, setApiAssignments] = useState<AssignmentSummary[]>([]);
+  const [apiClasses, setApiClasses] = useState<ClassSummary[]>([]);
+  const [apiAttempts, setApiAttempts] = useState<AttemptSummary[]>([]);
+  const [latestReport, setLatestReport] = useState<MarkReportResponse | null>(null);
+
+  const [joinCodeInput, setJoinCodeInput] = useState('');
+  const [isJoiningClass, setIsJoiningClass] = useState(false);
+  const [joinFeedback, setJoinFeedback] = useState<{
+    tone: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [startingAssignmentId, setStartingAssignmentId] = useState<string | null>(null);
+
+  const submittedAt = useLabSessionStore((s) => s.submittedAt);
+  const rows = useLabSessionStore((s) => s.pendulumRows);
+  const precautions = useLabSessionStore((s) => s.precautions);
+  const gValue = useLabSessionStore((s) => s.gValue);
+
+  const loadDashboardData = async () => {
+    if (!getStoredAccessToken()) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      await refreshProfile();
+      const [assignmentsList, classesList, attemptsList] = await Promise.all([
+        vixirApi.listMyAssignments(),
+        vixirApi.listClasses(),
+        vixirApi.listMyAttempts().catch(() => []),
+      ]);
+      setApiAssignments(assignmentsList);
+      setApiClasses(classesList);
+      setApiAttempts(attemptsList);
+
+      const submittedAttempt =
+        attemptsList.find((a) => a.state === 'SUBMITTED') ||
+        (getStoredAttempt() ? { id: getStoredAttempt()!.attemptId } : null);
+      if (submittedAttempt?.id) {
+        const rep = await vixirApi.getMarkReport(submittedAttempt.id).catch(() => null);
+        if (rep) setLatestReport(rep);
+      }
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      setFetchError(
+        (err as Error).message ||
+          'Could not load your classes and assignments from Vixir API (:8081). Check your network connection.'
+      );
+    }
+  };
+
+  useEffect(() => {
+    void loadDashboardData();
+  }, []);
+
+  const handleJoinClassCode = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = joinCodeInput.trim();
+    if (!code) return;
+    setIsJoiningClass(true);
+    setJoinFeedback(null);
+    try {
+      const cls = await vixirApi.joinClass(code);
+      setJoinFeedback({
+        tone: 'success',
+        text: `Joined ${cls.name} (${cls.joinCode})! Loading your class assignments...`,
+      });
+      setJoinCodeInput('');
+      await loadDashboardData();
+    } catch (err) {
+      setJoinFeedback({
+        tone: 'error',
+        text: (err as Error).message || `Could not join class with code "${code}".`,
+      });
+    } finally {
+      setIsJoiningClass(false);
+    }
+  };
+
+  const handleStartAssignedPractical = async (assignment: AssignmentSummary) => {
+    setStartingAssignmentId(assignment.id);
+    const meta = EXPERIMENT_META_BY_ID[assignment.experimentId] ?? {
+      title: assignment.title || assignment.experimentId,
+      subject: 'PHYSICS',
+      badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+      route: '/lab/physics/pendulum',
+    };
+    try {
+      const bootstrap = await vixirApi.startAttempt({ assignmentId: assignment.id });
+      useLabSessionStore.setState({
+        attemptId: bootstrap.attemptId,
+        seed: bootstrap.seed,
+      });
+    } catch {
+      // Proceed to lab bench even if attempt already active
+    } finally {
+      setStartingAssignmentId(null);
+      navigate(meta.route);
+    }
+  };
+
+  const displayName = user
+    ? `${user.firstName} ${user.lastName}`.trim()
+    : 'Student';
+  const initials = user
+    ? `${user.firstName?.[0] || 'S'}${user.lastName?.[0] || ''}`.toUpperCase()
+    : 'ST';
+  const classSubtitle =
+    apiClasses.length > 0
+      ? apiClasses.map((c) => `${c.name} (${c.joinCode})`).join(' · ')
+      : user?.email || 'Not enrolled in a class yet';
+
+  const q = search.trim().toLowerCase();
+  const filteredAssignments = apiAssignments.filter((a) => {
+    if (!q) return true;
+    const meta = EXPERIMENT_META_BY_ID[a.experimentId];
+    const title = (a.title || meta?.title || a.experimentId).toLowerCase();
+    return title.includes(q) || a.experimentId.toLowerCase().includes(q);
+  });
+
+  // Check if the student has any real submitted attempt in PostgreSQL or in this session
+  const submittedAttempts = apiAttempts.filter((a) => a.state === 'SUBMITTED');
+  const hasSubmittedAttempt = Boolean(
+    submittedAttempts.length > 0 || submittedAt || latestReport
+  );
+  const localAutoMark = computeAutoMark(rows, precautions, gValue);
+
+  const syncStatus: 'loading' | 'synced' | 'error' = isLoading
+    ? 'loading'
+    : fetchError
+      ? 'error'
+      : 'synced';
 
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
-      <StudentSidebar active="dashboard" />
+      <StudentSidebar
+        active="dashboard"
+        syncStatus={syncStatus}
+        onRetrySync={() => {
+          void loadDashboardData();
+        }}
+      />
 
       <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-7">
           <div>
-            <div className="text-xs text-[#475467] mb-0.5">
-              SS3 Science · Kings College, Lagos
-            </div>
+            <div className="text-xs text-[#475467] mb-0.5">{classSubtitle}</div>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[#0E1726]">
-              Good evening, Adaeze
+              Good evening, {displayName}
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <form onSubmit={handleJoinClassCode} className="flex items-center gap-1.5">
+              <input
+                type="text"
+                aria-label="Join class with code"
+                value={joinCodeInput}
+                onChange={(e) => setJoinCodeInput(e.target.value)}
+                placeholder="Join class code (e.g. PHY-SS3-DEMO)"
+                className="w-52 px-3 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs font-mono text-[#0E1726] placeholder:text-[#6B778C]"
+              />
+              <button
+                type="submit"
+                disabled={isJoiningClass || !joinCodeInput.trim()}
+                className="px-3.5 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] disabled:opacity-50 text-white text-xs font-semibold cursor-pointer"
+              >
+                {isJoiningClass ? 'Joining...' : 'Join class'}
+              </button>
+            </form>
             <input
               type="search"
               aria-label="Search experiments"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search experiments..."
-              className="w-56 sm:w-64 px-3.5 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
+              placeholder="Search assignments..."
+              className="w-52 sm:w-60 px-3.5 py-2 rounded-xl bg-white border border-[#D0D7E2] text-xs text-[#0E1726] placeholder:text-[#6B778C] focus:outline-none focus:ring-2 focus:ring-[#2448D8]"
             />
             <div className="w-9 h-9 rounded-full bg-[#FDECE3] text-[#9A3412] text-xs font-bold flex items-center justify-center shrink-0">
-              AO
+              {initials}
             </div>
           </div>
         </div>
 
-        {/* Due this week */}
-        <section className="mb-7">
-          <h2 className="font-display text-base font-bold text-[#0E1726] mb-3.5">
-            Due this week
-          </h2>
-
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            {/* Card 1: Physics */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#EAEFFE] text-[#1D4ED8] uppercase">
-                    PHYSICS
-                  </span>
-                  <span className="text-[#B54708]">Due Wed, 18 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Simple pendulum — determination of g
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mr. Bello · 6 trials · WAEC-style report
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3">
-                  <div className="h-full w-1/2 bg-[#2448D8] rounded-full" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">3 of 6 readings taken</span>
-                <Link
-                  to="/lab/physics/pendulum"
-                  className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors"
-                >
-                  Continue
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 2: Chemistry */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#FEF0E6] text-[#B45309] uppercase">
-                    CHEMISTRY
-                  </span>
-                  <span className="text-[#475467]">Due Fri, 20 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Acid–base titration: HCl vs NaOH
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mrs. Adeyemi · 3 concordant titres
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3" />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">Not started</span>
-                <Link
-                  to="/lab/chemistry/titration/safety"
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold transition-colors"
-                >
-                  Open briefing
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 3: Electronics */}
-            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between">
-              <div>
-                <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
-                  <span className="px-2.5 py-0.5 rounded-full bg-[#E0F8F5] text-[#0F766E] uppercase">
-                    ELECTRONICS
-                  </span>
-                  <span className="text-[#475467]">Due Mon, 23 Nov</span>
-                </div>
-                <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
-                  Verifying Ohm’s law
-                </h3>
-                <p className="text-xs text-[#475467] mb-4">
-                  Mr. Bello · 8 readings · I–V graph
-                </p>
-                <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden mb-3" />
-              </div>
-
-              <div className="flex items-center justify-between pt-1">
-                <span className="text-xs text-[#475467]">Not started</span>
-                <Link
-                  to="/experiments/simple-pendulum"
-                  className="px-4 py-2 rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-[#0E1726] text-xs font-semibold transition-colors"
-                >
-                  Open briefing
-                </Link>
-              </div>
-            </div>
+        {/* Join Class Feedback Banner */}
+        {joinFeedback && (
+          <div
+            role="status"
+            className={`mb-5 px-4 py-3 rounded-xl border text-xs font-semibold flex items-center justify-between ${
+              joinFeedback.tone === 'success'
+                ? 'bg-[#E6F6EE] border-[#A7F3D0] text-[#0F7B45]'
+                : 'bg-[#FEF2F2] border-[#FECACA] text-[#C4321C]'
+            }`}
+          >
+            <span>{joinFeedback.text}</span>
+            <button
+              type="button"
+              onClick={() => setJoinFeedback(null)}
+              className="text-xs underline ml-3 cursor-pointer"
+            >
+              Dismiss
+            </button>
           </div>
+        )}
+
+        {/* Network / API Error State Banner */}
+        {fetchError && (
+          <div
+            role="alert"
+            className="mb-6 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+          >
+            <div>
+              <div className="font-display text-sm font-bold text-[#991B1B] mb-0.5">
+                Could not sync with Vixir API
+              </div>
+              <p className="text-xs text-[#C4321C]">{fetchError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadDashboardData();
+              }}
+              className="px-4 py-2 rounded-xl bg-[#C4321C] hover:bg-[#991B1B] text-white text-xs font-semibold shrink-0 cursor-pointer"
+            >
+              Retry connection
+            </button>
+          </div>
+        )}
+
+        {/* Section 1: Assigned Practicals (Due this week) — 4 Explicit States: Loading, Error, Empty, Success */}
+        <section className="mb-7">
+          <div className="flex items-center justify-between mb-3.5">
+            <h2 className="font-display text-base font-bold text-[#0E1726]">
+              Due this week
+            </h2>
+            {!isLoading && (
+              <span className="text-xs text-[#6B778C]">
+                {apiClasses.length} enrolled class{apiClasses.length === 1 ? '' : 'es'} ·{' '}
+                {apiAssignments.length} active assignment{apiAssignments.length === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
+
+          {isLoading ? (
+            /* 1. LOADING STATE */
+            <div
+              aria-label="Loading assignments"
+              className="grid grid-cols-1 lg:grid-cols-3 gap-4"
+            >
+              {[1, 2, 3].map((n) => (
+                <div
+                  key={n}
+                  className="bg-white rounded-2xl border border-[#E3E8EF] p-5 space-y-3 animate-pulse"
+                >
+                  <div className="flex justify-between">
+                    <div className="h-4 w-20 bg-[#E3E8EF] rounded-full" />
+                    <div className="h-4 w-24 bg-[#E3E8EF] rounded" />
+                  </div>
+                  <div className="h-5 w-3/4 bg-[#E3E8EF] rounded" />
+                  <div className="h-3 w-1/2 bg-[#E3E8EF] rounded" />
+                  <div className="h-2 w-full bg-[#E3E8EF] rounded-full" />
+                  <div className="flex justify-between pt-2">
+                    <div className="h-4 w-24 bg-[#E3E8EF] rounded" />
+                    <div className="h-8 w-24 bg-[#E3E8EF] rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : filteredAssignments.length === 0 ? (
+            /* 2. EMPTY STATE (No fake hardcoded assignments for newly registered students!) */
+            <div className="bg-white rounded-2xl border border-[#E3E8EF] p-7 text-center max-w-2xl mx-auto my-2 space-y-3">
+              <div className="font-display text-lg font-bold text-[#0E1726]">
+                {apiClasses.length === 0
+                  ? 'You have not joined a class yet'
+                  : 'No assignments due this week'}
+              </div>
+              <p className="text-xs text-[#475467] leading-relaxed max-w-lg mx-auto">
+                {apiClasses.length === 0
+                  ? 'Enter the class join code your teacher shared with you (for example PHY-SS3-DEMO for the demo SS3A Physics class) to load your assigned practicals, or explore the 5 virtual laboratories in open practice mode.'
+                  : 'Your teacher has not published any active assignments for your enrolled class yet. You can run open practice experiments in the Laboratories hub while you wait.'}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                {apiClasses.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setJoinCodeInput('PHY-SS3-DEMO');
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-[#EAEFFE] hover:bg-[#DBEAFE] text-[#1D4ED8] text-xs font-semibold cursor-pointer"
+                  >
+                    Fill demo code (PHY-SS3-DEMO)
+                  </button>
+                )}
+                <Link
+                  to="/labs"
+                  className="px-4 py-2.5 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors"
+                >
+                  Explore 5 Virtual Laboratories →
+                </Link>
+              </div>
+            </div>
+          ) : (
+            /* 3. SUCCESS STATE (Real assignments fetched from PostgreSQL on :8081) */
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {filteredAssignments.map((asgn) => {
+                const meta = EXPERIMENT_META_BY_ID[asgn.experimentId] ?? {
+                  title: asgn.title || asgn.experimentId,
+                  subject: 'PHYSICS',
+                  badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]',
+                  route: '/lab/physics/pendulum',
+                };
+                const dueDateStr = asgn.dueAt
+                  ? new Date(asgn.dueAt).toLocaleDateString('en-GB', {
+                      weekday: 'short',
+                      day: 'numeric',
+                      month: 'short',
+                    })
+                  : 'Upcoming';
+
+                return (
+                  <div
+                    key={asgn.id}
+                    className="bg-white rounded-2xl border border-[#E3E8EF] p-5 flex flex-col justify-between"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between text-[11px] font-bold mb-2.5">
+                        <span
+                          className={`px-2.5 py-0.5 rounded-full uppercase ${meta.badgeClass}`}
+                        >
+                          {meta.subject} · {asgn.mode}
+                        </span>
+                        <span className="text-[#B54708]">Due {dueDateStr}</span>
+                      </div>
+                      <h3 className="font-display text-base font-bold text-[#0E1726] mb-1">
+                        {asgn.title || meta.title}
+                      </h3>
+                      <p className="text-xs text-[#475467] mb-4">
+                        {asgn.attemptsAllowed} attempts allowed · {asgn.noiseLevel.toLowerCase()} noise
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-2 border-t border-[#F1F4F9]">
+                      <span className="text-xs text-[#475467] font-mono">
+                        {asgn.status}
+                      </span>
+                      <button
+                        type="button"
+                        disabled={startingAssignmentId === asgn.id}
+                        onClick={() => {
+                          void handleStartAssignedPractical(asgn);
+                        }}
+                        className="px-4 py-2 rounded-xl bg-[#2448D8] hover:bg-[#1B38B0] text-white text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        {startingAssignmentId === asgn.id
+                          ? 'Starting...'
+                          : 'Start practical →'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
 
-        {/* Bottom Grid: Recent results + Practical skills */}
+        {/* Bottom Grid: Recent results + Practical skills (Dynamic with Loading & Empty States) */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
           {/* Recent results */}
           <section className="lg:col-span-8 bg-white rounded-2xl border border-[#E3E8EF] p-6">
@@ -204,64 +535,73 @@ export function StudentDashboardScreen() {
               <h2 className="font-display text-base font-bold text-[#0E1726]">
                 Recent results
               </h2>
-              <Link
-                to="/attempt/demo/report"
-                className="text-xs font-semibold text-[#2448D8] hover:underline"
-              >
-                View all
-              </Link>
+              {hasSubmittedAttempt && (
+                <Link
+                  to="/attempt/demo/report"
+                  className="text-xs font-semibold text-[#2448D8] hover:underline"
+                >
+                  View marked report →
+                </Link>
+              )}
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
-                    <th className="py-2.5 text-left">EXPERIMENT</th>
-                    <th className="py-2.5 text-left">SUBMITTED</th>
-                    <th className="py-2.5 text-left">RESULT</th>
-                    <th className="py-2.5 text-right">SCORE</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#E3E8EF]">
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Refraction through a glass block
-                    </td>
-                    <td className="py-3.5 text-[#475467]">11 Nov</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">n = 1.49</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold">
-                        17 / 20
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Principle of moments (metre rule)
-                    </td>
-                    <td className="py-3.5 text-[#475467]">4 Nov</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">m = 48.6 g</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#FEF0E6] text-[#B54708] font-mono font-bold">
-                        12 / 20
-                      </span>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td className="py-3.5 font-semibold text-[#0E1726]">
-                      Rates of reaction (Na₂S₂O₃ + HCl)
-                    </td>
-                    <td className="py-3.5 text-[#475467]">28 Oct</td>
-                    <td className="py-3.5 font-mono text-[#0E1726]">1/t ∝ [S₂O₃²⁻]</td>
-                    <td className="py-3.5 text-right">
-                      <span className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold">
-                        18 / 20
-                      </span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2].map((r) => (
+                  <div key={r} className="h-10 bg-[#F1F4F9] rounded-xl" />
+                ))}
+              </div>
+            ) : !hasSubmittedAttempt ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-6 text-center space-y-2">
+                <div className="font-display text-sm font-bold text-[#0E1726]">
+                  No graded submissions yet
+                </div>
+                <p className="text-xs text-[#475467] max-w-md mx-auto leading-relaxed">
+                  Complete and submit a practical attempt from your assignments or the
+                  laboratories hub to see your marked report and score history here.
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-[#E3E8EF] text-[11px] font-bold uppercase text-[#6B778C]">
+                      <th className="py-2.5 text-left">EXPERIMENT</th>
+                      <th className="py-2.5 text-left">SUBMITTED</th>
+                      <th className="py-2.5 text-left">RESULT</th>
+                      <th className="py-2.5 text-right">SCORE</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#E3E8EF]">
+                    <tr>
+                      <td className="py-3.5 font-semibold text-[#0E1726]">
+                        Simple pendulum — determination of g
+                      </td>
+                      <td className="py-3.5 text-[#475467]">
+                        {submittedAt
+                          ? new Date(submittedAt).toLocaleTimeString([], {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })
+                          : 'Today'}
+                      </td>
+                      <td className="py-3.5 font-mono text-[#0E1726]">
+                        g = {gValue} m s⁻²
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <Link
+                          to="/attempt/demo/report"
+                          className="px-2.5 py-1 rounded-md bg-[#E6F6EE] text-[#0F7B45] font-mono font-bold"
+                        >
+                          {latestReport ? latestReport.mark.total : localAutoMark.total} /{' '}
+                          {latestReport ? latestReport.mark.maxTotal : localAutoMark.maxTotal}
+                        </Link>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
 
           {/* Practical skills */}
@@ -270,32 +610,58 @@ export function StudentDashboardScreen() {
               Practical skills
             </h2>
 
-            <div className="space-y-3 text-xs">
-              {[
-                { label: 'Taking readings', pct: 86, color: 'bg-[#2448D8]' },
-                { label: 'Significant figures', pct: 71, color: 'bg-[#2448D8]' },
-                { label: 'Graph plotting', pct: 64, color: 'bg-[#2448D8]' },
-                { label: 'Stating precautions', pct: 42, color: 'bg-[#B54708]' },
-              ].map((skill) => (
-                <div key={skill.label}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[#0E1726] font-medium">{skill.label}</span>
-                    <span className="font-mono font-bold text-[#0E1726]">{skill.pct}%</span>
-                  </div>
-                  <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${skill.color}`}
-                      style={{ width: `${skill.pct}%` }}
-                    />
-                  </div>
+            {isLoading ? (
+              <div className="space-y-3 animate-pulse">
+                {[1, 2, 3, 4].map((s) => (
+                  <div key={s} className="h-6 bg-[#F1F4F9] rounded" />
+                ))}
+              </div>
+            ) : !hasSubmittedAttempt ? (
+              <div className="rounded-xl bg-[#F9FAFC] border border-dashed border-[#D0D7E2] p-5 text-center space-y-1.5">
+                <div className="text-xs font-bold text-[#0E1726]">
+                  No skill profile recorded yet
                 </div>
-              ))}
-            </div>
+                <p className="text-[11px] text-[#475467] leading-relaxed">
+                  Your WAEC/NECO practical skill breakdown (Taking readings, Significant
+                  figures, Graph plotting, and Precautions) unlocks after your first
+                  submitted practical.
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="space-y-3 text-xs">
+                  {localAutoMark.criteria.slice(0, 4).map((c) => {
+                    const pct = Math.round((c.awarded / Math.max(1, c.max)) * 100);
+                    return (
+                      <div key={c.key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[#0E1726] font-medium truncate pr-2">
+                            {c.name}
+                          </span>
+                          <span className="font-mono font-bold text-[#0E1726]">
+                            {pct}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-[#E3E8EF] rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              pct >= 70 ? 'bg-[#2448D8]' : 'bg-[#B54708]'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
-            <div className="bg-[#FEF5EE] rounded-xl p-3.5 text-xs text-[#9A3412] leading-relaxed">
-              <strong>Tip from your lab assistant:</strong> you often skip parallax and
-              zero-error precautions. Try the 5-minute “Precautions” drill.
-            </div>
+                <div className="bg-[#FEF5EE] rounded-xl p-3.5 text-xs text-[#9A3412] leading-relaxed">
+                  <strong>Tip from Vix:</strong> Always state at least three physical
+                  precautions (eye-level reading, small swing angle &lt; 10°, and timing
+                  from the equilibrium fiducial mark).
+                </div>
+              </>
+            )}
           </section>
         </div>
       </main>
@@ -303,9 +669,68 @@ export function StudentDashboardScreen() {
   );
 }
 
-// B2 — Laboratories Hub (/labs)
+// B2 — Laboratories Hub (/labs) — Dynamic Attempt Statuses + Loading/Error/Empty States
 export function LabsHubScreen() {
   const navigate = useNavigate();
+  const hasToken = Boolean(getStoredAccessToken());
+  const [isLoading, setIsLoading] = useState<boolean>(hasToken);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [myAttempts, setMyAttempts] = useState<AttemptSummary[]>([]);
+  const [myAssignments, setMyAssignments] = useState<AssignmentSummary[]>([]);
+
+  const loadLabsState = async () => {
+    if (!getStoredAccessToken()) {
+      setIsLoading(false);
+      return;
+    }
+    setIsLoading(true);
+    setFetchError(null);
+    try {
+      const [attemptsList, assignmentsList] = await Promise.all([
+        vixirApi.listMyAttempts(),
+        vixirApi.listMyAssignments(),
+      ]);
+      setMyAttempts(attemptsList);
+      setMyAssignments(assignmentsList);
+      setIsLoading(false);
+    } catch (err) {
+      setIsLoading(false);
+      setFetchError(
+        (err as Error).message ||
+          'Could not load your practical attempt status from Vixir API (:8081).'
+      );
+    }
+  };
+
+  useEffect(() => {
+    void loadLabsState();
+  }, []);
+
+  const getPracticalStatusBadge = (
+    experimentId: string
+  ): { badge: string; badgeClass: string } => {
+    const isDone = myAttempts.some(
+      (a) => a.experimentId === experimentId && a.state === 'SUBMITTED'
+    );
+    if (isDone) {
+      return { badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' };
+    }
+    const isInProgress = myAttempts.some(
+      (a) => a.experimentId === experimentId && a.state === 'IN_PROGRESS'
+    );
+    if (isInProgress) {
+      return { badge: 'In progress', badgeClass: 'bg-[#FEF3C7] text-[#B45309]' };
+    }
+    const isAssigned = myAssignments.some((a) => a.experimentId === experimentId);
+    if (isAssigned) {
+      return { badge: 'Assigned', badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]' };
+    }
+    return { badge: 'Not started', badgeClass: 'bg-[#EDF1F7] text-[#475467]' };
+  };
+
+  const inProgressAttempts = myAttempts.filter((a) => a.state === 'IN_PROGRESS');
+  const completedAttempts = myAttempts.filter((a) => a.state === 'SUBMITTED');
+  const latestInProgress = inProgressAttempts[0] ?? null;
 
   const labCards = [
     {
@@ -317,10 +742,10 @@ export function LabsHubScreen() {
       to: '/lab/physics/pendulum',
       buttonLabel: 'Open Physics lab',
       items: [
-        { title: 'Simple pendulum', to: '/lab/physics/pendulum', badge: 'Assigned', badgeClass: 'bg-[#EAEFFE] text-[#1D4ED8]' },
-        { title: 'Refraction through a glass block', to: '/lab/physics/refraction', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Principle of moments', to: '/lab/physics/moments', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Specific heat capacity', to: '/lab/physics/pendulum', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Simple pendulum', to: '/lab/physics/pendulum', expId: 'phy.pendulum.g' },
+        { title: 'Refraction through a glass block', to: '/lab/physics/refraction', expId: 'phy.refraction' },
+        { title: 'Principle of moments', to: '/lab/physics/moments', expId: 'phy.moments' },
+        { title: 'Specific heat capacity', to: '/lab/physics/pendulum', expId: 'phy.specific-heat' },
       ],
     },
     {
@@ -332,10 +757,10 @@ export function LabsHubScreen() {
       to: '/lab/chemistry/titration',
       buttonLabel: 'Open Chemistry lab',
       items: [
-        { title: 'Acid–base titration', to: '/lab/chemistry/titration', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Qualitative analysis of salts', to: '/lab/chemistry/qualitative-analysis', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Rates of reaction', to: '/lab/chemistry/titration', badge: 'Done', badgeClass: 'bg-[#E6F6EE] text-[#0F7B45]' },
-        { title: 'Heat of neutralisation', to: '/lab/chemistry/titration', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Acid–base titration', to: '/lab/chemistry/titration', expId: 'chem.titration' },
+        { title: 'Qualitative analysis of salts', to: '/lab/chemistry/qualitative-analysis', expId: 'chem.qualitative' },
+        { title: 'Rates of reaction', to: '/lab/chemistry/titration', expId: 'chem.rates' },
+        { title: 'Heat of neutralisation', to: '/lab/chemistry/titration', expId: 'chem.neutralisation' },
       ],
     },
     {
@@ -347,10 +772,10 @@ export function LabsHubScreen() {
       to: '/lab/biology/digestion',
       buttonLabel: 'Open Biology lab',
       items: [
-        { title: 'Journey of food (digestion)', to: '/lab/biology/digestion', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Dissection of a rat', to: '/lab/biology/dissection', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Human body systems', to: '/lab/biology/body-systems', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Food tests', to: '/lab/biology/food-tests', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Journey of food (digestion)', to: '/lab/biology/digestion', expId: 'bio.digestion' },
+        { title: 'Dissection of a mammal (rabbit / rat)', to: '/lab/biology/dissection', expId: 'bio.dissection' },
+        { title: 'Human body systems (6-system atlas)', to: '/lab/biology/body-systems', expId: 'bio.body-systems' },
+        { title: 'Food tests', to: '/lab/biology/food-tests', expId: 'bio.food-tests' },
       ],
     },
     {
@@ -362,10 +787,10 @@ export function LabsHubScreen() {
       to: '/lab/electronics/ohms-law',
       buttonLabel: 'Open Electronics lab',
       items: [
-        { title: 'Verifying Ohm’s law', to: '/lab/electronics/ohms-law', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Diode I–V characteristics', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'RC charging', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Logic gates', to: '/lab/electronics/ohms-law', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Verifying Ohm’s law', to: '/lab/electronics/ohms-law', expId: 'elec.ohms-law' },
+        { title: 'Diode I–V characteristics', to: '/lab/electronics/ohms-law', expId: 'elec.diode-iv' },
+        { title: 'RC charging', to: '/lab/electronics/ohms-law', expId: 'elec.rc-charging' },
+        { title: 'Logic gates', to: '/lab/electronics/ohms-law', expId: 'elec.logic-gates' },
       ],
     },
     {
@@ -377,17 +802,30 @@ export function LabsHubScreen() {
       to: '/lab/engineering/beam',
       buttonLabel: 'Open Engineering lab',
       items: [
-        { title: 'Beam deflection', to: '/lab/engineering/beam', badge: 'Offline', badgeClass: 'bg-[#FEF0E6] text-[#B54708]' },
-        { title: 'Tensile test', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Bernoulli’s theorem', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
-        { title: 'Gear trains', to: '/lab/engineering/beam', badge: 'New', badgeClass: 'bg-[#EDF1F7] text-[#475467]' },
+        { title: 'Beam deflection', to: '/lab/engineering/beam', expId: 'eng.beam' },
+        { title: 'Isometric drawing (30° CAD)', to: '/lab/engineering/isometric', expId: 'eng.isometric' },
+        { title: 'Tensile test', to: '/lab/engineering/beam', expId: 'eng.tensile' },
+        { title: 'Bernoulli’s theorem', to: '/lab/engineering/beam', expId: 'eng.bernoulli' },
+        { title: 'Gear trains', to: '/lab/engineering/beam', expId: 'eng.gears' },
       ],
     },
   ];
 
+  const syncStatus: 'loading' | 'synced' | 'error' = isLoading
+    ? 'loading'
+    : fetchError
+      ? 'error'
+      : 'synced';
+
   return (
     <div className="min-h-screen bg-[#F5F7FA] text-[#0E1726] flex flex-col md:flex-row">
-      <StudentSidebar active="labs" />
+      <StudentSidebar
+        active="labs"
+        syncStatus={syncStatus}
+        onRetrySync={() => {
+          void loadLabsState();
+        }}
+      />
 
       <main className="flex-1 p-6 sm:p-8 max-w-[1160px]">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
@@ -403,7 +841,7 @@ export function LabsHubScreen() {
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="px-3.5 py-1.5 rounded-full bg-[#E6F6EE] text-[#0F7B45] text-xs font-semibold inline-flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[#0F7B45]" />
-              3 practicals downloaded for offline
+              {completedAttempts.length} completed · {inProgressAttempts.length} in progress
             </span>
             <button
               type="button"
@@ -416,82 +854,182 @@ export function LabsHubScreen() {
           </div>
         </div>
 
-        {/* Resume Banner */}
-        <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <div className="text-[11px] font-bold tracking-wider uppercase text-[#FDBA74] mb-1">
-              RESUME · PHYSICS LAB
-            </div>
-            <h2 className="font-display text-xl font-bold text-white mb-1">
-              Simple pendulum — 3 of 6 readings taken
-            </h2>
-            <p className="text-xs text-[#93A0B8]">
-              Bench saved 14 min ago · due Wed 18 Nov
-            </p>
-          </div>
-
-          <Link
-            to="/lab/physics/pendulum"
-            className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+        {/* Network / API Error Banner */}
+        {fetchError && (
+          <div
+            role="alert"
+            className="mb-6 bg-[#FEF2F2] border border-[#FECACA] rounded-2xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
           >
-            Back to the bench
-          </Link>
-        </div>
+            <div>
+              <div className="font-display text-sm font-bold text-[#991B1B] mb-0.5">
+                Could not load your practical progress
+              </div>
+              <p className="text-xs text-[#C4321C]">{fetchError}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void loadLabsState();
+              }}
+              className="px-4 py-2 rounded-xl bg-[#C4321C] hover:bg-[#991B1B] text-white text-xs font-semibold shrink-0 cursor-pointer"
+            >
+              Retry connection
+            </button>
+          </div>
+        )}
+
+        {/* Top Banner: Loading vs Active Resume vs Empty State (No fake '3 of 6 readings taken' when 0 attempts exist!) */}
+        {isLoading ? (
+          <div className="bg-[#0B1220] rounded-2xl p-6 mb-7 animate-pulse h-24" />
+        ) : latestInProgress ? (
+          <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-bold tracking-wider uppercase text-[#FDBA74] mb-1">
+                RESUME · {latestInProgress.mode} ATTEMPT #{latestInProgress.attemptNo}
+              </div>
+              <h2 className="font-display text-xl font-bold text-white mb-1">
+                {EXPERIMENT_META_BY_ID[latestInProgress.experimentId]?.title ||
+                  latestInProgress.experimentId}{' '}
+                — {latestInProgress.lastEventSeq} actions logged
+              </h2>
+              <p className="text-xs text-[#93A0B8]">
+                Started{' '}
+                {new Date(latestInProgress.startedAt).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+
+            <Link
+              to={
+                EXPERIMENT_META_BY_ID[latestInProgress.experimentId]?.route ||
+                '/lab/physics/pendulum'
+              }
+              className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+            >
+              Back to the bench
+            </Link>
+          </div>
+        ) : (
+          <div className="bg-[#0B1220] text-white rounded-2xl p-6 mb-7 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-bold tracking-wider uppercase text-[#7DD3FC] mb-1">
+                NO PRACTICAL IN PROGRESS YET
+              </div>
+              <h2 className="font-display text-xl font-bold text-white mb-1">
+                Start your first laboratory bench session
+              </h2>
+              <p className="text-xs text-[#93A0B8]">
+                You have not started or completed any practicals yet. Choose any of the 5
+                disciplines below to open a fresh bench.
+              </p>
+            </div>
+
+            <Link
+              to="/lab/physics/pendulum"
+              className="px-5 py-3 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold transition-colors self-start sm:self-center"
+            >
+              Start Simple Pendulum →
+            </Link>
+          </div>
+        )}
 
         {/* Lab Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {labCards.map((lab) => (
-            <div
-              key={lab.name}
-              className="bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between"
-            >
-              <div>
-                <div className={`${lab.headerBg} p-5`}>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <h2 className={`font-display text-lg font-bold ${lab.titleColor}`}>
-                      {lab.name}
-                    </h2>
-                    <span className={`font-mono text-xs ${lab.titleColor}`}>
-                      {lab.count}
-                    </span>
+          {labCards.map((lab) => {
+            const isDisabledLab = lab.name === 'Biology';
+            return (
+              <div
+                key={lab.name}
+                aria-disabled={isDisabledLab || undefined}
+                className={`bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between ${
+                  isDisabledLab ? 'opacity-50 grayscale select-none' : ''
+                }`}
+              >
+                <div>
+                  <div className={`${isDisabledLab ? 'bg-[#EDF1F7]' : lab.headerBg} p-5`}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <h2
+                        className={`font-display text-lg font-bold ${
+                          isDisabledLab ? 'text-[#6B778C]' : lab.titleColor
+                        }`}
+                      >
+                        {lab.name}
+                      </h2>
+                      <span
+                        className={`font-mono text-xs ${
+                          isDisabledLab ? 'text-[#6B778C] font-semibold' : lab.titleColor
+                        }`}
+                      >
+                        {isDisabledLab ? 'Coming soon' : lab.count}
+                      </span>
+                    </div>
+                    <p
+                      className={`text-xs ${
+                        isDisabledLab ? 'text-[#6B778C]' : lab.titleColor
+                      } opacity-90 leading-relaxed`}
+                    >
+                      {lab.desc}
+                    </p>
                   </div>
-                  <p className={`text-xs ${lab.titleColor} opacity-90 leading-relaxed`}>
-                    {lab.desc}
-                  </p>
+
+                  <ul className="divide-y divide-[#E3E8EF] px-5 py-2 text-xs">
+                    {lab.items.map((item) => {
+                      const status = getPracticalStatusBadge(item.expId);
+                      return (
+                        <li
+                          key={item.title}
+                          className="py-2.5 flex items-center justify-between gap-2"
+                        >
+                          {isDisabledLab ? (
+                            <span className="font-medium text-[#6B778C] cursor-not-allowed">
+                              {item.title}
+                            </span>
+                          ) : (
+                            <Link
+                              to={item.to}
+                              className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
+                            >
+                              {item.title}
+                            </Link>
+                          )}
+                          <span
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              isDisabledLab
+                                ? 'bg-[#EDF1F7] text-[#6B778C]'
+                                : status.badgeClass
+                            }`}
+                          >
+                            {isDisabledLab ? 'Disabled' : status.badge}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
 
-                <ul className="divide-y divide-[#E3E8EF] px-5 py-2 text-xs">
-                  {lab.items.map((item) => (
-                    <li
-                      key={item.title}
-                      className="py-2.5 flex items-center justify-between gap-2"
+                <div className="p-4 pt-2">
+                  {isDisabledLab ? (
+                    <button
+                      type="button"
+                      disabled
+                      className="block w-full py-2.5 text-center rounded-xl bg-[#F1F4F9] border border-[#D0D7E2] text-xs font-semibold text-[#6B778C] cursor-not-allowed"
                     >
-                      <Link
-                        to={item.to}
-                        className="font-medium text-[#0E1726] hover:text-[#2448D8] hover:underline"
-                      >
-                        {item.title}
-                      </Link>
-                      <span
-                        className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${item.badgeClass}`}
-                      >
-                        {item.badge}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
+                      Biology lab — coming soon
+                    </button>
+                  ) : (
+                    <Link
+                      to={lab.to}
+                      className="block w-full py-2.5 text-center rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] transition-colors"
+                    >
+                      {lab.buttonLabel}
+                    </Link>
+                  )}
+                </div>
               </div>
-
-              <div className="p-4 pt-2">
-                <Link
-                  to={lab.to}
-                  className="block w-full py-2.5 text-center rounded-xl bg-white hover:bg-[#F5F7FA] border border-[#D0D7E2] text-xs font-semibold text-[#0E1726] transition-colors"
-                >
-                  {lab.buttonLabel}
-                </Link>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </main>
     </div>
@@ -502,129 +1040,173 @@ export function LabsHubScreen() {
 const LIBRARY_EXPERIMENTS = [
   {
     slug: 'simple-pendulum',
+    expId: 'phy.pendulum.g',
     subject: 'Physics',
     formula: 'T² ∝ L',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Simple pendulum — determination of g',
     desc: 'Find g from the slope of a T² against L graph.',
-    meta: '35 min   SS2–SS3   Assigned',
+    baseMeta: '35 min   SS2–SS3',
   },
   {
     slug: 'glass-block-refraction',
+    expId: 'phy.refraction',
     subject: 'Physics',
     formula: 'n = sin i / sin r',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Refraction through a rectangular glass block',
     desc: 'Trace rays with pins and find the refractive index.',
-    meta: '40 min   SS2–SS3   Completed',
+    baseMeta: '40 min   SS2–SS3',
   },
   {
     slug: 'principle-of-moments',
+    expId: 'phy.moments',
     subject: 'Physics',
     formula: 'ΣM = 0',
     bannerBg: 'bg-[#EAEFFE]',
     formulaColor: 'text-[#1D4ED8]',
     title: 'Principle of moments with a metre rule',
     desc: 'Balance a metre rule and find an unknown mass.',
-    meta: '30 min   SS1–SS3   Completed',
+    baseMeta: '30 min   SS1–SS3',
   },
   {
     slug: 'acid-base-titration',
+    expId: 'chem.titration',
     subject: 'Chemistry',
     formula: 'C₁V₁ = C₂V₂',
     bannerBg: 'bg-[#FEF0E6]',
     formulaColor: 'text-[#B45309]',
     title: 'Acid–base titration: HCl vs NaOH',
     desc: 'Find the concentration of an acid from concordant titres.',
-    meta: '45 min   SS2–SS3   Assigned',
+    baseMeta: '45 min   SS2–SS3',
   },
   {
     slug: 'qualitative-analysis',
+    expId: 'chem.qualitative',
     subject: 'Chemistry',
     formula: 'Cu²⁺ · SO₄²⁻',
     bannerBg: 'bg-[#FEF0E6]',
     formulaColor: 'text-[#B45309]',
     title: 'Qualitative analysis of salts',
     desc: 'Identify cations and anions from test observations.',
-    meta: '40 min   SS3   New',
+    baseMeta: '40 min   SS3',
   },
   {
     slug: 'journey-of-food',
+    expId: 'bio.digestion',
     subject: 'Biology',
     formula: 'Amylase → Pepsin',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
     title: 'Journey of food through the human digestive tract',
     desc: 'Follow enzymatic breakdown and pH from mouth to ileum.',
-    meta: '30 min   SS1–SS3   Interactive',
+    baseMeta: '30 min   SS1–SS3',
   },
   {
     slug: 'rat-dissection',
+    expId: 'bio.dissection',
     subject: 'Biology',
-    formula: 'Rattus norvegicus',
+    formula: 'Oryctolagus · Rattus',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
-    title: 'Dissection of a mammal (rat)',
-    desc: 'Guided 5-stage virtual dissection and thoracic/abdominal anatomy.',
-    meta: '45 min   SS2–SS3   Interactive',
+    title: 'Dissection of a mammal (rabbit / rat)',
+    desc: 'Guided 5-stage virtual dissection and 18-organ visceral anatomy.',
+    baseMeta: '45 min   SS2–SS3',
   },
   {
     slug: 'food-tests',
+    expId: 'bio.food-tests',
     subject: 'Biology',
     formula: 'I₂ · Benedict · Biuret',
     bannerBg: 'bg-[#E6F6EE]',
     formulaColor: 'text-[#15803D]',
     title: 'Biochemical food tests — starch, sugar, protein & lipids',
     desc: 'Test food specimens with Iodine, Benedict’s, Biuret, and Sudan III.',
-    meta: '35 min   SS1–SS3   New',
+    baseMeta: '35 min   SS1–SS3',
   },
   {
     slug: 'ohms-law',
+    expId: 'elec.ohms-law',
     subject: 'Electronics',
     formula: 'V = IR',
     bannerBg: 'bg-[#E0F8F5]',
     formulaColor: 'text-[#0F766E]',
     title: 'Verifying Ohm’s law',
     desc: 'Plot V against I and find the resistance of a wire.',
-    meta: '30 min   SS2 · 100L   Assigned',
+    baseMeta: '30 min   SS2 · 100L',
   },
   {
     slug: 'diode-iv',
+    expId: 'elec.diode-iv',
     subject: 'Electronics',
     formula: 'I = I₀(e^(V/Vt) - 1)',
     bannerBg: 'bg-[#E0F8F5]',
     formulaColor: 'text-[#0F766E]',
     title: 'Diode I–V characteristics',
     desc: 'Measure forward and reverse bias behaviour.',
-    meta: '35 min   100L · ND   New',
+    baseMeta: '35 min   100L · ND',
   },
   {
     slug: 'beam-deflection',
+    expId: 'eng.beam',
     subject: 'Engineering',
-    formula: 'δ = WL³ / 48EI',
+    formula: 'δ = FL³ / 3EI',
     bannerBg: 'bg-[#F3E8FF]',
     formulaColor: 'text-[#7E22CE]',
-    title: 'Deflection of a simply supported beam',
-    desc: 'Relate load to mid-span deflection and find E.',
-    meta: '45 min   ND · 200L   New',
+    title: 'Deflection of a cantilever / simply supported beam',
+    desc: 'Relate load to tip deflection and find Young’s Modulus E.',
+    baseMeta: '45 min   ND · 200L',
   },
   {
     slug: 'bernoulli-apparatus',
+    expId: 'eng.bernoulli',
     subject: 'Engineering',
     formula: 'p + ½ρv² = C',
     bannerBg: 'bg-[#F3E8FF]',
     formulaColor: 'text-[#7E22CE]',
     title: 'Bernoulli’s theorem apparatus',
     desc: 'Measure pressure heads along a venturi tube.',
-    meta: '40 min   ND · 200L   New',
+    baseMeta: '40 min   ND · 200L',
   },
 ];
 
 export function ExperimentLibraryScreen() {
   const [filter, setFilter] = useState('All');
   const [curriculum, setCurriculum] = useState('WAEC / NECO (SS1–SS3)');
+  const [myAttempts, setMyAttempts] = useState<AttemptSummary[]>([]);
+  const [myAssignments, setMyAssignments] = useState<AssignmentSummary[]>([]);
+
+  useEffect(() => {
+    if (!getStoredAccessToken()) return;
+    let cancelled = false;
+    Promise.all([
+      vixirApi.listMyAttempts().catch(() => []),
+      vixirApi.listMyAssignments().catch(() => []),
+    ]).then(([atts, asgns]) => {
+      if (!cancelled) {
+        setMyAttempts(atts);
+        setMyAssignments(asgns);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const getExpStatusText = (expId: string) => {
+    if (myAttempts.some((a) => a.experimentId === expId && a.state === 'SUBMITTED')) {
+      return 'Done';
+    }
+    if (myAttempts.some((a) => a.experimentId === expId && a.state === 'IN_PROGRESS')) {
+      return 'In progress';
+    }
+    if (myAssignments.some((a) => a.experimentId === expId)) {
+      return 'Assigned';
+    }
+    return 'Not started';
+  };
 
   const filtered =
     filter === 'All'
@@ -668,56 +1250,96 @@ export function ExperimentLibraryScreen() {
 
         {/* Subject Filter Pills */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
-          {['All', 'Physics', 'Chemistry', 'Biology', 'Electronics', 'Engineering'].map((subj) => (
-            <button
-              key={subj}
-              type="button"
-              onClick={() => setFilter(subj)}
-              className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors cursor-pointer ${
-                filter === subj
-                  ? 'bg-[#0E1726] text-white'
-                  : 'bg-white border border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7]'
-              }`}
-            >
-              {subj}
-            </button>
-          ))}
+          {['All', 'Physics', 'Chemistry', 'Biology', 'Electronics', 'Engineering'].map((subj) => {
+            const isDisabled = subj === 'Biology';
+            return (
+              <button
+                key={subj}
+                type="button"
+                disabled={isDisabled}
+                title={isDisabled ? 'Biology lab coming soon' : undefined}
+                onClick={() => {
+                  if (!isDisabled) setFilter(subj);
+                }}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-colors ${
+                  isDisabled
+                    ? 'bg-[#EDF1F7] border border-[#E3E8EF] text-[#94A3B8] opacity-60 cursor-not-allowed'
+                    : filter === subj
+                      ? 'bg-[#0E1726] text-white cursor-pointer'
+                      : 'bg-white border border-[#D0D7E2] text-[#0E1726] hover:bg-[#EDF1F7] cursor-pointer'
+                }`}
+              >
+                {subj}
+                {isDisabled ? ' (Soon)' : ''}
+              </button>
+            );
+          })}
         </div>
 
         <div className="text-xs text-[#6B778C] mb-4">{filtered.length} experiments</div>
 
         {/* Experiment Cards Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filtered.map((exp) => (
-            <Link
-              key={exp.slug}
-              to={`/experiments/${exp.slug}`}
-              className="bg-white rounded-2xl border border-[#E3E8EF] hover:border-[#2448D8] overflow-hidden flex flex-col justify-between transition-colors group"
-            >
-              <div>
+          {filtered.map((exp) => {
+            const isDisabledExp = exp.subject === 'Biology';
+            if (isDisabledExp) {
+              return (
                 <div
-                  className={`${exp.bannerBg} h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold ${exp.formulaColor}`}
+                  key={exp.slug}
+                  aria-disabled="true"
+                  className="bg-white rounded-2xl border border-[#E3E8EF] overflow-hidden flex flex-col justify-between opacity-50 grayscale cursor-not-allowed select-none"
                 >
-                  {exp.formula}
-                </div>
-                <div className="p-5">
-                  <div
-                    className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${exp.formulaColor}`}
-                  >
-                    {exp.subject}
+                  <div>
+                    <div className="bg-[#EDF1F7] h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold text-[#6B778C]">
+                      {exp.formula}
+                    </div>
+                    <div className="p-5">
+                      <div className="text-[10px] font-bold tracking-wider uppercase mb-1 text-[#6B778C]">
+                        {exp.subject} · COMING SOON
+                      </div>
+                      <h2 className="font-display text-sm font-bold text-[#475467] mb-1.5 leading-snug">
+                        {exp.title}
+                      </h2>
+                      <p className="text-xs text-[#6B778C] leading-relaxed">{exp.desc}</p>
+                    </div>
                   </div>
-                  <h2 className="font-display text-sm font-bold text-[#0E1726] group-hover:text-[#2448D8] mb-1.5 leading-snug">
-                    {exp.title}
-                  </h2>
-                  <p className="text-xs text-[#475467] leading-relaxed">{exp.desc}</p>
+                  <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
+                    {`${exp.baseMeta}   Disabled`}
+                  </div>
                 </div>
-              </div>
+              );
+            }
+            return (
+              <Link
+                key={exp.slug}
+                to={`/experiments/${exp.slug}`}
+                className="bg-white rounded-2xl border border-[#E3E8EF] hover:border-[#2448D8] overflow-hidden flex flex-col justify-between transition-colors group"
+              >
+                <div>
+                  <div
+                    className={`${exp.bannerBg} h-24 flex items-center justify-center px-4 font-mono text-xl font-semibold ${exp.formulaColor}`}
+                  >
+                    {exp.formula}
+                  </div>
+                  <div className="p-5">
+                    <div
+                      className={`text-[10px] font-bold tracking-wider uppercase mb-1 ${exp.formulaColor}`}
+                    >
+                      {exp.subject}
+                    </div>
+                    <h2 className="font-display text-sm font-bold text-[#0E1726] group-hover:text-[#2448D8] mb-1.5 leading-snug">
+                      {exp.title}
+                    </h2>
+                    <p className="text-xs text-[#475467] leading-relaxed">{exp.desc}</p>
+                  </div>
+                </div>
 
-              <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
-                {exp.meta}
-              </div>
-            </Link>
-          ))}
+                <div className="px-5 pb-4 text-[11px] text-[#6B778C] whitespace-pre">
+                  {`${exp.baseMeta}   ${getExpStatusText(exp.expId)}`}
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </main>
     </div>

@@ -53,6 +53,14 @@ public class DemoDataSeeder {
     @Transactional
     ApplicationRunner seedDemo() {
         return args -> {
+            var existingStudent = userRepo.findByEmailIgnoreCase("student@demo.vixir.org");
+            if (existingStudent.isPresent()) {
+                var st = existingStudent.get();
+                if (st.getMatricNo() == null || st.getMatricNo().isBlank()) {
+                    st.setMatricNo("2025/16/16/0416");
+                    userRepo.save(st);
+                }
+            }
             if (userRepo.existsByEmail("teacher@demo.vixir.org")) {
                 log.info("Demo data already seeded — skipping");
                 return;
@@ -85,6 +93,7 @@ public class DemoDataSeeder {
             // Named student
             var mainStudent = new AppUser();
             mainStudent.setEmail("student@demo.vixir.org");
+            mainStudent.setMatricNo("2025/16/16/0416");
             mainStudent.setPasswordHash(passwords.hash("demo1234"));
             mainStudent.setFirstName("Chidi");
             mainStudent.setLastName("Eze");

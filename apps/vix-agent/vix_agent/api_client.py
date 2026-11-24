@@ -61,7 +61,7 @@ class VixirApiClient:
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self.base_url = (
-            base_url or os.environ.get("VIXIR_API_URL", "http://localhost:8080/api/v1")
+            base_url or os.environ.get("VIXIR_API_URL", "http://localhost:8081/api/v1")
         ).rstrip("/")
         self.service_secret = service_secret or os.environ.get(
             "VIXIR_SERVICE_SECRET", "dev-vixir-service-secret"

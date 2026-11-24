@@ -27,6 +27,7 @@ from .graph.state import DEFAULT_PENDULUM_CONTEXT
 from .llm import create_llm_brain, list_supported_brains, split_into_sentences
 from .main import process_user_query
 from .pipeline import PipecatDuplexSession
+from .realtime_live import GeminiLiveVixBridge
 from .session import HEALTH_REGISTRY, VixSessionRunner, log_worker_startup
 from .tts import GLOBAL_TTS_SERVICE
 
@@ -36,20 +37,32 @@ _SESSIONS: dict[str, VixSessionRunner] = {}
 _DUPLEX_SESSIONS: dict[str, PipecatDuplexSession] = {}
 
 
-def _cors_headers() -> dict[str, str]:
+def _cors_headers(request: web.Request | None = None) -> dict[str, str]:
+    configured = [
+        o.strip().rstrip("/")
+        for o in os.environ.get("VIX_CORS_ORIGINS", "").split(",")
+        if o.strip()
+    ]
+    allow_origin = "*"
+    if configured:
+        req_origin = (request.headers.get("Origin", "") if request else "").strip().rstrip("/")
+        allow_origin = req_origin if req_origin in configured else configured[0]
     return {
-        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Origin": allow_origin,
         "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Vary": "Origin",
     }
 
 
-def _json_response(data: dict[str, Any], status: int = 200) -> web.Response:
+def _json_response(
+    data: dict[str, Any], status: int = 200, request: web.Request | None = None
+) -> web.Response:
     return web.Response(
         text=json.dumps(data),
         status=status,
         content_type="application/json",
-        headers=_cors_headers(),
+        headers=_cors_headers(request),
     )
 
 
@@ -91,8 +104,8 @@ def mint_livekit_token(room_name: str, participant_identity: str, participant_na
     return f"{h_b64}.{p_b64}.{_b64url(sig)}"
 
 
-async def handle_options(_request: web.Request) -> web.Response:
-    return web.Response(status=204, headers=_cors_headers())
+async def handle_options(request: web.Request) -> web.Response:
+    return web.Response(status=204, headers=_cors_headers(request))
 
 
 async def handle_health(_request: web.Request) -> web.Response:
@@ -140,11 +153,12 @@ async def handle_session_start(request: web.Request) -> web.Response:
             status=409,
         )
 
-    first_name = (body.get("firstName") or "Adaora").split()[0]
-    locale = body.get("locale") or "en"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    locale = body.get("locale") or "English"
     voice = body.get("voice") or "ada"
     brain_spec = body.get("brain") or None
     exp_title = body.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
+    include_audio = bool(body.get("includeAudio", True))
 
     brain = create_llm_brain(brain_spec)
     runner = VixSessionRunner(session_id=session_id, brain=brain)
@@ -153,26 +167,43 @@ async def handle_session_start(request: web.Request) -> web.Response:
     runner.locale = locale
     runner.voice = voice
     runner.connected = True
+    readings_count: int | None = None
     if body.get("screenMap"):
         runner.on_screenmap_data(body["screenMap"])
+        sim_data = body["screenMap"].get("sim") if isinstance(body["screenMap"], dict) else None
+        if isinstance(sim_data, dict) and sim_data.get("readingsCount") is not None:
+            readings_count = int(sim_data["readingsCount"])
 
     _SESSIONS[session_id] = runner
 
-    persona_display = {"ada": "Ada", "tunde": "Tunde", "grace": "Grace"}.get(
-        voice.lower(), "Ada"
+    progress_note = (
+        f" with {readings_count} readings recorded so far"
+        if isinstance(readings_count, int) and readings_count > 0
+        else ""
     )
     greeting_prompt = (
-        f"Introduce yourself to {first_name} in {locale} as Vix (speaking in {persona_display}'s voice), their AI laboratory guide for '{exp_title}' (mode: {mode}).\n"
-        "In 3 clear, natural conversational sentences:\n"
-        "1. Introduce yourself warmly and name the current practical workspace.\n"
-        "2. State clearly what you WILL do (explain every tiny component, terminal pin, meter, and slider on the screen, help draw or wire setups on the bench, and guide with Socratic questions) and what you CANNOT do (never give away graded numerical answers or submit their class report).\n"
-        "3. Ask if they would like a complete spotlight tour explaining every detail on this lab screen, or if they want to click on a specific component to start."
+        f"Greet {first_name} in {locale} as Vix in exactly 2 short, warm spoken sentences (no LaTeX, no markdown):\n"
+        f"1. Say: 'Hi {first_name}, I can see you are in the {exp_title} lab studio{progress_note}.'\n"
+        "2. Ask: 'Would you like a quick interactive tour of this lab studio, or would you like me to walk you through a live worked example so you can see how to handle the practical?'"
     )
     greeting = await brain.generate(
         greeting_prompt,
-        system="You are Vix, a warm, conversational Nigerian science lab partner. Output 3 clear sentences.",
+        system="You are Vix, a warm, conversational Nigerian science lab partner. Speak naturally in 2 brief sentences.",
         fast=True,
+        max_tokens=120,
     )
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and greeting:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                greeting, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline greeting TTS failed: %s", exc)
 
     room_name = f"vix-{session_id}"
     lk_token = mint_livekit_token(room_name, f"student-{first_name.lower()}", first_name)
@@ -186,6 +217,8 @@ async def handle_session_start(request: web.Request) -> web.Response:
             "voice": voice,
             "greeting": greeting,
             "sentences": split_into_sentences(greeting),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "room": room_name,
             "livekitUrl": lk_url,
             "livekitToken": lk_token,
@@ -194,7 +227,7 @@ async def handle_session_start(request: web.Request) -> web.Response:
 
 
 async def handle_turn(request: web.Request) -> web.Response:
-    """POST /vix/turn — run a live student question + ScreenMap through the 18-node Vix LangGraph & real LLM."""
+    """POST /vix/turn — run a live student question + ScreenMap through the Vix LangGraph & real LLM with inline Neural TTS."""
     try:
         body = await request.json()
     except Exception:
@@ -206,7 +239,10 @@ async def handle_turn(request: web.Request) -> web.Response:
 
     session_id = body.get("sessionId") or "live-web-session"
     mode: Mode = body.get("mode") or "PRACTICE"
-    locale = body.get("locale") or "en"
+    locale = body.get("locale") or "English"
+    voice = body.get("voice") or "ada"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    include_audio = bool(body.get("includeAudio", True))
     brain_spec = body.get("brain") or None
     raw_screen = body.get("screenMap")
     raw_pointer = body.get("pointerTarget")
@@ -231,17 +267,21 @@ async def handle_turn(request: web.Request) -> web.Response:
             runner.switch_brain(brain_spec)
         runner.mode = mode
         runner.locale = locale
+        if first_name != "Student":
+            runner.first_name = first_name
         if screen_map is not None:
             runner.on_screenmap_data(screen_map)
         result = await runner.handle_student_turn(query)
         active_brain_id = runner.brain.identifier
     else:
-        result = process_user_query(
+        result = await asyncio.to_thread(
+            process_user_query,
             query,
             screen_map=screen_map,
             mode=mode,
             session_id=session_id,
             locale=locale,
+            first_name=first_name,
             brain=brain_spec,
         )
         active_brain_id = result.get("llm_brain") or create_llm_brain(brain_spec).identifier
@@ -252,15 +292,37 @@ async def handle_turn(request: web.Request) -> web.Response:
     ]
     tour = result.get("tour")
     tour_dump = tour.model_dump() if hasattr(tour, "model_dump") else tour
-
+    intent_val = result.get("intent", "what_next")
     reply_text = result.get("reply") or result.get("response") or ""
+
+    ui_action: str | None = None
+    if intent_val == "worked_example":
+        ui_action = "open_worked_example"
+    elif intent_val == "explain_screen":
+        ui_action = "start_tour"
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and reply_text:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                reply_text, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline turn TTS failed: %s", exc)
+
     return _json_response(
         {
             "sessionId": session_id,
             "brain": active_brain_id,
-            "intent": result.get("intent", "what_next"),
+            "intent": intent_val,
+            "uiAction": ui_action,
             "reply": reply_text,
             "sentences": split_into_sentences(reply_text),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "blocked": bool(result.get("blocked") or result.get("policy_blocked")),
             "targetIds": result.get("target_ids") or [],
             "rpcPlan": rpcs,
@@ -396,6 +458,7 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
         return _json_response({"error": "STT_FAILED", "detail": str(exc)}, status=503)
 
     if not transcript or len(transcript.strip()) < 2:
+        logger.info("Voice turn ignored as silence/noise")
         return _json_response(
             {
                 "silence": True,
@@ -405,9 +468,14 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
             }
         )
 
+    logger.info("Voice turn transcribed: %r", transcript)
+
     # Delegate to the full LangGraph turn logic with the transcribed speech
     session_id = body.get("sessionId") or "live-web-session"
     mode: Mode = body.get("mode") or "PRACTICE"
+    voice = body.get("voice") or "ada"
+    first_name = (body.get("firstName") or "Student").split()[0]
+    include_audio = bool(body.get("includeAudio", True))
     raw_screen = body.get("screenMap")
     raw_pointer = body.get("pointerTarget")
 
@@ -432,6 +500,7 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
         mode=mode,
         session_id=session_id,
         locale=locale,
+        first_name=first_name,
         brain=brain.identifier,
     )
 
@@ -441,7 +510,26 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
     ]
     tour = result.get("tour")
     tour_dump = tour.model_dump() if hasattr(tour, "model_dump") else tour
+    intent_val = result.get("intent", "what_next")
     reply_text = result.get("reply") or result.get("response") or ""
+
+    ui_action: str | None = None
+    if intent_val == "worked_example":
+        ui_action = "open_worked_example"
+    elif intent_val == "explain_screen":
+        ui_action = "start_tour"
+
+    audio_b64: str | None = None
+    audio_mime: str | None = None
+    if include_audio and reply_text:
+        try:
+            tts_res = await GLOBAL_TTS_SERVICE.synthesize(
+                reply_text, voice_id=voice, locale=locale
+            )
+            audio_b64 = tts_res.get("audio")
+            audio_mime = tts_res.get("mimeType")
+        except Exception as exc:
+            logger.warning("Inline voice-turn TTS failed: %s", exc)
 
     return _json_response(
         {
@@ -449,9 +537,12 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
             "sessionId": session_id,
             "brain": brain.identifier,
             "transcript": transcript,
-            "intent": result.get("intent", "what_next"),
+            "intent": intent_val,
+            "uiAction": ui_action,
             "reply": reply_text,
             "sentences": split_into_sentences(reply_text),
+            "audio": audio_b64,
+            "mimeType": audio_mime,
             "blocked": bool(result.get("blocked") or result.get("policy_blocked")),
             "targetIds": result.get("target_ids") or [],
             "rpcPlan": rpcs,
@@ -465,12 +556,62 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
     )
 
 
+async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
+    """GET /vix/live — True Full-Duplex Native Gemini 3.1 Flash Live Audio-to-Audio WebSocket."""
+    ws = web.WebSocketResponse(heartbeat=25.0)
+    await ws.prepare(request)
+
+    session_id = request.query.get("sessionId") or f"live-{uuid.uuid4().hex[:8]}"
+    first_name = request.query.get("firstName") or "Student"
+    voice_id = request.query.get("voice") or "ada"
+    locale = request.query.get("locale") or "English"
+    mode: Mode = "GRADED" if request.query.get("mode") == "GRADED" else "PRACTICE"
+    experiment_title = request.query.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
+
+    initial_screen_map: ScreenMap | None = None
+    is_authenticated = request.query.get("isAuthenticated", "false").lower() == "true"
+    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount & auth state before greeting!
+    try:
+        first_msg = await asyncio.wait_for(ws.receive(), timeout=0.6)
+        if first_msg.type == web.WSMsgType.TEXT:
+            init_data = json.loads(first_msg.data)
+            if init_data.get("screenMap"):
+                initial_screen_map = ScreenMap.parse_validated_payload(init_data["screenMap"])
+            if init_data.get("firstName"):
+                first_name = str(init_data["firstName"])
+            if init_data.get("experimentTitle"):
+                experiment_title = str(init_data["experimentTitle"])
+            if init_data.get("voice"):
+                voice_id = str(init_data["voice"])
+            if init_data.get("locale"):
+                locale = str(init_data["locale"])
+            if "isAuthenticated" in init_data:
+                is_authenticated = bool(init_data["isAuthenticated"])
+    except (TimeoutError, Exception) as exc:
+        logger.debug("No initial screenmap frame received before live boot: %s", exc)
+
+    bridge = GeminiLiveVixBridge(
+        ws,
+        session_id=session_id,
+        first_name=first_name,
+        voice_id=voice_id,
+        locale=locale,
+        mode=mode,
+        experiment_title=experiment_title,
+        initial_screen_map=initial_screen_map,
+    )
+    bridge.is_authenticated = is_authenticated
+    await bridge.run()
+    return ws
+
+
 def create_http_app() -> web.Application:
     app = web.Application()
     app.router.add_route("OPTIONS", "/{tail:.*}", handle_options)
     app.router.add_get("/health", handle_health)
     app.router.add_get("/vix/brains", handle_list_brains)
     app.router.add_get("/vix/ws", handle_ws)
+    app.router.add_get("/vix/live", handle_live_ws)
     app.router.add_post("/vix/session/start", handle_session_start)
     app.router.add_post("/vix/turn", handle_turn)
     app.router.add_post("/vix/voice-turn", handle_voice_turn)
@@ -481,7 +622,8 @@ def create_http_app() -> web.Application:
 
 
 def run_server(host: str = "0.0.0.0", port: int | None = None) -> None:
-    resolved_port = int(port or os.environ.get("VIX_AGENT_PORT", "8090"))
+    render_port = os.environ.get("PORT") if os.environ.get("RENDER") else None
+    resolved_port = int(port or render_port or os.environ.get("VIX_AGENT_PORT") or "8090")
     brain = create_llm_brain()
     log_worker_startup(brain)
     logger.info("Starting Vix Agent HTTP & LiveKit server on http://%s:%d (brain=%s)", host, resolved_port, brain.identifier)

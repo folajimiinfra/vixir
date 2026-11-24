@@ -6,18 +6,18 @@ import java.util.UUID;
 public record UserResponse(
         UUID id,
         String email,
+        String matricNo,
         String firstName,
         String lastName,
-        String role,
-        String status,
+        AppUser.Role role,
+        AppUser.UserStatus status,
         String locale,
         UUID institutionId,
         Instant createdAt
 ) {
     public static UserResponse from(AppUser u) {
-        return new UserResponse(
-                u.getId(), u.getEmail(), u.getFirstName(), u.getLastName(),
-                u.getRole().name(), u.getStatus().name(), u.getLocale(),
-                u.getInstitutionId(), u.getCreatedAt());
+        String displayEmail = u.getEmail() != null ? u.getEmail() : u.getMatricNo();
+        return new UserResponse(u.getId(), displayEmail, u.getMatricNo(), u.getFirstName(), u.getLastName(),
+                u.getRole(), u.getStatus(), u.getLocale(), u.getInstitutionId(), u.getCreatedAt());
     }
 }

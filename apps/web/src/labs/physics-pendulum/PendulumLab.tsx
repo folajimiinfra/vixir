@@ -5,7 +5,10 @@ import {
   pendulumPeriod,
   pendulumAngle,
 } from '../../../../../packages/sim-core/src/index';
-import { useLabSessionStore } from '../../store/labSessionStore';
+import {
+  useLabSessionStore,
+  computeRegressionForRows,
+} from '../../store/labSessionStore';
 
 interface PendulumReading {
   id: number;
@@ -16,17 +19,16 @@ interface PendulumReading {
   periodSquared: number;
 }
 
-const INITIAL_READINGS: PendulumReading[] = [
-  { id: 1, lengthCm: 40.0, timeS: 25.48, oscillations: 20, periodS: 1.274, periodSquared: 1.623 },
-  { id: 2, lengthCm: 50.0, timeS: 28.31, oscillations: 20, periodS: 1.416, periodSquared: 2.004 },
-  { id: 3, lengthCm: 60.0, timeS: 31.27, oscillations: 20, periodS: 1.564, periodSquared: 2.445 },
-];
-
 export function PendulumLab() {
   const navigate = useNavigate();
+  const pendulumRows = useLabSessionStore((s) => s.pendulumRows);
   const recordPendulumTrial = useLabSessionStore((s) => s.recordPendulumTrial);
+  const removePendulumRow = useLabSessionStore((s) => s.removePendulumRow);
+  const clearPendulumRows = useLabSessionStore((s) => s.clearPendulumRows);
+  const hydrateFromBackend = useLabSessionStore((s) => s.hydrateFromBackend);
+  const apiSyncStatus = useLabSessionStore((s) => s.apiSyncStatus);
   const seed = useLabSessionStore((s) => s.seed);
-  const [lengthCm, setLengthCm] = useState(70.0);
+  const [lengthCm, setLengthCm] = useState(40.0);
   const [releaseAngle, setReleaseAngle] = useState(8);
   const [isSwinging, setIsSwinging] = useState(true);
   const [currentAngle, setCurrentAngle] = useState(7.9);
@@ -40,16 +42,143 @@ export function PendulumLab() {
   const [notebookText, setNotebookText] = useState(
     'Length measured from bottom of split cork to centre of brass bob. Timing started as bob passes equilibrium marker.'
   );
-  const [readings, setReadings] = useState<PendulumReading[]>(INITIAL_READINGS);
   const [logMsg, setLogMsg] = useState('log > Bench ready. Pendulum released at θ₀ = 8°.');
+
+  // Hydrate persisted readings from PostgreSQL (:8081) and local draft when entering/returning to the lab
+  useEffect(() => {
+    void hydrateFromBackend();
+  }, [hydrateFromBackend]);
+
+  const [tutorialSandbox, setTutorialSandbox] = useState<{
+    title: string;
+    note: string;
+    gDemo: number;
+  } | null>(null);
+  const [demoReadings, setDemoReadings] = useState<PendulumReading[]>([]);
+
+  const readings: PendulumReading[] = tutorialSandbox
+    ? demoReadings
+    : pendulumRows.map((row) => ({
+        id: row.sn,
+        lengthCm: Number((row.lengthM * 100).toFixed(1)),
+        timeS: Number(row.tMean),
+        oscillations: row.oscillations,
+        periodS: Number(row.periodT),
+        periodSquared: Number(row.periodT2),
+      }));
 
   const swingStartRef = useRef<number>(performance.now());
   const swStartRef = useRef<number>(0);
 
   // True physical period T = 2π √(L/g) * (1 + θ₀²/16) via @vixir/sim-core
-  const gLocal = 9.81;
+  const gLocal = tutorialSandbox ? tutorialSandbox.gDemo : 9.81;
   const lengthM = lengthCm / 100;
   const truePeriod = pendulumPeriod(lengthM, gLocal, releaseAngle);
+
+  // Listen for Vix Live Bench Control RPCs so Vix can physically construct & operate this bench during tutorials!
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onBenchControl = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ action: string; params?: Record<string, unknown> }>).detail;
+      if (!detail?.action) return;
+      const { action, params = {} } = detail;
+
+      if (action === 'start_tutorial_sandbox') {
+        setTutorialSandbox({
+          title: String(params.scenarioTitle || 'Tutorial Demo: Pendulum on Mars (g = 3.72 m s⁻²)'),
+          note: String(params.analogNote || 'Your own real readings are safely saved while Vix demonstrates from scratch.'),
+          gDemo: 3.72,
+        });
+        setDemoReadings([]);
+        setProtractorPlaced(false);
+        setLengthCm(30.0);
+        setReleaseAngle(5);
+        setIsSwinging(false);
+        setCurrentAngle(0);
+        setStopwatchRunning(false);
+        setStopwatchTime(0);
+        setOscCount(0);
+        setEyeLevel(true);
+        setLogMsg('log > [Vix Tutorial Sandbox] Started analogous Mars-gravity pendulum demo from scratch.');
+        return;
+      }
+
+      if (action === 'end_tutorial_sandbox') {
+        setTutorialSandbox(null);
+        setDemoReadings([]);
+        setStopwatchRunning(false);
+        setStopwatchTime(0);
+        setOscCount(0);
+        setLogMsg('log > Exited Vix Tutorial Sandbox — your real bench and saved readings are restored.');
+        return;
+      }
+
+      if (action === 'place_protractor') {
+        setProtractorPlaced(true);
+        setLogMsg('log > [Vix Demo] Placed protractor at the split-cork pivot.');
+      } else if (action === 'set_length_cm') {
+        const val = Math.max(30, Math.min(100, Number(params.value) || 50));
+        setLengthCm(val);
+        setLogMsg(`log > [Vix Demo] Adjusted clamp height to L = ${val.toFixed(1)} cm.`);
+      } else if (action === 'set_release_angle') {
+        const val = Math.max(2, Math.min(25, Number(params.value) || 8));
+        setReleaseAngle(val);
+        setCurrentAngle(val);
+        setLogMsg(`log > [Vix Demo] Set release angle θ₀ = ${val}°.`);
+      } else if (action === 'set_eye_level') {
+        const lvl = Boolean(Number(params.value ?? 1));
+        setEyeLevel(lvl);
+        setLogMsg(
+          lvl
+            ? 'log > [Vix Demo] Aligned eye level perpendicular to the metre rule (no parallax).'
+            : 'log > [Vix Demo] Demonstrating parallax offset — eye is NOT level with the scale!'
+        );
+      } else if (action === 'toggle_swing') {
+        const swing = Boolean(Number(params.value ?? 1));
+        setIsSwinging(swing);
+        if (!swing) setCurrentAngle(0);
+        setLogMsg(swing ? 'log > [Vix Demo] Released pendulum bob smoothly.' : 'log > [Vix Demo] Stopped pendulum bob.');
+      } else if (action === 'start_stopwatch') {
+        setIsSwinging(true);
+        setStopwatchTime(0);
+        setOscCount(0);
+        swStartRef.current = performance.now();
+        setStopwatchRunning(true);
+        setLogMsg('log > [Vix Demo] Started stopwatch as bob passed equilibrium mark.');
+      } else if (action === 'stop_stopwatch') {
+        setStopwatchRunning(false);
+        setLogMsg(`log > [Vix Demo] Stopped stopwatch at ${stopwatchTime.toFixed(2)} s.`);
+      } else if (action === 'reset_stopwatch') {
+        setStopwatchRunning(false);
+        setStopwatchTime(0);
+        setOscCount(0);
+      } else if (action === 'record_demo_trial') {
+        const demoG = tutorialSandbox ? tutorialSandbox.gDemo : 3.72;
+        const n = 20;
+        const p = pendulumPeriod(lengthCm / 100, demoG, releaseAngle);
+        const tElapsed = Number((p * n + (Math.random() - 0.5) * 0.12).toFixed(2));
+        const periodS = Number((tElapsed / n).toFixed(3));
+        const periodSquared = Number((periodS * periodS).toFixed(3));
+        setDemoReadings((prev) => [
+          ...prev.filter((r) => Math.abs(r.lengthCm - lengthCm) > 1.5),
+          {
+            id: prev.length + 1,
+            lengthCm,
+            timeS: tElapsed,
+            oscillations: n,
+            periodS,
+            periodSquared,
+          },
+        ]);
+        setLogMsg(
+          `log > [Vix Sandbox Demo] Recorded Mars trial L = ${lengthCm.toFixed(1)} cm, t = ${tElapsed.toFixed(2)} s, T² = ${periodSquared.toFixed(3)} s².`
+        );
+      }
+    };
+
+    window.addEventListener('vix:bench-control', onBenchControl);
+    return () => window.removeEventListener('vix:bench-control', onBenchControl);
+  });
 
   useEffect(() => {
     const prefersReducedMotion =
@@ -120,32 +249,22 @@ export function PendulumLab() {
   };
 
   const handleRecordReading = () => {
-    const n = oscCount >= 5 ? oscCount : 20;
+    const useStopwatch = stopwatchTime >= truePeriod * 0.75;
+    const n = useStopwatch ? Math.max(1, Math.round(stopwatchTime / truePeriod)) : 20;
     const syncedRow = recordPendulumTrial({
       lengthCm,
       theta0Deg: releaseAngle,
       oscillations: n,
       eyeLevel,
-      rawStopwatchS: stopwatchTime >= 2 ? stopwatchTime : undefined,
+      rawStopwatchS: useStopwatch ? stopwatchTime : undefined,
     });
 
     const recordedL = Number((syncedRow.lengthM * 100).toFixed(1));
     const measuredTime = Number(syncedRow.tMean);
     const T = Number(syncedRow.periodT);
-    const T2 = Number(syncedRow.periodT2);
 
-    const nextReading: PendulumReading = {
-      id: readings.length + 1,
-      lengthCm: recordedL,
-      timeS: measuredTime,
-      oscillations: n,
-      periodS: T,
-      periodSquared: T2,
-    };
-
-    setReadings((prev) => [...prev, nextReading]);
     setLogMsg(
-      `log > [Seed #${seed}] Recorded L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${n} osc), T = ${T.toFixed(3)} s.`
+      `log > [Seed #${seed}] Saved L = ${recordedL.toFixed(1)} cm, t = ${measuredTime.toFixed(2)} s (${syncedRow.oscillations} osc), T = ${T.toFixed(3)} s to DB.`
     );
   };
 
@@ -386,42 +505,99 @@ export function PendulumLab() {
 
           {activeTab === 'readings' && (
             <>
-              {/* Readings Table */}
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-[#E6EBF5]">
+                    Readings ({readings.length})
+                  </span>
+                  <span className="text-[10px] font-mono text-[#4ADE80]">
+                    {apiSyncStatus === 'syncing'
+                      ? 'Saving...'
+                      : apiSyncStatus === 'offline-queued'
+                        ? 'Saved locally'
+                        : 'Saved to DB'}
+                  </span>
+                </div>
+                {readings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearPendulumRows();
+                      setLogMsg('log > Cleared all readings from table.');
+                    }}
+                    className="text-[11px] text-[#93A0B8] hover:text-[#FCA5A5] cursor-pointer"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
+
+              {/* Readings Table with per-row delete (×) */}
               <div className="bg-[#121A2B] border border-[#22304A] rounded-xl overflow-hidden">
-                <table className="w-full text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
-                      <th className="py-2 px-2.5 text-left">L/cm</th>
-                      <th className="py-2 px-2 text-right">t/s</th>
-                      <th className="py-2 px-1.5 text-right">n</th>
-                      <th className="py-2 px-2 text-right">T/s</th>
-                      <th className="py-2 px-2.5 text-right">T²/s²</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {readings.map((r) => (
-                      <tr
-                        key={r.id}
-                        className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
-                      >
-                        <td className="py-1.5 px-2.5">{r.lengthCm.toFixed(1)}</td>
-                        <td className="py-1.5 px-2 text-right">{r.timeS.toFixed(2)}</td>
-                        <td className="py-1.5 px-1.5 text-right text-[#93A0B8]">
-                          {r.oscillations}
-                        </td>
-                        <td className="py-1.5 px-2 text-right">{r.periodS.toFixed(3)}</td>
-                        <td className="py-1.5 px-2.5 text-right text-[#FDBA74]">
-                          {r.periodSquared.toFixed(3)}
-                        </td>
+                {readings.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-[#93A0B8] leading-relaxed">
+                    No readings recorded yet. Adjust clamp height <strong className="text-white">L</strong>,
+                    time the swing with the stopwatch, and click{' '}
+                    <strong className="text-[#60A5FA]">Record reading</strong> below.
+                  </div>
+                ) : (
+                  <table className="w-full text-xs font-mono">
+                    <thead>
+                      <tr className="border-b border-[#1E2A42] text-[#93A0B8] text-[11px]">
+                        <th className="py-2 px-2 text-left">L/cm</th>
+                        <th className="py-2 px-1.5 text-right">t/s</th>
+                        <th className="py-2 px-1 text-right">n</th>
+                        <th className="py-2 px-1.5 text-right">T/s</th>
+                        <th className="py-2 px-1.5 text-right">T²/s²</th>
+                        <th className="py-2 px-1.5 text-right" aria-label="Remove reading" />
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {readings.map((r) => (
+                        <tr
+                          key={r.id}
+                          className="border-b border-[#1E2A42]/60 last:border-b-0 text-[#E6EBF5]"
+                        >
+                          <td className="py-1.5 px-2">{r.lengthCm.toFixed(1)}</td>
+                          <td className="py-1.5 px-1.5 text-right">{r.timeS.toFixed(2)}</td>
+                          <td className="py-1.5 px-1 text-right text-[#93A0B8]">
+                            {r.oscillations}
+                          </td>
+                          <td className="py-1.5 px-1.5 text-right">{r.periodS.toFixed(3)}</td>
+                          <td className="py-1.5 px-1.5 text-right text-[#FDBA74]">
+                            {r.periodSquared.toFixed(3)}
+                          </td>
+                          <td className="py-1.5 px-1.5 text-right">
+                            <button
+                              type="button"
+                              aria-label={`Remove reading at ${r.lengthCm.toFixed(1)} cm`}
+                              title="Remove this reading"
+                              onClick={() => {
+                                removePendulumRow(r.id);
+                                setLogMsg(
+                                  `log > Removed reading row #${r.id} (L = ${r.lengthCm.toFixed(1)} cm).`
+                                );
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[#93A0B8] hover:text-[#FCA5A5] hover:bg-[#3B1219] transition-colors cursor-pointer"
+                            >
+                              ×
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
 
               {/* Live preview chart */}
               <div className="bg-[#121A2B] border border-[#22304A] rounded-xl p-3.5">
-                <div className="text-xs text-[#93A0B8] mb-2">Live preview · T² against L</div>
+                <div className="flex items-center justify-between text-xs text-[#93A0B8] mb-2">
+                  <span>Live preview · T² against L</span>
+                  <span className="font-mono text-[11px] text-[#7DD3FC]">
+                    {readings.length} pt{readings.length === 1 ? '' : 's'} plotted
+                  </span>
+                </div>
                 <svg viewBox="0 0 260 155" className="w-full h-auto">
                   {/* Axes */}
                   <line x1="32" y1="15" x2="32" y2="125" stroke="#3A4A68" strokeWidth="1" />
@@ -448,13 +624,69 @@ export function PendulumLab() {
                     T² / s²
                   </text>
 
+                  {/* True OLS Regression Line of Best Fit clipped mathematically to [0.3..1.0] × [0..maxY] */}
+                  {readings.length >= 2 &&
+                    (() => {
+                      const rowsForFit = readings.map((r) => ({
+                        sn: r.id,
+                        lengthM: r.lengthCm / 100,
+                        t1: r.timeS,
+                        t2: r.timeS,
+                        tMean: r.timeS.toFixed(2),
+                        periodT: r.periodS.toFixed(3),
+                        periodT2: r.periodSquared.toFixed(3),
+                        oscillations: r.oscillations,
+                      }));
+                      const maxY = tutorialSandbox ? 10.0 : 4.0;
+                      const fit = computeRegressionForRows(rowsForFit);
+                      let xStart = 0.3;
+                      let yStart = fit.slope * xStart + fit.intercept;
+                      let xEnd = 1.0;
+                      let yEnd = fit.slope * xEnd + fit.intercept;
+
+                      if (Math.abs(fit.slope) > 1e-6) {
+                        if (yStart < 0) {
+                          yStart = 0;
+                          xStart = (0 - fit.intercept) / fit.slope;
+                        } else if (yStart > maxY) {
+                          yStart = maxY;
+                          xStart = (maxY - fit.intercept) / fit.slope;
+                        }
+                        if (yEnd > maxY) {
+                          yEnd = maxY;
+                          xEnd = (maxY - fit.intercept) / fit.slope;
+                        } else if (yEnd < 0) {
+                          yEnd = 0;
+                          xEnd = (0 - fit.intercept) / fit.slope;
+                        }
+                      }
+                      xStart = Math.max(0.3, Math.min(1.0, xStart));
+                      xEnd = Math.max(0.3, Math.min(1.0, xEnd));
+
+                      const px1 = 32 + ((xStart - 0.3) / 0.7) * 205;
+                      const py1 = 125 - (Math.max(0, Math.min(maxY, yStart)) / maxY) * 100;
+                      const px2 = 32 + ((xEnd - 0.3) / 0.7) * 205;
+                      const py2 = 125 - (Math.max(0, Math.min(maxY, yEnd)) / maxY) * 100;
+                      return (
+                        <line
+                          x1={px1}
+                          y1={py1}
+                          x2={px2}
+                          y2={py2}
+                          stroke="#38BDF8"
+                          strokeWidth="1.8"
+                        />
+                      );
+                    })()}
+
                   {/* Plot points */}
                   {readings.map((r) => {
+                    const maxY = tutorialSandbox ? 10.0 : 4.0;
                     const lM = r.lengthCm / 100;
                     const cx = 32 + ((lM - 0.3) / 0.7) * 205;
-                    const cy = 125 - (Math.min(r.periodSquared, 4.0) / 4.0) * 100;
+                    const cy = 125 - (Math.min(r.periodSquared, maxY) / maxY) * 100;
                     return (
-                      <circle key={r.id} cx={cx} cy={cy} r="3.5" fill="#FDBA74" />
+                      <circle key={r.id} cx={cx} cy={cy} r="3.5" fill={tutorialSandbox ? '#38BDF8' : '#FDBA74'} />
                     );
                   })}
                 </svg>
@@ -495,6 +727,29 @@ export function PendulumLab() {
       }
     >
       {/* Top overlay row inside Bench */}
+      {tutorialSandbox && (
+        <div className="mb-2 px-4 py-2.5 rounded-xl bg-[#0F2942] border border-[#38BDF8] flex flex-wrap items-center justify-between gap-2 text-xs z-20">
+          <div>
+            <span className="font-mono font-bold text-[#38BDF8] mr-2">
+              VIX LIVE TUTORIAL SANDBOX
+            </span>
+            <span className="text-white font-semibold">{tutorialSandbox.title}</span>
+            <span className="text-[#93C5FD] ml-2">({tutorialSandbox.note})</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              setTutorialSandbox(null);
+              setDemoReadings([]);
+              setLogMsg('log > Returned to your real bench and saved PostgreSQL readings.');
+            }}
+            className="px-3 py-1 rounded-lg bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0B1220] font-bold text-[11px] cursor-pointer shrink-0"
+          >
+            Exit Demo &amp; Practice Myself
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 z-10">
         <div className="px-3 py-1 rounded-full bg-[#121A2B]/90 border border-[#22304A] text-xs text-[#E6EBF5]">
           {isSwinging

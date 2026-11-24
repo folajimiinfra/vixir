@@ -1,9 +1,11 @@
 package org.vixir.auth;
 
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
+/**
+ * Accepts either a school email address or a matric / admission number in {@code email}.
+ */
 public record LoginRequest(
-        @NotBlank @Email String email,
+        @NotBlank String email,
         @NotBlank String password
 ) {}
