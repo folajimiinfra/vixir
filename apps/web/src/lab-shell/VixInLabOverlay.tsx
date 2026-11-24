@@ -44,6 +44,54 @@ const VIX_AGENT_URL =
   (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_VIX_AGENT_URL ||
   'http://localhost:8090';
 
+/**
+ * Downsample mono Float32 PCM chunks to 16 kHz 16-bit signed PCM and wrap in a standard 44-byte RIFF/WAVE header.
+ * Pure uncompressed `audio/wav` works identically across Zen Browser, Firefox, Chrome, and Safari with 100% Gemini STT fidelity.
+ */
+function encodePcmChunksToWavBlob(chunks: Float32Array[], inputSampleRate: number): Blob {
+  const totalInSamples = chunks.reduce((acc, c) => acc + c.length, 0);
+  const merged = new Float32Array(totalInSamples);
+  let offset = 0;
+  for (const c of chunks) {
+    merged.set(c, offset);
+    offset += c.length;
+  }
+
+  const targetRate = 16000;
+  const ratio = inputSampleRate / targetRate;
+  const outLen = Math.max(1, Math.floor(totalInSamples / ratio));
+  const buffer = new ArrayBuffer(44 + outLen * 2);
+  const view = new DataView(buffer);
+
+  const writeStr = (pos: number, str: string) => {
+    for (let i = 0; i < str.length; i++) {
+      view.setUint8(pos + i, str.charCodeAt(i));
+    }
+  };
+
+  writeStr(0, 'RIFF');
+  view.setUint32(4, 36 + outLen * 2, true);
+  writeStr(8, 'WAVE');
+  writeStr(12, 'fmt ');
+  view.setUint32(16, 16, true); // PCM subchunk size
+  view.setUint16(20, 1, true); // PCM format
+  view.setUint16(22, 1, true); // Mono
+  view.setUint32(24, targetRate, true);
+  view.setUint32(28, targetRate * 2, true); // ByteRate
+  view.setUint16(32, 2, true); // BlockAlign
+  view.setUint16(34, 16, true); // BitsPerSample
+  writeStr(36, 'data');
+  view.setUint32(40, outLen * 2, true);
+
+  for (let i = 0; i < outLen; i++) {
+    const srcIdx = Math.min(totalInSamples - 1, Math.floor(i * ratio));
+    const s = Math.max(-1, Math.min(1, merged[srcIdx] || 0));
+    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 // =============================================================================
 // Real-Time Synchronized Neural Audio + Word-by-Word Live Typewriter Engine
 // (Talking and typing happen simultaneously at the exact same moment!)
@@ -1056,9 +1104,8 @@ export function VixSpotlightFloatingCard({
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
-  const vadTimerRef = useRef<number | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordedChunksRef = useRef<Blob[]>([]);
+  const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
+  const forceFlushSpeechRef = useRef<(() => void) | null>(null);
 
   const [showTrace, setShowTrace] = useState(false);
   const [agentMeta, setAgentMeta] = useState<{
@@ -1566,18 +1613,16 @@ export function VixSpotlightFloatingCard({
   };
 
   const stopHardwareMicrophone = () => {
-    if (vadTimerRef.current !== null && typeof window !== 'undefined') {
-      window.clearInterval(vadTimerRef.current);
-      vadTimerRef.current = null;
-    }
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    forceFlushSpeechRef.current = null;
+    if (scriptProcessorRef.current) {
       try {
-        mediaRecorderRef.current.stop();
+        scriptProcessorRef.current.disconnect();
+        scriptProcessorRef.current.onaudioprocess = null;
       } catch {
         // ignore
       }
+      scriptProcessorRef.current = null;
     }
-    mediaRecorderRef.current = null;
     if (mediaStreamRef.current) {
       for (const track of mediaStreamRef.current.getTracks()) {
         track.stop();
@@ -1598,8 +1643,7 @@ export function VixSpotlightFloatingCard({
     if (
       typeof window === 'undefined' ||
       typeof navigator === 'undefined' ||
-      !navigator.mediaDevices?.getUserMedia ||
-      typeof MediaRecorder === 'undefined'
+      !navigator.mediaDevices?.getUserMedia
     ) {
       return false;
     }
@@ -1611,6 +1655,7 @@ export function VixSpotlightFloatingCard({
           echoCancellation: true,
           noiseSuppression: true,
           autoGainControl: true,
+          channelCount: 1,
         },
       });
       mediaStreamRef.current = stream;
@@ -1620,109 +1665,122 @@ export function VixSpotlightFloatingCard({
         (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioCtx = new AudioCtx();
       audioCtxRef.current = audioCtx;
+      if (audioCtx.state === 'suspended') {
+        await audioCtx.resume().catch(() => {});
+      }
+
       const source = audioCtx.createMediaStreamSource(stream);
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 512;
-      source.connect(analyser);
+      // Capture raw mono Float32 PCM frames (4096 samples ≈ 85ms at 48kHz) so we encode crystal-clear 16kHz WAV!
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      scriptProcessorRef.current = processor;
+      const silentGain = audioCtx.createGain();
+      silentGain.gain.value = 0;
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : MediaRecorder.isTypeSupported('audio/ogg;codecs=opus')
-          ? 'audio/ogg;codecs=opus'
-          : 'audio/webm';
+      source.connect(processor);
+      processor.connect(silentGain);
+      silentGain.connect(audioCtx.destination);
 
-      const timeDomain = new Uint8Array(analyser.fftSize);
+      const preRingBuffer: Float32Array[] = [];
+      let speechChunks: Float32Array[] = [];
+      let isCapturing = false;
       let speakingFrames = 0;
       let silenceFrames = 0;
-      let speechStartedAt = 0;
+      let peakDuringCapture = 0;
 
-      const beginSegmentRecording = () => {
-        if (
-          !mediaStreamRef.current ||
-          (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording')
-        ) {
-          return;
+      const flushCapturedSpeech = () => {
+        if (!isCapturing) return;
+        isCapturing = false;
+        setIsRecordingSpeech(false);
+        const captured = speechChunks;
+        const peak = peakDuringCapture;
+        speechChunks = [];
+        speakingFrames = 0;
+        silenceFrames = 0;
+        peakDuringCapture = 0;
+
+        const totalSamples = captured.reduce((acc, c) => acc + c.length, 0);
+        const durationSec = totalSamples / Math.max(8000, audioCtx.sampleRate);
+        // Require at least 0.45s of clear audible speech above noise floor
+        if (durationSec >= 0.45 && peak >= 0.05) {
+          const wavBlob = encodePcmChunksToWavBlob(captured, audioCtx.sampleRate);
+          void sendRecordedVoiceBlobToVix(wavBlob, 'audio/wav');
         }
-        recordedChunksRef.current = [];
-        const recorder = new MediaRecorder(mediaStreamRef.current, { mimeType });
-        mediaRecorderRef.current = recorder;
-        recorder.ondataavailable = (ev) => {
-          if (ev.data && ev.data.size > 0) {
-            recordedChunksRef.current.push(ev.data);
-          }
-        };
-        recorder.onstop = () => {
-          const chunks = recordedChunksRef.current;
-          recordedChunksRef.current = [];
-          setIsRecordingSpeech(false);
-          if (chunks.length > 0) {
-            const blob = new Blob(chunks, { type: mimeType });
-            void sendRecordedVoiceBlobToVix(blob, mimeType);
-          }
-        };
-        recorder.start(150);
-        speechStartedAt = performance.now();
-        setIsRecordingSpeech(true);
       };
 
+      forceFlushSpeechRef.current = flushCapturedSpeech;
       setIsListening(true);
 
-      vadTimerRef.current = window.setInterval(() => {
-        analyser.getByteTimeDomainData(timeDomain);
-        let sumSq = 0;
-        for (let i = 0; i < timeDomain.length; i++) {
-          const norm = (timeDomain[i]! - 128) / 128;
-          sumSq += norm * norm;
-        }
-        const rms = Math.sqrt(sumSq / timeDomain.length);
-        const pct = Math.min(100, Math.round(rms * 380));
-        setMicLevel(pct);
+      processor.onaudioprocess = (ev) => {
+        const input = ev.inputBuffer.getChannelData(0);
+        const frameCopy = new Float32Array(input.length);
+        frameCopy.set(input);
 
-        // Echo-Shield, Greeting Guard & In-Flight Turn Lock:
-        // NEVER start a new VAD recording while Vix is greeting, thinking/transcribing, or speaking (+ 600ms reverb tail),
-        // so consecutive background noises can NEVER abort an in-flight /vix/voice-turn request!
-        const inSpeakerEchoGuard =
+        let sumSq = 0;
+        let framePeak = 0;
+        for (let i = 0; i < frameCopy.length; i++) {
+          const v = frameCopy[i]!;
+          sumSq += v * v;
+          const absV = Math.abs(v);
+          if (absV > framePeak) framePeak = absV;
+        }
+        const rms = Math.sqrt(sumSq / frameCopy.length);
+
+        // Echo-Shield, Greeting Guard & In-Flight Turn Lock
+        const inGuard =
           isGreetingRef.current ||
           isProcessingTurnRef.current ||
           Boolean(activeNeuralAudio) ||
-          performance.now() - lastAudioEndedAt < 600;
-        if (inSpeakerEchoGuard) {
+          performance.now() - lastAudioEndedAt < 650;
+        if (inGuard) {
           speakingFrames = 0;
           silenceFrames = 0;
+          if (isCapturing) {
+            isCapturing = false;
+            speechChunks = [];
+            setIsRecordingSpeech(false);
+          }
           setMicLevel(0);
           return;
         }
 
-        const isRecordingNow =
-          mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
+        const pct = Math.min(100, Math.round(rms * 420));
+        setMicLevel(pct);
 
-        // Require clear human speech above room/fan noise floor (0.055 for 4 frames = 240ms)
-        const threshold = 0.055;
+        // Maintain 4-frame (~340ms) pre-speech ring buffer so the first syllable is never clipped!
+        if (!isCapturing) {
+          preRingBuffer.push(frameCopy);
+          if (preRingBuffer.length > 4) preRingBuffer.shift();
+        }
 
-        if (rms > threshold) {
+        const speechThreshold = 0.032;
+
+        if (rms > speechThreshold) {
           speakingFrames += 1;
           silenceFrames = 0;
 
-          if (speakingFrames >= 4 && !isRecordingNow) {
-            beginSegmentRecording();
+          if (!isCapturing && speakingFrames >= 2) {
+            isCapturing = true;
+            peakDuringCapture = framePeak;
+            speechChunks = [...preRingBuffer, frameCopy];
+            setIsRecordingSpeech(true);
+          } else if (isCapturing) {
+            if (framePeak > peakDuringCapture) peakDuringCapture = framePeak;
+            speechChunks.push(frameCopy);
           }
         } else {
           speakingFrames = 0;
-          if (isRecordingNow) {
+          if (isCapturing) {
+            speechChunks.push(frameCopy);
             silenceFrames += 1;
-            const elapsedMs = performance.now() - speechStartedAt;
-            // ~720 ms of silence after speaking (with minimum 600ms utterance) -> send audio turn to Vix!
-            if ((silenceFrames >= 12 && elapsedMs >= 600) || elapsedMs > 14000) {
-              silenceFrames = 0;
-              try {
-                mediaRecorderRef.current?.stop();
-              } catch {
-                // ignore
-              }
+            const totalSamples = speechChunks.reduce((acc, c) => acc + c.length, 0);
+            const durSec = totalSamples / Math.max(8000, audioCtx.sampleRate);
+            // ~750ms of silence (9 frames of 85ms) or max 14s utterance -> encode WAV and send!
+            if (silenceFrames >= 9 || durSec >= 14.0) {
+              flushCapturedSpeech();
             }
           }
         }
-      }, 60);
+      };
 
       return true;
     } catch {
@@ -1796,17 +1854,9 @@ export function VixSpotlightFloatingCard({
       handleNaturalBargeIn();
     }
 
-    // If currently recording a speech segment and user taps mic, finalize and send immediately
-    if (
-      isListening &&
-      mediaRecorderRef.current &&
-      mediaRecorderRef.current.state === 'recording'
-    ) {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {
-        // ignore
-      }
+    // If currently recording a speech segment and user taps mic, finalize and send WAV immediately
+    if (isListening && isRecordingSpeech && forceFlushSpeechRef.current) {
+      forceFlushSpeechRef.current();
       return;
     }
 

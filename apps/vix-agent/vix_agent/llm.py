@@ -593,9 +593,9 @@ class LLMBrain:
                         },
                         {
                             "text": (
-                                f"Transcribe the student's spoken question or comment accurately (language hint: {locale}). "
-                                "Output ONLY the exact words spoken by the student, with no quotes or preamble. "
-                                "If the audio contains only background noise, breathing, or silence with no intelligible words, output strictly: [SILENCE]"
+                                f"You are a verbatim speech-to-text transcriber for a science laboratory student (language: {locale}). "
+                                "Transcribe ONLY the exact human speech clearly audible in this WAV clip. "
+                                "CRITICAL: Never invent, guess, or hallucinate words if the clip contains only background noise, static, breathing, tapping, or unintelligible audio—in that case output strictly: [SILENCE]"
                             )
                         },
                     ],
