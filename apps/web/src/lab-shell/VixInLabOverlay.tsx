@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import { Mic, X, Sparkles, Volume2, Eye, Cpu, Crosshair } from 'lucide-react';
+import { Mic, X, Sparkles, Eye, Cpu, Crosshair } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useLabSessionStore } from '../store/labSessionStore';
 import type { SubjectLab } from './LabLayout';
@@ -1051,6 +1051,8 @@ export function VixSpotlightFloatingCard({
   const hoverTargetRef = useRef<VixPointerTarget | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const isGreetingRef = useRef<boolean>(true);
+  const isProcessingTurnRef = useRef<boolean>(false);
+  const autoWalkCancelRef = useRef<boolean>(false);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -1123,8 +1125,9 @@ export function VixSpotlightFloatingCard({
   const displayedCaption =
     liveTypedCaption ?? customReply ?? stepDefaultCaption;
 
-  /** Natural voice barge-in interruption */
+  /** Natural voice barge-in interruption (also stops any running autonomous tour/example) */
   const handleNaturalBargeIn = () => {
+    autoWalkCancelRef.current = true;
     stopVixNeuralAudio();
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -1259,24 +1262,54 @@ export function VixSpotlightFloatingCard({
         },
       ];
 
-  const openInteractiveWorkedExample = (startAt = 0) => {
+  /** 100% Autonomous 4-Step Animated Worked Example — advances automatically with zero clicks! */
+  const runAutonomousWorkedExample = async () => {
     handleNaturalBargeIn();
+    autoWalkCancelRef.current = false;
+    isProcessingTurnRef.current = true;
     setWorkedExampleOpen(true);
-    setWorkedStepIdx(startAt);
-    const stepObj = WORKED_EXAMPLE_STEPS[startAt]!;
-    setCustomReply(stepObj.caption);
-    void speakAndTypeSimultaneously(stepObj.caption);
+
+    for (let i = 0; i < WORKED_EXAMPLE_STEPS.length; i++) {
+      if (autoWalkCancelRef.current) break;
+      setWorkedStepIdx(i);
+      const stepObj = WORKED_EXAMPLE_STEPS[i]!;
+      setCustomReply(stepObj.caption);
+      setLastIntent('worked_example');
+      await speakAndTypeSimultaneously(stepObj.caption);
+      if (autoWalkCancelRef.current) break;
+      await new Promise((r) => window.setTimeout(r, 450));
+    }
+
+    isProcessingTurnRef.current = false;
   };
 
-  const handleSelectTourStepAndSpeak = (newIdx: number) => {
+  /** 100% Autonomous 7-Region Studio Tour — moves spotlight & narrates every region automatically with zero clicks! */
+  const runAutonomousStudioTour = async () => {
     handleNaturalBargeIn();
+    autoWalkCancelRef.current = false;
+    isProcessingTurnRef.current = true;
     setWorkedExampleOpen(false);
-    setCustomReply(null);
-    setLiveTypedCaption(null);
-    onSelectStep(newIdx);
-    const stepObj = VIX_TOUR_STEPS[newIdx] ?? VIX_TOUR_STEPS[3]!;
-    const cap = stepObj.getCaption(activeLab, experimentTitle, lang);
-    void speakAndTypeSimultaneously(cap);
+    if (!dimNonActive) onToggleDim();
+
+    for (let i = 0; i < VIX_TOUR_STEPS.length; i++) {
+      if (autoWalkCancelRef.current) break;
+      onSelectStep(i);
+      const stepObj = VIX_TOUR_STEPS[i]!;
+      const cap = stepObj.getCaption(activeLab, experimentTitle, lang);
+      setCustomReply(null);
+      setLastIntent('studio_tour');
+      await speakAndTypeSimultaneously(cap);
+      if (autoWalkCancelRef.current) break;
+      await new Promise((r) => window.setTimeout(r, 450));
+    }
+
+    if (!autoWalkCancelRef.current) {
+      const outro =
+        'That completes our quick tour of the lab studio. Just speak naturally or point at anything whenever you want help!';
+      setCustomReply(outro);
+      await speakAndTypeSimultaneously(outro);
+    }
+    isProcessingTurnRef.current = false;
   };
 
   const handleAskQuestion = async (
@@ -1343,13 +1376,16 @@ export function VixSpotlightFloatingCard({
           llmMs,
         });
 
-        // Execute live UI actions returned by Vix (open interactive Worked Example or Spotlight Tour!)
+        // Execute autonomous live UI workflows returned by Vix (no clicking required!)
         if (data.uiAction === 'open_worked_example') {
-          setWorkedExampleOpen(true);
-          setWorkedStepIdx(0);
-        } else if (data.uiAction === 'start_tour') {
-          if (!dimNonActive) onToggleDim();
-          onSelectStep(0);
+          setIsLoadingTurn(false);
+          void runAutonomousWorkedExample();
+          return;
+        }
+        if (data.uiAction === 'start_tour') {
+          setIsLoadingTurn(false);
+          void runAutonomousStudioTour();
+          return;
         }
 
         // Execute any spotlight/pointAt/buildSetup RPC returned by the Vix LangGraph
@@ -1398,8 +1434,10 @@ export function VixSpotlightFloatingCard({
   };
 
   const sendRecordedVoiceBlobToVix = async (blob: Blob, mimeType: string) => {
-    if (blob.size < 1200) return;
+    // Reject tiny clicks, breaths, or < 4 KB noise bursts
+    if (blob.size < 4000 || isProcessingTurnRef.current) return;
 
+    isProcessingTurnRef.current = true;
     const base64Audio = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -1408,7 +1446,10 @@ export function VixSpotlightFloatingCard({
       };
       reader.readAsDataURL(blob);
     });
-    if (!base64Audio) return;
+    if (!base64Audio) {
+      isProcessingTurnRef.current = false;
+      return;
+    }
 
     handleNaturalBargeIn();
     const controller = new AbortController();
@@ -1454,6 +1495,7 @@ export function VixSpotlightFloatingCard({
         const data = await resp.json();
         if (data.silence || !data.reply) {
           setIsLoadingTurn(false);
+          isProcessingTurnRef.current = false;
           return;
         }
         const llmMs = Math.round(performance.now() - t0);
@@ -1472,11 +1514,16 @@ export function VixSpotlightFloatingCard({
         });
 
         if (data.uiAction === 'open_worked_example') {
-          setWorkedExampleOpen(true);
-          setWorkedStepIdx(0);
-        } else if (data.uiAction === 'start_tour') {
-          if (!dimNonActive) onToggleDim();
-          onSelectStep(0);
+          setIsLoadingTurn(false);
+          isProcessingTurnRef.current = false;
+          void runAutonomousWorkedExample();
+          return;
+        }
+        if (data.uiAction === 'start_tour') {
+          setIsLoadingTurn(false);
+          isProcessingTurnRef.current = false;
+          void runAutonomousStudioTour();
+          return;
         }
 
         const rpcs: Array<{ method: string; payload?: Record<string, unknown> }> =
@@ -1508,12 +1555,14 @@ export function VixSpotlightFloatingCard({
           data.sentences,
           data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
         );
+        isProcessingTurnRef.current = false;
         return;
       }
     } catch {
       // ignore abort or transient error
     }
     setIsLoadingTurn(false);
+    isProcessingTurnRef.current = false;
   };
 
   const stopHardwareMicrophone = () => {
@@ -1629,12 +1678,14 @@ export function VixSpotlightFloatingCard({
         const pct = Math.min(100, Math.round(rms * 380));
         setMicLevel(pct);
 
-        // Echo-Shield & Greeting Guard: pause VAD auto-trigger while Vix is greeting or playing audio
-        // so ambient noise or speaker echo NEVER aborts Vix's intro or chops its speech!
+        // Echo-Shield, Greeting Guard & In-Flight Turn Lock:
+        // NEVER start a new VAD recording while Vix is greeting, thinking/transcribing, or speaking (+ 600ms reverb tail),
+        // so consecutive background noises can NEVER abort an in-flight /vix/voice-turn request!
         const inSpeakerEchoGuard =
           isGreetingRef.current ||
+          isProcessingTurnRef.current ||
           Boolean(activeNeuralAudio) ||
-          performance.now() - lastAudioEndedAt < 450;
+          performance.now() - lastAudioEndedAt < 600;
         if (inSpeakerEchoGuard) {
           speakingFrames = 0;
           silenceFrames = 0;
@@ -1645,14 +1696,14 @@ export function VixSpotlightFloatingCard({
         const isRecordingNow =
           mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording';
 
-        // Require clear human voice above room/fan noise floor (0.045 for 3 frames = 180ms)
-        const threshold = 0.045;
+        // Require clear human speech above room/fan noise floor (0.055 for 4 frames = 240ms)
+        const threshold = 0.055;
 
         if (rms > threshold) {
           speakingFrames += 1;
           silenceFrames = 0;
 
-          if (speakingFrames >= 3 && !isRecordingNow) {
+          if (speakingFrames >= 4 && !isRecordingNow) {
             beginSegmentRecording();
           }
         } else {
@@ -1660,8 +1711,8 @@ export function VixSpotlightFloatingCard({
           if (isRecordingNow) {
             silenceFrames += 1;
             const elapsedMs = performance.now() - speechStartedAt;
-            // ~540 ms of silence after speaking (or max 14s utterance) -> send audio turn to Vix immediately!
-            if (silenceFrames >= 9 || elapsedMs > 14000) {
+            // ~720 ms of silence after speaking (with minimum 600ms utterance) -> send audio turn to Vix!
+            if ((silenceFrames >= 12 && elapsedMs >= 600) || elapsedMs > 14000) {
               silenceFrames = 0;
               try {
                 mediaRecorderRef.current?.stop();
@@ -1679,54 +1730,60 @@ export function VixSpotlightFloatingCard({
     }
   };
 
-  // Immediately introduce Vix on open ("Hi <Name>, I can see you are in <lab>..."), THEN activate hands-free mic VAD!
+  // Debounce mount by 80ms so React StrictMode dev double-mount never fires TWO duplicate greetings or VAD loops!
   useEffect(() => {
     let cancelled = false;
     isGreetingRef.current = true;
-    void startHardwareMicrophoneWithVAD();
 
-    const greetImmediately = async () => {
-      try {
-        const liveMap = collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE');
-        const resp = await fetch(`${VIX_AGENT_URL}/vix/session/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            firstName: studentFirstName,
-            mode: 'PRACTICE',
-            locale: lang,
-            voice,
-            brain,
-            includeAudio: true,
-            experimentTitle,
-            screenMap: liveMap,
-          }),
-        });
-        if (!cancelled && resp.ok) {
-          const data = await resp.json();
-          if (typeof window !== 'undefined' && data.sessionId) {
-            window.sessionStorage.setItem('vix_session_id', data.sessionId);
+    const bootTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      void startHardwareMicrophoneWithVAD();
+
+      const greetImmediately = async () => {
+        try {
+          const liveMap = collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE');
+          const resp = await fetch(`${VIX_AGENT_URL}/vix/session/start`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              firstName: studentFirstName,
+              mode: 'PRACTICE',
+              locale: lang,
+              voice,
+              brain,
+              includeAudio: true,
+              experimentTitle,
+              screenMap: liveMap,
+            }),
+          });
+          if (!cancelled && resp.ok) {
+            const data = await resp.json();
+            if (typeof window !== 'undefined' && data.sessionId) {
+              window.sessionStorage.setItem('vix_session_id', data.sessionId);
+            }
+            if (data.greeting) {
+              setCustomReply(data.greeting);
+              await speakAndTypeSimultaneously(
+                data.greeting,
+                data.sentences,
+                data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
+              );
+            }
           }
-          if (data.greeting) {
-            setCustomReply(data.greeting);
-            await speakAndTypeSimultaneously(
-              data.greeting,
-              data.sentences,
-              data.audio ? { audio: data.audio, mimeType: data.mimeType } : null
-            );
-          }
+        } catch {
+          // Keep bench explanation visible if offline
+        } finally {
+          isGreetingRef.current = false;
         }
-      } catch {
-        // Keep bench explanation visible if offline
-      } finally {
-        isGreetingRef.current = false;
-      }
-    };
-    void greetImmediately();
+      };
+      void greetImmediately();
+    }, 80);
 
     return () => {
       cancelled = true;
+      window.clearTimeout(bootTimer);
       isGreetingRef.current = false;
+      isProcessingTurnRef.current = false;
       stopVixNeuralAudio();
       stopHardwareMicrophone();
     };
@@ -1965,29 +2022,14 @@ export function VixSpotlightFloatingCard({
                 <div className="flex items-center gap-1.5">
                   <button
                     type="button"
-                    disabled={workedStepIdx === 0}
-                    onClick={() => openInteractiveWorkedExample(workedStepIdx - 1)}
-                    className="px-3 py-1.5 rounded-lg bg-[#121A2B] disabled:opacity-40 border border-[#22304A] text-xs font-semibold text-white cursor-pointer"
+                    onClick={() => {
+                      handleNaturalBargeIn();
+                      setWorkedExampleOpen(false);
+                    }}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#4ADE80] hover:bg-[#22C55E] text-[#0B1220] text-xs font-bold cursor-pointer"
                   >
-                    Prev step
+                    Try on my own bench ✓
                   </button>
-                  {workedStepIdx < WORKED_EXAMPLE_STEPS.length - 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => openInteractiveWorkedExample(workedStepIdx + 1)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#38BDF8] hover:bg-[#0EA5E9] text-[#0B1220] text-xs font-bold cursor-pointer"
-                    >
-                      Next step →
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => setWorkedExampleOpen(false)}
-                      className="px-3.5 py-1.5 rounded-lg bg-[#4ADE80] hover:bg-[#22C55E] text-[#0B1220] text-xs font-bold cursor-pointer"
-                    >
-                      Try on my own bench ✓
-                    </button>
-                  )}
                 </div>
               </div>
             </div>
@@ -2130,11 +2172,13 @@ export function VixSpotlightFloatingCard({
                 }`}
               />
               <span className="text-[#C9D3E6] truncate">
-                {isRecordingSpeech
-                  ? 'Hearing you speak...'
-                  : heardTranscript
-                    ? `You: "${heardTranscript}"`
-                    : 'Mic active — just talk naturally'}
+                {isLoadingTurn
+                  ? 'Vix heard you — replying...'
+                  : isRecordingSpeech
+                    ? 'Hearing you speak...'
+                    : heardTranscript
+                      ? `You: "${heardTranscript}"`
+                      : 'Mic active — just talk naturally'}
               </span>
             </div>
             <div className="w-16 h-1.5 bg-[#1E2A42] rounded-full overflow-hidden shrink-0">
@@ -2185,88 +2229,15 @@ export function VixSpotlightFloatingCard({
          
         </div>
 
-        {/* Progress Bar */}
-        <div className="h-1 bg-[#1E2A42] rounded-full overflow-hidden">
-          <div
-            className="h-full bg-[#F97316] transition-all"
-            style={{ width: `${((stepIdx + 1) / VIX_TOUR_STEPS.length) * 100}%` }}
-          />
-        </div>
-
-        {/* Clean Back / Say again / Next buttons (No artificial Interrupt button — natural speech barge-in only!) */}
-        <div className="grid grid-cols-3 gap-2">
-          <button
-            type="button"
-            onClick={() =>
-              handleSelectTourStepAndSpeak(
-                stepIdx > 0 ? stepIdx - 1 : VIX_TOUR_STEPS.length - 1
-              )
-            }
-            className="py-2 rounded-xl bg-[#121A2B] hover:bg-[#192338] border border-[#22304A] text-xs font-semibold text-white cursor-pointer"
-          >
-            Back
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              void speakAndTypeSimultaneously(customReply ?? stepDefaultCaption);
-            }}
-            className="py-2 rounded-xl bg-[#121A2B] hover:bg-[#192338] border border-[#22304A] text-xs font-semibold text-white inline-flex items-center justify-center gap-1.5 cursor-pointer"
-          >
-            <Volume2 className={`w-3.5 h-3.5 text-[#FDBA74] ${isSpeakingAudio ? 'animate-bounce' : ''}`} />
-            Say again
-          </button>
-
-          <button
-            type="button"
-            onClick={() =>
-              handleSelectTourStepAndSpeak((stepIdx + 1) % VIX_TOUR_STEPS.length)
-            }
-            className="py-2 rounded-xl bg-[#F97316] hover:bg-[#EA580C] text-[#0B1220] text-xs font-bold cursor-pointer"
-          >
-            Next
-          </button>
-        </div>
-
-        {/* Region Spotlight Chips + Working Quick Studio Tour & Interactive Worked Example Buttons */}
-        <div className="space-y-2">
-          <div className="grid grid-cols-2 gap-1.5">
-            <button
-              type="button"
-              onClick={() => {
-                if (!dimNonActive) onToggleDim();
-                handleSelectTourStepAndSpeak(0);
-              }}
-              className="px-2.5 py-1.5 rounded-xl bg-[#2B170A] hover:bg-[#3A1F0D] border border-[#F97316]/60 text-[11px] font-semibold text-[#FDBA74] cursor-pointer"
-            >
-              Quick studio tour
-            </button>
-            <button
-              type="button"
-              onClick={() => openInteractiveWorkedExample(0)}
-              className="px-2.5 py-1.5 rounded-xl bg-[#1C2A47] hover:bg-[#24375E] border border-[#38BDF8]/50 text-[11px] font-semibold text-[#7DD3FC] cursor-pointer"
-            >
-              Worked example (another lab)
-            </button>
+        {/* Progress Bar (visible during active studio tour) */}
+        {lastIntent === 'studio_tour' && (
+          <div className="h-1 bg-[#1E2A42] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#F97316] transition-all duration-300"
+              style={{ width: `${((stepIdx + 1) / VIX_TOUR_STEPS.length) * 100}%` }}
+            />
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {VIX_TOUR_STEPS.map((st, idx) => (
-              <button
-                key={st.id}
-                type="button"
-                onClick={() => handleSelectTourStepAndSpeak(idx)}
-                className={`px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors cursor-pointer ${
-                  stepIdx === idx && !customReply
-                    ? 'bg-[#F97316] text-[#0B1220]'
-                    : 'bg-[#121A2B] border border-[#22304A] text-[#C9D3E6] hover:text-white'
-                }`}
-              >
-                {st.chip}
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
 
         {/* Full-Duplex Mic + Text Input + End Call */}
         <form

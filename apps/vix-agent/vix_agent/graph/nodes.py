@@ -312,7 +312,7 @@ def _classify_intent_fast(user_text: str, screen: ScreenMap | None) -> tuple[Int
 
     # 1c. Worked Analogous Example (student asks Vix to demonstrate the practical method using a DIFFERENT lab/example)
     example_patterns = (
-        r"\b(another example|different example|worked example|similar example|show me (?:how|an example)|demonstrate with|practice myself|walk me through an example|example from another lab)\b",
+        r"\b(another example|different example|worked example|similar example|live example|show me (?:how|an example)|demonstrate with|practice myself|walk me through|walkthrough|yes.*example|an example)\b",
     )
     if any(re.search(pat, q) for pat in example_patterns):
         return ("worked_example", 0.97)

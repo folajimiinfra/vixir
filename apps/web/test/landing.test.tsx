@@ -77,13 +77,13 @@ describe('Lab Workspaces & Core Screens', () => {
     const callBtn = screen.getByRole('button', { name: /Call Vix/i });
     fireEvent.click(callBtn);
 
-    // Live conversational Vix floating card opens immediately without a blocking modal wall
+    // Live conversational Vix floating card opens immediately without a blocking modal wall or cluttered tour pills
     expect(
       screen.getByRole('complementary', { name: /Vix live in-lab guide/i })
     ).toBeInTheDocument();
     expect(screen.getByText(/POINTING AT · LAB BENCH/i)).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: /Worked example \(another lab\)/i })
+      screen.getByPlaceholderText(/Speak naturally, point anywhere, or type/i)
     ).toBeInTheDocument();
   });
 

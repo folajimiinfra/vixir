@@ -445,6 +445,7 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
         return _json_response({"error": "STT_FAILED", "detail": str(exc)}, status=503)
 
     if not transcript or len(transcript.strip()) < 2:
+        logger.info("Voice turn ignored as silence/noise")
         return _json_response(
             {
                 "silence": True,
@@ -453,6 +454,8 @@ async def handle_voice_turn(request: web.Request) -> web.Response:
                 "sentences": [],
             }
         )
+
+    logger.info("Voice turn transcribed: %r", transcript)
 
     # Delegate to the full LangGraph turn logic with the transcribed speech
     session_id = body.get("sessionId") or "live-web-session"
