@@ -284,6 +284,10 @@ class GeminiLiveVixBridge:
         self.locale = locale
         self.mode: Mode = mode
         self.experiment_title = experiment_title
+        self.is_authenticated: bool = False
+        self.current_route: str = (
+            initial_screen_map.route if initial_screen_map else "/lab/physics/pendulum"
+        )
         self.screen_map: ScreenMap | None = initial_screen_map
         self.pointer_target: PointerTarget | None = (
             initial_screen_map.pointerTarget if initial_screen_map else None
@@ -315,6 +319,8 @@ class GeminiLiveVixBridge:
             if self.screen_map is None:
                 return {
                     "experimentTitle": self.experiment_title,
+                    "currentRoute": self.current_route,
+                    "isAuthenticated": self.is_authenticated,
                     "mode": self.mode,
                     "readingsCount": 0,
                     "visibleRegions": ["top-bar", "tool-rail", "apparatus-tray", "bench", "instrument-dock", "data-panel"],
@@ -324,7 +330,8 @@ class GeminiLiveVixBridge:
             pt = self.pointer_target or self.screen_map.pointerTarget
             return {
                 "screen": self.screen_map.screen,
-                "route": self.screen_map.route,
+                "route": self.current_route or self.screen_map.route,
+                "isAuthenticated": self.is_authenticated,
                 "mode": self.screen_map.mode,
                 "experimentTitle": (
                     self.screen_map.experiment.title
@@ -462,6 +469,30 @@ class GeminiLiveVixBridge:
                     "status": "invalid_route",
                     "allowedRoutes": sorted(allowed_routes),
                 }
+            public_routes = {"/lab/physics/pendulum"}
+            if not self.is_authenticated and raw_route not in public_routes:
+                from urllib.parse import quote
+
+                auth_target = f"/auth?next={quote(raw_route, safe='')}"
+                await self.send_browser_json(
+                    {
+                        "type": "rpc",
+                        "method": "navigate",
+                        "payload": {"to": auth_target},
+                    }
+                )
+                return {
+                    "status": "auth_required",
+                    "isAuthenticated": False,
+                    "redirectedTo": auth_target,
+                    "requestedRoute": raw_route,
+                    "instruction": (
+                        "The student is NOT signed in yet, so the browser opened the Vixir Sign In screen first. "
+                        "Do NOT pretend you are already on the lab bench! Tell them warmly that this lab requires "
+                        "signing in, that you opened the sign-in screen for them, and as soon as they sign in it "
+                        "will take them straight to that lab while you stay on the call with them."
+                    ),
+                }
             await self.send_browser_json(
                 {
                     "type": "rpc",
@@ -469,7 +500,7 @@ class GeminiLiveVixBridge:
                     "payload": {"to": raw_route},
                 }
             )
-            return {"status": "navigating", "to": raw_route}
+            return {"status": "navigating", "to": raw_route, "isAuthenticated": True}
 
         if name == "build_circuit_setup":
             desc = str(args.get("description") or "Ohm's law circuit")
@@ -652,12 +683,23 @@ class GeminiLiveVixBridge:
                     new_title = str(data.get("pageTitle") or self.experiment_title)
                     new_route = str(data.get("route") or "")
                     self.experiment_title = new_title
+                    if new_route:
+                        self.current_route = new_route
+                    if "isAuthenticated" in data:
+                        self.is_authenticated = bool(data["isAuthenticated"])
+                    if data.get("firstName"):
+                        self.first_name = str(data["firstName"]).split()[0] or self.first_name
                     if data.get("screenMap"):
                         try:
                             self.screen_map = ScreenMap.parse_validated_payload(data["screenMap"])
                         except Exception as exc:
                             logger.debug("Ignored invalid page_changed screenmap: %s", exc)
-                    logger.info("Student navigated live to %s (%s)", new_route, new_title)
+                    logger.info(
+                        "Student navigated live to %s (%s, authenticated=%s)",
+                        new_route,
+                        new_title,
+                        self.is_authenticated,
+                    )
 
                 elif mtype == "text":
                     txt = (data.get("text") or "").strip()

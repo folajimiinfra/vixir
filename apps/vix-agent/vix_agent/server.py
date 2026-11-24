@@ -557,7 +557,8 @@ async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
     experiment_title = request.query.get("experimentTitle") or DEFAULT_PENDULUM_CONTEXT.title
 
     initial_screen_map: ScreenMap | None = None
-    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount before greeting!
+    is_authenticated = request.query.get("isAuthenticated", "false").lower() == "true"
+    # Wait briefly for the browser's opening ScreenMap JSON frame so Vix knows exact readingsCount & auth state before greeting!
     try:
         first_msg = await asyncio.wait_for(ws.receive(), timeout=0.6)
         if first_msg.type == web.WSMsgType.TEXT:
@@ -572,6 +573,8 @@ async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
                 voice_id = str(init_data["voice"])
             if init_data.get("locale"):
                 locale = str(init_data["locale"])
+            if "isAuthenticated" in init_data:
+                is_authenticated = bool(init_data["isAuthenticated"])
     except (TimeoutError, Exception) as exc:
         logger.debug("No initial screenmap frame received before live boot: %s", exc)
 
@@ -585,6 +588,7 @@ async def handle_live_ws(request: web.Request) -> web.WebSocketResponse:
         experiment_title=experiment_title,
         initial_screen_map=initial_screen_map,
     )
+    bridge.is_authenticated = is_authenticated
     await bridge.run()
     return ws
 

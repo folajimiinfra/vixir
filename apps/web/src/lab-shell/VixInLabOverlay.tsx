@@ -1040,11 +1040,13 @@ export function VixSpotlightFloatingCard({
 }: VixSpotlightFloatingCardProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const activeLabRef = useRef(activeLab);
   const experimentTitleRef = useRef(experimentTitle);
+  const isAuthenticatedRef = useRef(isAuthenticated);
   activeLabRef.current = activeLab;
   experimentTitleRef.current = experimentTitle;
+  isAuthenticatedRef.current = isAuthenticated;
   const studentFirstName = user?.firstName || 'Student';
   const [lang, setLang] = useState<VixLanguage>('English');
   const [brain, setBrain] = useState<string>('gemini/gemini-3.1-flash-live-preview');
@@ -1268,6 +1270,7 @@ export function VixSpotlightFloatingCard({
         locale: lang,
         mode: 'PRACTICE',
         experimentTitle,
+        isAuthenticated: String(Boolean(isAuthenticatedRef.current)),
       });
       const ws = new WebSocket(`${VIX_WS_URL}/vix/live?${params.toString()}`);
       ws.binaryType = 'arraybuffer';
@@ -1284,6 +1287,7 @@ export function VixSpotlightFloatingCard({
           JSON.stringify({
             type: 'init',
             firstName: studentFirstName,
+            isAuthenticated: Boolean(isAuthenticatedRef.current),
             voice,
             locale: lang,
             experimentTitle,
@@ -1397,7 +1401,7 @@ export function VixSpotlightFloatingCard({
     };
   }, [voice, lang]);
 
-  // Whenever the student navigates to another screen or lab, seamlessly update Vix over the SAME live WebSocket!
+  // Whenever the student navigates or logs in/out, seamlessly update Vix over the SAME live WebSocket!
   useEffect(() => {
     const ws = liveWsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
@@ -1407,13 +1411,17 @@ export function VixSpotlightFloatingCard({
         JSON.stringify({
           type: 'page_changed',
           route: location.pathname,
-          pageTitle: experimentTitle,
+          pageTitle: location.pathname.startsWith('/auth')
+            ? 'Sign In / Create Account'
+            : experimentTitle,
+          isAuthenticated: Boolean(isAuthenticated),
+          firstName: user?.firstName || 'Student',
           screenMap: collectLiveDomScreenMap(activeLab, experimentTitle, 'PRACTICE'),
         })
       );
     }, 250);
     return () => window.clearTimeout(timer);
-  }, [location.pathname, activeLab, experimentTitle]);
+  }, [location.pathname, activeLab, experimentTitle, isAuthenticated, user?.firstName]);
 
   // Track live cursor hover across the lab bench
   useEffect(() => {
