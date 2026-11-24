@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider, RequireAuth } from './context/AuthContext';
 import { VixCallProvider } from './context/VixCallContext';
+import { DesktopOnlyGate } from './components/DesktopOnlyGate';
 import { Landing } from './routes/Landing';
 import { Auth } from './routes/Auth';
 import { LabWorkspace } from './routes/LabWorkspace';
@@ -109,10 +110,11 @@ function protectElement(element: React.ReactNode, code?: string) {
 
 export function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <VixCallProvider>
-          <Routes>
+    <DesktopOnlyGate>
+      <AuthProvider>
+        <BrowserRouter>
+          <VixCallProvider>
+            <Routes>
           {/* Canonical Screen Routes (A1, A2, D1, C2 are public; all others require auth) */}
           {screens.map((s) => (
             <Route
@@ -138,6 +140,10 @@ export function App() {
           <Route
             path="/lab/biology/food-tests"
             element={protectElement(<LabWorkspace labCode="food-tests" />)}
+          />
+          <Route
+            path="/lab/engineering/isometric"
+            element={protectElement(<LabWorkspace labCode="isometric" />)}
           />
           <Route
             path="/experiments/:slug"
@@ -229,5 +235,6 @@ export function App() {
         </VixCallProvider>
       </BrowserRouter>
     </AuthProvider>
+    </DesktopOnlyGate>
   );
 }

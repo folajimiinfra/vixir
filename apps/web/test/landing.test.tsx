@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { Landing } from '../src/routes/Landing';
 import { Auth } from '../src/routes/Auth';
 import { AuthProvider, RequireAuth } from '../src/context/AuthContext';
+import { DesktopOnlyGate } from '../src/components/DesktopOnlyGate';
 import { setStoredAccessToken } from '../src/lib/api';
 import { LabWorkspace } from '../src/routes/LabWorkspace';
 import {
@@ -325,5 +326,66 @@ describe('Lab Workspaces & Core Screens', () => {
     expect(screen.queryByText(/Adaeze/i)).not.toBeInTheDocument();
     unmount();
     setStoredAccessToken(null);
+  });
+
+  it('renders Engineering Isometric Drawing 30° CAD studio with 2H crate builder and 1st/3rd-angle views', () => {
+    render(
+      <MemoryRouter>
+        <LabWorkspace labCode="isometric" />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole('img', { name: /Interactive 30-degree isometric technical drawing board/i })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Box-in 2H Crate/i }));
+    expect(screen.getByText('12')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /3rd ∠/i }));
+    expect(screen.getByText(/3rd Angle/i)).toBeInTheDocument();
+  });
+
+  it('blocks phone screens in portrait and rotated landscape while allowing desktop viewports', () => {
+    const origW = window.innerWidth;
+    const origH = window.innerHeight;
+    const setViewport = (w: number, h: number) => {
+      Object.defineProperty(window, 'innerWidth', { configurable: true, value: w });
+      Object.defineProperty(window, 'innerHeight', { configurable: true, value: h });
+    };
+
+    try {
+      // Portrait phone
+      setViewport(390, 844);
+      const { unmount: u1 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Please use your computer to view this page.')).toBeInTheDocument();
+      expect(screen.queryByText('Desktop Content')).not.toBeInTheDocument();
+      u1();
+
+      // Rotated landscape phone (even wide viewport with short height)
+      setViewport(1100, 430);
+      const { unmount: u2 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Please use your computer to view this page.')).toBeInTheDocument();
+      expect(screen.queryByText('Desktop Content')).not.toBeInTheDocument();
+      u2();
+
+      // Desktop screen
+      setViewport(1280, 800);
+      const { unmount: u3 } = render(
+        <DesktopOnlyGate>
+          <div>Desktop Content</div>
+        </DesktopOnlyGate>
+      );
+      expect(screen.getByText('Desktop Content')).toBeInTheDocument();
+      u3();
+    } finally {
+      setViewport(origW, origH);
+    }
   });
 });

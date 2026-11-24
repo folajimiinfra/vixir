@@ -803,6 +803,7 @@ export function LabsHubScreen() {
       buttonLabel: 'Open Engineering lab',
       items: [
         { title: 'Beam deflection', to: '/lab/engineering/beam', expId: 'eng.beam' },
+        { title: 'Isometric drawing (30° CAD)', to: '/lab/engineering/isometric', expId: 'eng.isometric' },
         { title: 'Tensile test', to: '/lab/engineering/beam', expId: 'eng.tensile' },
         { title: 'Bernoulli’s theorem', to: '/lab/engineering/beam', expId: 'eng.bernoulli' },
         { title: 'Gear trains', to: '/lab/engineering/beam', expId: 'eng.gears' },

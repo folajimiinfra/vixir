@@ -57,6 +57,9 @@ function derivePageContext(pathname: string): {
   if (p.includes('/lab/electronics/')) {
     return { activeLab: 'electronics', pageTitle: "Verifying Ohm's law & circuit workbench", isExamRoute: false, showFloatingLauncher: false };
   }
+  if (p.includes('/lab/engineering/isometric')) {
+    return { activeLab: 'engineering', pageTitle: 'Isometric drawing — 30° CAD studio', isExamRoute: false, showFloatingLauncher: false };
+  }
   if (p.includes('/lab/engineering/')) {
     return { activeLab: 'engineering', pageTitle: '3D Cantilever beam deflection — Young’s modulus E', isExamRoute: false, showFloatingLauncher: false };
   }
