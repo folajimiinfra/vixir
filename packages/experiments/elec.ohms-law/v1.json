@@ -1,0 +1,70 @@
+{
+  "id": "elec.ohms-law",
+  "version": 1,
+  "subject": "ELECTRONICS",
+  "title": "Verifying Ohm's law — resistance of a metallic wire",
+  "aim": "Verify the linear relationship between potential difference V and current I across a constantan wire and find its resistance from the slope of V against I.",
+  "level": ["SS2", "SS3", "100L", "ND"],
+  "curricula": ["waec", "neco", "nuc", "nbte"],
+  "minutes": 30,
+  "hazards": [
+    { "name": "Wire heating", "text": "Open the key between readings so Joule heating does not raise the wire temperature and alter its resistance." }
+  ],
+  "apparatus": [
+    { "id": "cells", "name": "DC power supply / cells", "spec": "3.0–6.0 V with internal resistance" },
+    { "id": "key", "name": "Plug key / switch", "spec": "open between readings" },
+    { "id": "rheostat", "name": "Sliding rheostat", "spec": "0–50 Ω variable resistor" },
+    { "id": "ammeter", "name": "Analogue ammeter", "spec": "0–0.5 A / 0–2.0 A ranges", "requires": ["cells"] },
+    { "id": "voltmeter", "name": "Analogue voltmeter", "spec": "0–3 V / 0–10 V ranges", "requires": ["wire"] },
+    { "id": "wire", "name": "Standard resistance wire", "spec": "constantan coil on board" }
+  ],
+  "variables": {
+    "I": { "role": "independent", "unit": "A", "range": [0.05, 1.5], "label": "Circuit current" },
+    "V": { "role": "measured", "unit": "V", "range": [0.1, 10.0], "label": "Potential difference across wire" },
+    "T_wire": { "role": "controlled", "unit": "degC", "default": 25, "range": [20, 60], "label": "Wire temperature" }
+  },
+  "hidden": { "R": { "range": [3.2, 6.8], "unit": "ohm" } },
+  "instruments": {
+    "ammeter": { "kind": "meter", "resolution": 0.01, "zeroError": 0.0, "ranges": [0.5, 2.0] },
+    "voltmeter": { "kind": "meter", "resolution": 0.05, "zeroError": 0.0, "ranges": [3.0, 10.0] }
+  },
+  "model": "builtin:ohms-law@1",
+  "analysis": { "plot": ["I", "V"], "derive": "R = slope", "tolerance": 0.03, "minPoints": 5 },
+  "rubric": {
+    "criteria": [
+      { "key": "readings", "label": "Circuit readings across range", "max": 5, "rule": "readings" },
+      { "key": "table", "label": "Table & V/I consistency", "max": 3, "rule": "table" },
+      { "key": "graph", "label": "V against I graph", "max": 5, "rule": "graph" },
+      { "key": "derived", "label": "Slope & wire resistance R", "max": 4, "rule": "derived" },
+      { "key": "precautions", "label": "Circuit precautions", "max": 3, "rule": "precautions" }
+    ]
+  },
+  "procedure": [
+    "Assemble the series circuit (cells, key, rheostat, ammeter, and test wire) and connect the voltmeter in parallel across the wire.",
+    "Check both meters for zero error and choose ranges that avoid full-scale deflection.",
+    "Close the key, adjust the rheostat to set a clear current I, record both I and V, then open the key immediately.",
+    "Repeat for at least five well-spaced rheostat positions while keeping wire temperature near room temperature.",
+    "Plot potential difference V on the vertical axis against current I on the horizontal axis and compute the slope to find R."
+  ],
+  "precautions": [
+    { "text": "Opened the key between readings to prevent the wire from heating up.", "keywords": ["open", "key", "heating", "temperature"] },
+    { "text": "Checked and corrected for zero error on both the ammeter and voltmeter.", "keywords": ["zero error", "zero", "calibrat"] },
+    { "text": "Ensured tight electrical connections and avoided parallax error when reading the analogue needles.", "keywords": ["tight", "parallax", "eye level", "connection"] }
+  ],
+  "glossary": {
+    "ohm's law": "At constant temperature, the current through a metallic conductor is directly proportional to the potential difference across it.",
+    "rheostat": "Variable resistor used to smoothly vary the current in a circuit.",
+    "zero error": "Non-zero meter reading when no current or voltage is applied."
+  },
+  "tours": {
+    "D6": [
+      { "regionId": "header", "caption": "Switch practicals or inspect your current electronics task from this top bar." },
+      { "regionId": "tray", "caption": "Add or inspect circuit components — cells, rheostat, resistors, diodes, and meters." },
+      { "regionId": "bench", "caption": "Build and probe your live schematic on this dot-grid canvas; watch the ammeter and voltmeter needles." },
+      { "regionId": "dock", "caption": "Toggle the key, slide the rheostat wiper, adjust meter ranges, and log each (I, V) pair." },
+      { "regionId": "log", "caption": "Over-range alerts and wire-heating warnings appear here." },
+      { "regionId": "data", "caption": "Review your recorded V–I table and live resistance slope." }
+    ]
+  },
+  "sources": ["WAEC Physics & NBTE Electronics practical syllabus — verification of Ohm's law"]
+}

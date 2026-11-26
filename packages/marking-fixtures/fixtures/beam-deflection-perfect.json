@@ -1,0 +1,20 @@
+{
+  "name": "Beam deflection — loading and unloading readings with exact Young's modulus",
+  "experiment": "eng.beam@1",
+  "submission": {
+    "rows": [
+      { "W": 0.981, "deltaLoad": 0.42, "deltaUnload": 0.42, "delta": 0.42 },
+      { "W": 1.962, "deltaLoad": 0.84, "deltaUnload": 0.84, "delta": 0.84 },
+      { "W": 2.943, "deltaLoad": 1.26, "deltaUnload": 1.26, "delta": 1.26 },
+      { "W": 3.924, "deltaLoad": 1.68, "deltaUnload": 1.68, "delta": 1.68 },
+      { "W": 4.905, "deltaLoad": 2.10, "deltaUnload": 2.10, "delta": 2.10 }
+    ],
+    "slopePoints": [{ "x": 0.981, "y": 0.42 }, { "x": 4.905, "y": 2.10 }],
+    "derived": { "E": 200.0 },
+    "precautions": [
+      "I zeroed the dial gauge after mounting the beam before loading",
+      "I waited for the dial gauge needle to settle after placing each mass gently"
+    ]
+  },
+  "expected": { "total": 20, "criteria": { "readings": 6, "table": 3, "graph": 5, "derived": 4, "precautions": 2 } }
+}

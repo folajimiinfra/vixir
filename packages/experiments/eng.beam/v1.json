@@ -1,0 +1,69 @@
+{
+  "id": "eng.beam",
+  "version": 1,
+  "subject": "ENGINEERING",
+  "title": "Simply supported beam — determination of Young's modulus E",
+  "aim": "Measure mid-span deflection of a simply supported beam under loading and unloading and determine Young's modulus E from the slope of δ against load W.",
+  "level": ["ND", "HND", "100L", "200L"],
+  "curricula": ["nuc", "nbte"],
+  "minutes": 45,
+  "hazards": [
+    { "name": "Falling slotted masses", "text": "Place masses gently onto the hanger without impact and stay clear of the load path." }
+  ],
+  "apparatus": [
+    { "id": "frame", "name": "Test rig frame & knife edges", "spec": "adjustable span 0.6–1.0 m" },
+    { "id": "beam", "name": "Test beam specimen", "spec": "mild steel, brass, or aluminium", "requires": ["frame"] },
+    { "id": "hanger", "name": "Mid-span load hanger & slotted masses", "spec": "100 g increments", "requires": ["beam"] },
+    { "id": "gauge", "name": "Dial deflection gauge on magnetic stand", "spec": "0.01 mm resolution", "requires": ["frame"] },
+    { "id": "caliper", "name": "Vernier caliper / micrometer", "spec": "beam breadth b and depth d" }
+  ],
+  "variables": {
+    "W": { "role": "independent", "unit": "N", "range": [0.0, 10.0], "label": "Applied mid-span load" },
+    "delta": { "role": "measured", "unit": "mm", "range": [0.0, 15.0], "label": "Mean mid-span deflection" },
+    "L": { "role": "controlled", "unit": "m", "default": 0.8, "range": [0.6, 1.0], "label": "Knife-edge span" }
+  },
+  "hidden": { "E": { "range": [68.0, 210.0], "unit": "GPa" } },
+  "instruments": {
+    "dialGauge": { "kind": "gauge", "resolution": 0.01, "zeroError": 0.0 },
+    "metreRule": { "kind": "scale", "resolution": 0.001, "parallaxBound": 0.002 }
+  },
+  "model": "builtin:beam-deflection@1",
+  "analysis": { "plot": ["W", "delta"], "derive": "E = L^3 / (48 * I * slope)", "tolerance": 0.04, "minPoints": 5 },
+  "rubric": {
+    "criteria": [
+      { "key": "readings", "label": "Loading & unloading deflections", "max": 6, "rule": "readings" },
+      { "key": "table", "label": "Mean deflection & unit consistency", "max": 3, "rule": "table" },
+      { "key": "graph", "label": "Graph of δ against W", "max": 5, "rule": "graph" },
+      { "key": "derived", "label": "Slope & Young's modulus E", "max": 4, "rule": "derived" },
+      { "key": "precautions", "label": "Rig & gauge precautions", "max": 2, "rule": "precautions" }
+    ]
+  },
+  "procedure": [
+    "Select the beam material and knife-edge span L, then mount the beam symmetrically on the supports.",
+    "Position the dial gauge plunger at mid-span and zero the dial bezel before adding load.",
+    "Add slotted masses in equal increments, waiting for the dial gauge needle to settle before recording each loading deflection.",
+    "Remove masses in reverse order and record unloading deflections to check elastic recovery and compute the mean deflection.",
+    "Plot mean deflection δ against load W and compute E = L³ / (48 I · slope)."
+  ],
+  "precautions": [
+    { "text": "Zeroed the dial gauge after mounting the beam and hanger before loading.", "keywords": ["zero", "dial gauge", "bezel"] },
+    { "text": "Waited for the dial gauge needle to settle after applying each mass gently without shock.", "keywords": ["settle", "gently", "shock", "oscillat"] },
+    { "text": "Recorded both loading and unloading readings to average out friction and check elastic behaviour.", "keywords": ["unloading", "loading", "elastic", "hysteresis"] }
+  ],
+  "glossary": {
+    "second moment of area": "Geometric stiffness property of a rectangular section, I = b d³ / 12.",
+    "young's modulus": "Ratio of longitudinal stress to longitudinal strain within the elastic limit.",
+    "elastic limit": "Maximum load a beam can carry and still return to zero deflection on unloading."
+  },
+  "tours": {
+    "D7": [
+      { "regionId": "header", "caption": "Track your engineering beam practical and switch labs from this header." },
+      { "regionId": "tray", "caption": "Inspect the rig frame, knife edges, beam specimen, slotted masses, and dial gauge." },
+      { "regionId": "bench", "caption": "Orbit the 3D beam rig or switch to front elevation to observe magnified mid-span deflection." },
+      { "regionId": "dock", "caption": "Choose material and span, zero the dial gauge, and step through loading and unloading masses." },
+      { "regionId": "log", "caption": "Unsettled-needle and zero-error warnings are logged here." },
+      { "regionId": "data", "caption": "Your loading, unloading, and mean deflection table plots live against applied load W." }
+    ]
+  },
+  "sources": ["NBTE & NUC Strength of Materials practical manual — beam bending"]
+}

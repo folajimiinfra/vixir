@@ -1,0 +1,19 @@
+{
+  "name": "Titration — two concordant accurate titres and exact molarity",
+  "experiment": "chem.titration@1",
+  "submission": {
+    "rows": [
+      { "trial": "Rough", "vInit": 0.00, "vFinal": 25.40, "titre": 25.40 },
+      { "trial": "1", "vInit": 0.00, "vFinal": 24.85, "titre": 24.85 },
+      { "trial": "2", "vInit": 0.00, "vFinal": 24.80, "titre": 24.80 }
+    ],
+    "derived": { "meanTitre": 24.83, "cAcid": 0.1007 },
+    "precautions": [
+      "I read the lower meniscus at eye level to avoid parallax error",
+      "I removed the funnel from the burette before starting the titration",
+      "I swirled the conical flask continuously and added acid dropwise near the end point",
+      "I flushed out air bubbles from the burette jet before taking the initial reading"
+    ]
+  },
+  "expected": { "total": 20, "criteria": { "readings": 6, "table": 4, "derived": 6, "precautions": 4 } }
+}
