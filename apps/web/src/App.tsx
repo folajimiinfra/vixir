@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router';
 import { AuthProvider, RequireAuth } from './context/AuthContext';
 import { VixCallProvider } from './context/VixCallContext';
 import { DesktopOnlyGate } from './components/DesktopOnlyGate';
 import { ChromeRecommendedBanner } from './components/ChromeRecommendedBanner';
+import { API_BASE_URL } from './lib/api';
 import { Landing } from './routes/Landing';
 import { Auth } from './routes/Auth';
 import { LabWorkspace } from './routes/LabWorkspace';
@@ -109,7 +110,44 @@ function protectElement(element: React.ReactNode, code?: string) {
   return <RequireAuth>{element}</RequireAuth>;
 }
 
+const VIX_AGENT_BASE_URL = (
+  (import.meta as unknown as { env?: Record<string, string> }).env?.VITE_VIX_AGENT_URL ||
+  'http://localhost:8090'
+).replace(/\/+$/, '');
+
+const KEEPALIVE_INTERVAL_MS = 5 * 60 * 1000;
+
+function pingEndpoint(url: string) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 10000);
+  fetch(url, { method: 'GET', mode: 'cors', signal: controller.signal })
+    .catch(() => {
+      // Best-effort liveness warm-up; real API/WS calls surface errors directly.
+    })
+    .finally(() => window.clearTimeout(timer));
+}
+
+/** Pre-warm Render API & Vix Agent on page load and keep them awake every 5 min while the tab is active. */
+function useBackendWarmup() {
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof fetch === 'undefined') return;
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent || '' : '';
+    if (/jsdom/i.test(ua)) return;
+
+    const poll = () => {
+      if (typeof document !== 'undefined' && document.visibilityState === 'hidden') return;
+      pingEndpoint(`${API_BASE_URL}/api/v1/ping`);
+      pingEndpoint(`${VIX_AGENT_BASE_URL}/health`);
+    };
+
+    poll();
+    const intervalId = window.setInterval(poll, KEEPALIVE_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, []);
+}
+
 export function App() {
+  useBackendWarmup();
   return (
     <DesktopOnlyGate>
       <ChromeRecommendedBanner />
