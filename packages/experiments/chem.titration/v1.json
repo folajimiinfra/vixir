@@ -1,0 +1,74 @@
+{
+  "id": "chem.titration",
+  "version": 1,
+  "subject": "CHEMISTRY",
+  "title": "Acid–base titration — standardisation of HCl",
+  "aim": "Determine the concentration of an unknown hydrochloric acid solution by titrating it against 25.0 cm³ of 0.100 mol dm⁻³ sodium hydroxide.",
+  "level": ["SS2", "SS3", "100L"],
+  "curricula": ["waec", "neco", "nuc"],
+  "minutes": 35,
+  "hazards": [
+    { "name": "Corrosive acid & alkali", "text": "Wear lab coat, safety goggles, and gloves when handling HCl and NaOH solutions." },
+    { "name": "Glassware breakage", "text": "Clamp the burette securely in the retort stand and use a funnel only while filling." }
+  ],
+  "apparatus": [
+    { "id": "stand", "name": "Retort stand & burette clamp", "spec": "vertical clamp" },
+    { "id": "burette", "name": "50 cm³ burette", "spec": "0.1 cm³ divisions (read to 0.05 cm³)", "requires": ["stand"] },
+    { "id": "pipette", "name": "25.0 cm³ volumetric pipette", "spec": "with safety pipette filler" },
+    { "id": "flask", "name": "250 cm³ conical flask", "spec": "on white tile" },
+    { "id": "tile", "name": "White tile", "spec": "contrast background for end point" },
+    { "id": "indicator", "name": "Phenolphthalein / methyl orange", "spec": "2–3 drops per titration" }
+  ],
+  "variables": {
+    "vBase": { "role": "controlled", "unit": "cm^3", "default": 25.0, "range": [25.0, 25.0], "label": "Volume of NaOH pipetted" },
+    "cBase": { "role": "controlled", "unit": "mol dm^-3", "default": 0.1, "range": [0.1, 0.1], "label": "Concentration of NaOH" },
+    "vInit": { "role": "measured", "unit": "cm^3", "range": [0.0, 50.0], "label": "Initial burette reading" },
+    "vFinal": { "role": "measured", "unit": "cm^3", "range": [0.0, 50.0], "label": "Final burette reading" },
+    "titre": { "role": "measured", "unit": "cm^3", "range": [10.0, 40.0], "label": "Volume of acid used" }
+  },
+  "hidden": { "cAcid": { "range": [0.085, 0.125], "unit": "mol dm^-3" } },
+  "instruments": {
+    "burette": { "kind": "scale", "resolution": 0.05, "parallaxBound": 0.1 },
+    "pipette": { "kind": "scale", "resolution": 0.05, "zeroError": 0.0 }
+  },
+  "model": "builtin:titration@1",
+  "analysis": { "plot": ["trial", "titre"], "derive": "cAcid = (cBase * vBase) / meanConcordantTitre", "tolerance": 0.02, "minPoints": 3 },
+  "rubric": {
+    "criteria": [
+      { "key": "readings", "label": "Concordant titres (±0.10 cm³)", "max": 6, "rule": "readings" },
+      { "key": "table", "label": "Burette table (2 d.p. & arithmetic)", "max": 4, "rule": "table" },
+      { "key": "derived", "label": "Average titre & concentration of HCl", "max": 6, "rule": "derived" },
+      { "key": "precautions", "label": "Titration precautions", "max": 4, "rule": "precautions" }
+    ]
+  },
+  "procedure": [
+    "Complete the pre-lab PPE and hazard check before entering the bench.",
+    "Rinse the burette with a little HCl, fill it, remove the funnel, and record the initial reading to 0.05 cm³.",
+    "Pipette 25.0 cm³ of 0.100 mol dm⁻³ NaOH into the conical flask and add 2–3 drops of indicator.",
+    "Perform one rough titration, swirling continuously over the white tile until the end point.",
+    "Refill and run accurate titrations, switching to dropwise flow near the end point until two accurate titres agree within 0.10 cm³.",
+    "Compute the mean concordant titre and calculate the molar concentration of HCl."
+  ],
+  "precautions": [
+    { "text": "Read the lower meniscus at eye level to avoid parallax error.", "keywords": ["meniscus", "eye level", "parallax"] },
+    { "text": "Removed the funnel from the burette before starting the titration.", "keywords": ["funnel", "remove funnel", "removed the funnel"] },
+    { "text": "Swirled the conical flask continuously and added acid dropwise near the end point.", "keywords": ["swirl", "dropwise", "drop by drop", "end point"] },
+    { "text": "Rinsed the burette with acid and pipette with base, and flushed out air bubbles from the jet.", "keywords": ["air bubble", "rinse", "jet", "nozzle"] }
+  ],
+  "glossary": {
+    "titre": "Volume of titrant delivered from the burette (final reading minus initial reading).",
+    "concordant": "Two accurate titres that agree within 0.10 cm³.",
+    "equivalence point": "Point at which stoichiometrically equal moles of acid and base have reacted."
+  },
+  "tours": {
+    "D2": [
+      { "regionId": "header", "caption": "This bar tracks your chemistry practical, mode, and quick switcher between labs." },
+      { "regionId": "tray", "caption": "Your volumetric apparatus — burette, pipette, conical flask, white tile, and indicator." },
+      { "regionId": "bench", "caption": "Watch the meniscus closely on the burette and the indicator colour change in the conical flask." },
+      { "regionId": "dock", "caption": "Control tap flow from fast to dropwise, swirl the flask, and record your initial and final readings." },
+      { "regionId": "log", "caption": "Swirl reminders and overshoot warnings are recorded here." },
+      { "regionId": "data", "caption": "Your rough and accurate titres appear here with automatic concordance checking." }
+    ]
+  },
+  "sources": ["WAEC Chemistry practical syllabus — acid–base volumetric analysis"]
+}

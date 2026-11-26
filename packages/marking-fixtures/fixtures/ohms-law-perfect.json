@@ -1,0 +1,21 @@
+{
+  "name": "Ohm's law — linear V-I readings and accurate resistance from slope",
+  "experiment": "elec.ohms-law@1",
+  "submission": {
+    "rows": [
+      { "I": 0.10, "V": 0.48, "R": 4.80 },
+      { "I": 0.20, "V": 0.96, "R": 4.80 },
+      { "I": 0.30, "V": 1.44, "R": 4.80 },
+      { "I": 0.40, "V": 1.92, "R": 4.80 },
+      { "I": 0.50, "V": 2.40, "R": 4.80 }
+    ],
+    "slopePoints": [{ "x": 0.10, "y": 0.48 }, { "x": 0.50, "y": 2.40 }],
+    "derived": { "R": 4.80 },
+    "precautions": [
+      "I opened the key between readings to prevent the wire from heating up",
+      "I checked for zero error on both meters before taking readings",
+      "I ensured tight electrical connections and avoided parallax error"
+    ]
+  },
+  "expected": { "total": 20, "criteria": { "readings": 5, "table": 3, "graph": 5, "derived": 4, "precautions": 3 } }
+}

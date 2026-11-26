@@ -1,9 +1,9 @@
- 
-# Each PR then automatically requests a review from the right person.
-#
-# apps/web/          @github.com/folajimiinfra
-# packages/          @github.com/folajimiinfra
-# apps/api/          @github.com/MrBost
-# packages/experiments/  @github.com/folajimiinfra @BACKEND_GITHUB_USERNAME
-# .kiro/steering/contracts.md   @github.com/folajimiinfra @BACKEND_GITHUB_USERNAME
-# .kiro/steering/data-model.md  @github.com/folajimiinfra @BACKEND_GITHUB_USERNAME
+# Each PR automatically requests a review from the right owner.
+apps/web/                     @folajimiinfra
+packages/                     @folajimiinfra
+apps/api/                     @MrBost
+apps/vix-agent/               @folajimiinfra
+packages/experiments/         @folajimiinfra @MrBost
+packages/marking-fixtures/    @folajimiinfra @MrBost
+.kiro/steering/contracts.md   @folajimiinfra @MrBost
+.kiro/steering/data-model.md  @folajimiinfra @MrBost

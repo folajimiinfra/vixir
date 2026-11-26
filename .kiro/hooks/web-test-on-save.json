@@ -7,7 +7,7 @@
       "filePattern": "apps/web/src/**",
       "action": {
         "type": "command",
-        "command": "cd /home/imfolajimi/Desktop/projects/sandbox/vixir && pnpm --filter @vixir/web typecheck"
+        "command": "pnpm --filter @vixir/web typecheck"
       }
     }
   ]

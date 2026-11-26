@@ -5,7 +5,7 @@
   "type": "object",
   "required": ["id", "version", "subject", "title", "aim", "level", "curricula", "minutes", "apparatus", "variables", "instruments", "model", "analysis", "rubric", "procedure", "precautions"],
   "properties": {
-    "id": { "type": "string", "pattern": "^[a-z]{3}\\.[a-z0-9-]+(\\.[a-z0-9-]+)*$" },
+    "id": { "type": "string", "pattern": "^[a-z]{3,4}\\.[a-z0-9-]+(\\.[a-z0-9-]+)*$" },
     "version": { "type": "integer", "minimum": 1 },
     "subject": { "enum": ["PHYSICS", "CHEMISTRY", "BIOLOGY", "ELECTRONICS", "ENGINEERING"] },
     "title": { "type": "string", "minLength": 3 },
