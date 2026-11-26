@@ -1,0 +1,52 @@
+name: Render Keep-Alive Liveness Poll
+
+# Polls Render API (/actuator/health) and Vix Agent (/health) every 10 minutes
+# (under Render's 15-minute free-tier idle spin-down window) so services stay warm.
+# Tip: Render's Free tier grants 750 instance-hours/month per workspace (~375 hrs/service
+# if 2 services share one workspace). Narrow the cron to active hours (e.g. '*/10 7-18 * * *'
+# for 12 hrs/day = 720 hrs/month across 2 services) if you hit the monthly free-hour cap.
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-keepalive
+  cancel-in-progress: true
+
+jobs:
+  ping:
+    name: Liveness GET poll (API + Vix Agent)
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Poll Render Spring Boot API liveness
+        env:
+          API_URL: ${{ secrets.VITE_API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "VITE_API_URL secret not set — skipping API liveness poll."
+            exit 0
+          fi
+          BASE="${API_URL%/}"
+          STATUS=$(curl -sS -o /tmp/api-health.out -w '%{http_code}' --connect-timeout 15 --max-time 75 "${BASE}/actuator/health" || echo "000")
+          echo "GET ${BASE}/actuator/health -> HTTP ${STATUS}"
+          if [ "$STATUS" != "200" ]; then
+            PING_STATUS=$(curl -sS -o /dev/null -w '%{http_code}' --connect-timeout 15 --max-time 60 "${BASE}/api/v1/ping" || echo "000")
+            echo "GET ${BASE}/api/v1/ping -> HTTP ${PING_STATUS}"
+          fi
+
+      - name: Poll Render Vix Voice Agent liveness
+        env:
+          AGENT_URL: ${{ secrets.VITE_VIX_AGENT_URL }}
+        run: |
+          if [ -z "$AGENT_URL" ]; then
+            echo "VITE_VIX_AGENT_URL secret not set — skipping Vix Agent liveness poll."
+            exit 0
+          fi
+          BASE="${AGENT_URL%/}"
+          STATUS=$(curl -sS -o /tmp/agent-health.out -w '%{http_code}' --connect-timeout 15 --max-time 75 "${BASE}/health" || echo "000")
+          echo "GET ${BASE}/health -> HTTP ${STATUS}"
