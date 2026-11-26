@@ -1,0 +1,20 @@
+{
+  "name": "Vixir — Virtual Practical Laboratory",
+  "short_name": "Vixir",
+  "description": "Open-source browser-based practical laboratory for Physics, Chemistry, Electronics, and Engineering.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0B1220",
+  "theme_color": "#2448D8",
+  "categories": ["education", "science"],
+  "icons": [
+    {
+      "src": "/illustrations/logo.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
